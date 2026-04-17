@@ -34,7 +34,7 @@ export function ChapterCard({ chapter, book }: ChapterCardProps) {
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}>
-              Chapter {chapter.id}
+              Chapter {chapter.num ?? chapter.id}
             </span>
             {isGenerating && (
               <span

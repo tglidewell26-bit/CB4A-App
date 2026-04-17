@@ -40,9 +40,9 @@ export const SAMPLE_BOOKS: Book[] = [
     author: "Johanna Spyri",
     grade: 3,
     chapters: [
-      { id: 1, title: "Going Up to the Alm-Uncle", pages: "1–13", status: "ready", date: "Apr 5, 2026" },
-      { id: 2, title: "At the Grandfather's", pages: "14–26", status: "ready", date: "Apr 5, 2026" },
-      { id: 3, title: "On the Pasture", pages: "27–38", status: "generating" },
+      { id: 1, num: 1, title: "Going Up to the Alm-Uncle", pages: "1–13", status: "ready", date: "Apr 5, 2026" },
+      { id: 2, num: 2, title: "At the Grandfather's", pages: "14–26", status: "ready", date: "Apr 5, 2026" },
+      { id: 3, num: 3, title: "On the Pasture", pages: "27–38", status: "generating" },
     ],
   },
   {
@@ -51,7 +51,7 @@ export const SAMPLE_BOOKS: Book[] = [
     author: "Robert Louis Stevenson",
     grade: 5,
     chapters: [
-      { id: 1, title: "The Old Sea-Dog at the Admiral Benbow", pages: "1–11", status: "ready", date: "Mar 28, 2026" },
+      { id: 1, num: 1, title: "The Old Sea-Dog at the Admiral Benbow", pages: "1–11", status: "ready", date: "Mar 28, 2026" },
     ],
   },
   {
