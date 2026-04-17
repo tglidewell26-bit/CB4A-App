@@ -42,6 +42,7 @@ export function AddChapterModal({ book, onClose, onSave }: AddChapterModalProps)
       title: title.trim(),
       num: Number(num),
       pages: `${startPage}–${endPage}`,
+      file: file.name,
     });
   };
 

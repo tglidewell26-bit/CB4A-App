@@ -7,6 +7,7 @@ export interface Chapter {
   status: ChapterStatus;
   date?: string;
   num?: number;
+  file?: string;
 }
 
 export interface Book {
