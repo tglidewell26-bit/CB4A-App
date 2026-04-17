@@ -50,7 +50,7 @@ export default function App() {
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #D4C9B8; border-radius: 2px; }
         .book-row:hover { background: #F0EBE1 !important; }
-        .book-row.active { background: #FFFFFF08 !important; border-left: 3px solid #92400E !important; }
+        .book-row.active { background: #FFFFFF !important; border-left: 3px solid #92400E !important; }
         .chapter-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.08) !important; transform: translateY(-1px); }
         .btn-primary:hover { background: #78350F !important; }
         .btn-secondary:hover { background: #E8E0D4 !important; }
