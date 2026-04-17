@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Classic Books Curriculum Generator"
+version = "1.0.0"
+id = "artifacts/classic-books"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24214
+
+[services.development]
+run = "pnpm --filter @workspace/classic-books run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/classic-books", "run", "build" ]
+publicDir = "artifacts/classic-books/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24214"
+BASE_PATH = "/"
