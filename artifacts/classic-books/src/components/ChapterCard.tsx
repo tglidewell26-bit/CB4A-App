@@ -5,9 +5,10 @@ import { ActionPill } from "./ActionPill";
 interface ChapterCardProps {
   chapter: Chapter;
   book: Book;
+  onDelete: (chapterId: number) => void;
 }
 
-export function ChapterCard({ chapter, book }: ChapterCardProps) {
+export function ChapterCard({ chapter, book, onDelete }: ChapterCardProps) {
   const isReady = chapter.status === "ready";
   const isGenerating = chapter.status === "generating";
   const gc = GRADE_COLORS[book.grade];
@@ -81,18 +82,44 @@ export function ChapterCard({ chapter, book }: ChapterCardProps) {
           </div>
         </div>
 
-        <div style={{
-          flexShrink: 0,
-          padding: "2px 8px",
-          borderRadius: 4,
-          fontSize: 10,
-          fontWeight: 600,
-          fontFamily: "'Source Sans 3', sans-serif",
-          background: gc.bg,
-          color: gc.text,
-          border: `1px solid ${gc.border}`,
-        }}>
-          Gr {book.grade}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <div style={{
+            padding: "2px 8px",
+            borderRadius: 4,
+            fontSize: 10,
+            fontWeight: 600,
+            fontFamily: "'Source Sans 3', sans-serif",
+            background: gc.bg,
+            color: gc.text,
+            border: `1px solid ${gc.border}`,
+          }}>
+            Gr {book.grade}
+          </div>
+          <button
+            onClick={() => onDelete(chapter.id)}
+            title="Delete chapter"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: "3px 5px",
+              borderRadius: 4,
+              color: "#C4B5A0",
+              fontSize: 14,
+              lineHeight: 1,
+              transition: "color 0.15s ease, background 0.15s ease",
+            }}
+            onMouseOver={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = "#DC2626";
+              (e.currentTarget as HTMLButtonElement).style.background = "#FEF2F2";
+            }}
+            onMouseOut={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = "#C4B5A0";
+              (e.currentTarget as HTMLButtonElement).style.background = "none";
+            }}
+          >
+            ✕
+          </button>
         </div>
       </div>
 

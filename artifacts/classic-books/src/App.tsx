@@ -34,6 +34,21 @@ export default function App() {
     setShowAddChapter(false);
   };
 
+  const deleteBook = (bookId: number) => {
+    setBooks((prev) => prev.filter((b) => b.id !== bookId));
+    if (selectedBook?.id === bookId) {
+      const remaining = books.filter((b) => b.id !== bookId);
+      setSelectedBook(remaining.length > 0 ? remaining[0] : null);
+    }
+  };
+
+  const deleteChapter = (chapterId: number) => {
+    if (!selectedBook) return;
+    const updatedBook = { ...selectedBook, chapters: selectedBook.chapters.filter((c) => c.id !== chapterId) };
+    setBooks((prev) => prev.map((b) => (b.id === selectedBook.id ? updatedBook : b)));
+    setSelectedBook(updatedBook);
+  };
+
   return (
     <div style={{
       display: "flex",
@@ -91,6 +106,7 @@ export default function App() {
         selectedBook={selectedBook}
         onBookSelect={handleBookSelect}
         onNewBook={() => setShowNewBook(true)}
+        onDeleteBook={deleteBook}
         open={sidebarOpen}
       />
 
@@ -175,7 +191,7 @@ export default function App() {
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 800 }}>
               {selectedBook.chapters.map((ch) => (
-                <ChapterCard key={ch.id} chapter={ch} book={selectedBook} />
+                <ChapterCard key={ch.id} chapter={ch} book={selectedBook} onDelete={deleteChapter} />
               ))}
             </div>
           )}
