@@ -45,6 +45,14 @@ export const DeleteBookParams = zod.object({
 });
 
 /**
+ * @summary Delete a chapter
+ */
+export const DeleteChapterParams = zod.object({
+  bookId: zod.coerce.number(),
+  chapterId: zod.coerce.number(),
+});
+
+/**
  * @summary List chapters for a book
  */
 export const ListChaptersParams = zod.object({

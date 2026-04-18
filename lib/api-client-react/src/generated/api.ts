@@ -345,6 +345,91 @@ export const useDeleteBook = <
 };
 
 /**
+ * @summary Delete a chapter
+ */
+export const getDeleteChapterUrl = (bookId: number, chapterId: number) => {
+  return `/api/books/${bookId}/chapters/${chapterId}`;
+};
+
+export const deleteChapter = async (
+  bookId: number,
+  chapterId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteChapterUrl(bookId, chapterId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteChapterMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteChapter>>,
+    TError,
+    { bookId: number; chapterId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteChapter>>,
+  TError,
+  { bookId: number; chapterId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteChapter"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteChapter>>,
+    { bookId: number; chapterId: number }
+  > = (props) => {
+    const { bookId, chapterId } = props ?? {};
+
+    return deleteChapter(bookId, chapterId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteChapterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteChapter>>
+>;
+
+export type DeleteChapterMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a chapter
+ */
+export const useDeleteChapter = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteChapter>>,
+    TError,
+    { bookId: number; chapterId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteChapter>>,
+  TError,
+  { bookId: number; chapterId: number },
+  TContext
+> => {
+  return useMutation(getDeleteChapterMutationOptions(options));
+};
+
+/**
  * @summary List chapters for a book
  */
 export const getListChaptersUrl = (bookId: number) => {

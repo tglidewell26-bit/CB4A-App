@@ -73,6 +73,25 @@ paths:
       responses:
         "204":
           description: Book deleted
+  /books/{bookId}/chapters/{chapterId}:
+    delete:
+      operationId: deleteChapter
+      tags: [chapters]
+      summary: Delete a chapter
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Chapter deleted
   /books/{bookId}/chapters:
     get:
       operationId: listChapters

@@ -4,8 +4,10 @@ import type { Book, Chapter } from "./types";
 import {
   useListBooks,
   useCreateBook,
+  useDeleteBook,
   useListChapters,
   useCreateChapter,
+  useDeleteChapter,
   getListBooksQueryKey,
   getListChaptersQueryKey,
 } from "@workspace/api-client-react";
@@ -14,6 +16,7 @@ import { ChapterCard } from "./components/ChapterCard";
 import { EmptyState } from "./components/EmptyState";
 import { NewBookModal } from "./components/NewBookModal";
 import { AddChapterModal } from "./components/AddChapterModal";
+import { ConfirmModal } from "./components/ConfirmModal";
 
 export default function App() {
   const queryClient = useQueryClient();
@@ -21,6 +24,7 @@ export default function App() {
   const [showNewBook, setShowNewBook] = useState(false);
   const [showAddChapter, setShowAddChapter] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [confirmDeleteBookId, setConfirmDeleteBookId] = useState<number | null>(null);
 
   const { data: apiBooks = [], isLoading: booksLoading } = useListBooks();
   const { data: apiChapters = [] } = useListChapters(selectedBookId ?? 0, {
@@ -37,7 +41,9 @@ export default function App() {
   }, [apiBooks, selectedBookId]);
 
   const createBookMutation = useCreateBook();
+  const deleteBookMutation = useDeleteBook();
   const createChapterMutation = useCreateChapter();
+  const deleteChapterMutation = useDeleteChapter();
 
   const booksForSidebar: Book[] = apiBooks.map((b) => ({
     id: b.id,
@@ -91,6 +97,27 @@ export default function App() {
     );
   };
 
+  const requestDeleteBook = (bookId: number) => {
+    setConfirmDeleteBookId(bookId);
+  };
+
+  const confirmDeleteBook = () => {
+    if (confirmDeleteBookId === null) return;
+    deleteBookMutation.mutate(
+      { bookId: confirmDeleteBookId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+          if (selectedBookId === confirmDeleteBookId) {
+            const remaining = apiBooks.filter((b) => b.id !== confirmDeleteBookId);
+            setSelectedBookId(remaining.length > 0 ? remaining[0].id : null);
+          }
+          setConfirmDeleteBookId(null);
+        },
+      }
+    );
+  };
+
   const addChapter = (chapterData: Omit<Chapter, "id" | "status">) => {
     if (!selectedBookId) return;
     createChapterMutation.mutate(
@@ -115,20 +142,22 @@ export default function App() {
     );
   };
 
-  const deleteBook = (bookId: number) => {
-    setBooks((prev) => prev.filter((b) => b.id !== bookId));
-    if (selectedBook?.id === bookId) {
-      const remaining = books.filter((b) => b.id !== bookId);
-      setSelectedBook(remaining.length > 0 ? remaining[0] : null);
-    }
+  const deleteChapter = (chapterId: number) => {
+    if (!selectedBookId) return;
+    deleteChapterMutation.mutate(
+      { bookId: selectedBookId, chapterId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
+        },
+      }
+    );
   };
 
-  const deleteChapter = (chapterId: number) => {
-    if (!selectedBook) return;
-    const updatedBook = { ...selectedBook, chapters: selectedBook.chapters.filter((c) => c.id !== chapterId) };
-    setBooks((prev) => prev.map((b) => (b.id === selectedBook.id ? updatedBook : b)));
-    setSelectedBook(updatedBook);
-  };
+  const bookToDelete = confirmDeleteBookId !== null
+    ? apiBooks.find((b) => b.id === confirmDeleteBookId)
+    : null;
 
   return (
     <div style={{
@@ -187,7 +216,7 @@ export default function App() {
         selectedBook={selectedBook}
         onBookSelect={handleBookSelect}
         onNewBook={() => setShowNewBook(true)}
-        onDeleteBook={deleteBook}
+        onDeleteBook={requestDeleteBook}
         open={sidebarOpen}
       />
 
@@ -297,6 +326,16 @@ export default function App() {
           book={selectedBook}
           onClose={() => setShowAddChapter(false)}
           onSave={addChapter}
+        />
+      )}
+      {confirmDeleteBookId !== null && bookToDelete && (
+        <ConfirmModal
+          title={`Delete "${bookToDelete.title}"?`}
+          message={`This will permanently remove the book and all ${bookToDelete.chapterCount} ${bookToDelete.chapterCount === 1 ? "chapter" : "chapters"} from your library. This cannot be undone.`}
+          confirmLabel="Delete book"
+          onConfirm={confirmDeleteBook}
+          onCancel={() => setConfirmDeleteBookId(null)}
+          loading={deleteBookMutation.isPending}
         />
       )}
     </div>

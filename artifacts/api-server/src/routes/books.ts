@@ -41,6 +41,16 @@ router.delete("/books/:bookId", async (req, res) => {
   res.status(204).send();
 });
 
+router.delete("/books/:bookId/chapters/:chapterId", async (req, res) => {
+  const chapterId = Number(req.params.chapterId);
+  if (isNaN(chapterId)) {
+    res.status(400).json({ error: "Invalid chapterId" });
+    return;
+  }
+  await db.delete(chaptersTable).where(eq(chaptersTable.id, chapterId));
+  res.status(204).send();
+});
+
 router.get("/books/:bookId/chapters", async (req, res) => {
   const bookId = Number(req.params.bookId);
   if (isNaN(bookId)) {
