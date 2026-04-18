@@ -33,6 +33,8 @@ export interface Chapter {
   status: string;
   date?: string | null;
   file?: string | null;
+  hasWorkbook: boolean;
+  hasTeacherGuide: boolean;
   createdAt: string;
 }
 
@@ -43,4 +45,10 @@ export interface CreateChapterInput {
   status?: string;
   date?: string;
   file?: string;
+}
+
+export interface GeneratedContent {
+  html: string;
+  chapterId: number;
+  type: string;
 }

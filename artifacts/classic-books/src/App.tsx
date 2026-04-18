@@ -1,21 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Book, Chapter } from "./types";
 import {
   useListBooks,
-  useCreateBook,
   useDeleteBook,
-  useListChapters,
-  useCreateChapter,
   useDeleteChapter,
+  useRegenerateChapter,
+  useListChapters,
   getListBooksQueryKey,
   getListChaptersQueryKey,
+  getCreateChapterUrl,
 } from "@workspace/api-client-react";
+import type { CreateBookInput } from "@workspace/api-client-react";
 import { Sidebar } from "./components/Sidebar";
 import { ChapterCard } from "./components/ChapterCard";
 import { EmptyState } from "./components/EmptyState";
 import { NewBookModal } from "./components/NewBookModal";
-import { AddChapterModal } from "./components/AddChapterModal";
+import { AddChapterModal, type NewChapterData } from "./components/AddChapterModal";
 import { ConfirmModal } from "./components/ConfirmModal";
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
   const [showAddChapter, setShowAddChapter] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [confirmDeleteBookId, setConfirmDeleteBookId] = useState<number | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data: apiBooks = [], isLoading: booksLoading } = useListBooks();
   const { data: apiChapters = [] } = useListChapters(selectedBookId ?? 0, {
@@ -40,10 +42,31 @@ export default function App() {
     }
   }, [apiBooks, selectedBookId]);
 
-  const createBookMutation = useCreateBook();
+  const hasGenerating = apiChapters.some((c) => c.status === "generating");
+
+  useEffect(() => {
+    if (hasGenerating && selectedBookId !== null) {
+      if (pollingRef.current) return;
+      pollingRef.current = setInterval(() => {
+        queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
+      }, 4000);
+    } else {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    }
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [hasGenerating, selectedBookId, queryClient]);
+
   const deleteBookMutation = useDeleteBook();
-  const createChapterMutation = useCreateChapter();
   const deleteChapterMutation = useDeleteChapter();
+  const regenerateMutation = useRegenerateChapter();
 
   const booksForSidebar: Book[] = apiBooks.map((b) => ({
     id: b.id,
@@ -68,6 +91,8 @@ export default function App() {
     num: c.num ?? undefined,
     date: c.date ?? undefined,
     file: c.file ?? undefined,
+    hasWorkbook: c.hasWorkbook,
+    hasTeacherGuide: c.hasTeacherGuide,
   }));
 
   const selectedBook: Book | null = selectedApiBook
@@ -85,16 +110,22 @@ export default function App() {
   };
 
   const addBook = (bookData: Omit<Book, "id" | "chapters">) => {
-    createBookMutation.mutate(
-      { data: { title: bookData.title, author: bookData.author, grade: bookData.grade } },
-      {
-        onSuccess: (newBook) => {
-          queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
-          setSelectedBookId(newBook.id);
-          setShowNewBook(false);
-        },
-      }
-    );
+    const input: CreateBookInput = {
+      title: bookData.title,
+      author: bookData.author,
+      grade: bookData.grade,
+    };
+    fetch("/api/books", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    })
+      .then((r) => r.json())
+      .then((newBook) => {
+        queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+        setSelectedBookId(newBook.id);
+        setShowNewBook(false);
+      });
   };
 
   const requestDeleteBook = (bookId: number) => {
@@ -118,28 +149,28 @@ export default function App() {
     );
   };
 
-  const addChapter = (chapterData: Omit<Chapter, "id" | "status">) => {
+  const addChapter = (chapterData: NewChapterData) => {
     if (!selectedBookId) return;
-    createChapterMutation.mutate(
-      {
-        bookId: selectedBookId,
-        data: {
-          title: chapterData.title,
-          pages: chapterData.pages,
-          num: chapterData.num,
-          date: chapterData.date,
-          file: chapterData.file,
-          status: "generating",
-        },
-      },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
-          setShowAddChapter(false);
-        },
-      }
-    );
+    const formData = new FormData();
+    formData.append("title", chapterData.title);
+    formData.append("pages", chapterData.pages);
+    if (chapterData.num !== undefined) {
+      formData.append("num", String(chapterData.num));
+    }
+    if (chapterData.file) {
+      formData.append("file", chapterData.file);
+    }
+
+    fetch(getCreateChapterUrl(selectedBookId), {
+      method: "POST",
+      body: formData,
+    })
+      .then((r) => r.json())
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
+        setShowAddChapter(false);
+      });
   };
 
   const deleteChapter = (chapterId: number) => {
@@ -148,10 +179,22 @@ export default function App() {
       { bookId: selectedBookId, chapterId },
       {
         onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
           queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+        },
+      },
+    );
+  };
+
+  const regenerateChapter = (chapterId: number) => {
+    if (!selectedBookId) return;
+    regenerateMutation.mutate(
+      { bookId: selectedBookId, chapterId },
+      {
+        onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
         },
-      }
+      },
     );
   };
 
@@ -220,9 +263,7 @@ export default function App() {
         open={sidebarOpen}
       />
 
-      {/* Main panel */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        {/* Top bar */}
         <div style={{
           padding: "16px 28px",
           background: "#FFFFFF",
@@ -300,7 +341,6 @@ export default function App() {
           )}
         </div>
 
-        {/* Chapter list */}
         <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px" }}>
           {booksLoading ? (
             <EmptyState message="Loading your library…" />
@@ -311,7 +351,13 @@ export default function App() {
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 800 }}>
               {selectedBook.chapters.map((ch) => (
-                <ChapterCard key={ch.id} chapter={ch} book={selectedBook} onDelete={deleteChapter} />
+                <ChapterCard
+                  key={ch.id}
+                  chapter={ch}
+                  book={selectedBook}
+                  onDelete={deleteChapter}
+                  onRegenerate={regenerateChapter}
+                />
               ))}
             </div>
           )}

@@ -1,4 +1,4 @@
-export type ChapterStatus = "ready" | "generating" | "pending";
+export type ChapterStatus = "ready" | "generating" | "pending" | "error";
 
 export interface Chapter {
   id: number;
@@ -8,6 +8,8 @@ export interface Chapter {
   date?: string;
   num?: number;
   file?: string;
+  hasWorkbook?: boolean;
+  hasTeacherGuide?: boolean;
 }
 
 export interface Book {

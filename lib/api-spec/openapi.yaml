@@ -14,6 +14,8 @@ tags:
     description: Book operations
   - name: chapters
     description: Chapter operations
+  - name: generation
+    description: AI curriculum generation
 paths:
   /healthz:
     get:
@@ -115,7 +117,7 @@ paths:
     post:
       operationId: createChapter
       tags: [chapters]
-      summary: Add a chapter to a book
+      summary: Add a chapter to a book (with optional file upload)
       parameters:
         - name: bookId
           in: path
@@ -125,12 +127,104 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
               $ref: "#/components/schemas/CreateChapterInput"
       responses:
         "201":
           description: Chapter created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chapter"
+  /books/{bookId}/chapters/{chapterId}:
+    delete:
+      operationId: deleteChapter
+      tags: [chapters]
+      summary: Delete a chapter
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Chapter deleted
+  /books/{bookId}/chapters/{chapterId}/workbook:
+    get:
+      operationId: getWorkbook
+      tags: [generation]
+      summary: Get the generated student workbook HTML for a chapter
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Workbook HTML content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedContent"
+        "404":
+          description: Not found or not yet generated
+  /books/{bookId}/chapters/{chapterId}/teacher-guide:
+    get:
+      operationId: getTeacherGuide
+      tags: [generation]
+      summary: Get the generated teacher guide HTML for a chapter
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Teacher guide HTML content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedContent"
+        "404":
+          description: Not found or not yet generated
+  /books/{bookId}/chapters/{chapterId}/regenerate:
+    post:
+      operationId: regenerateChapter
+      tags: [generation]
+      summary: Trigger regeneration of AI content for a chapter
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "202":
+          description: Regeneration started
           content:
             application/json:
               schema:
@@ -202,6 +296,10 @@ components:
         file:
           type: string
           nullable: true
+        hasWorkbook:
+          type: boolean
+        hasTeacherGuide:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -211,6 +309,8 @@ components:
         - title
         - pages
         - status
+        - hasWorkbook
+        - hasTeacherGuide
         - createdAt
     CreateChapterInput:
       type: object
@@ -230,3 +330,16 @@ components:
       required:
         - title
         - pages
+    GeneratedContent:
+      type: object
+      properties:
+        html:
+          type: string
+        chapterId:
+          type: integer
+        type:
+          type: string
+      required:
+        - html
+        - chapterId
+        - type

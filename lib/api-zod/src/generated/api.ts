@@ -68,12 +68,14 @@ export const ListChaptersResponseItem = zod.object({
   status: zod.string(),
   date: zod.string().nullish(),
   file: zod.string().nullish(),
+  hasWorkbook: zod.boolean(),
+  hasTeacherGuide: zod.boolean(),
   createdAt: zod.coerce.date(),
 });
 export const ListChaptersResponse = zod.array(ListChaptersResponseItem);
 
 /**
- * @summary Add a chapter to a book
+ * @summary Add a chapter to a book (with optional file upload)
  */
 export const CreateChapterParams = zod.object({
   bookId: zod.coerce.number(),
@@ -86,4 +88,48 @@ export const CreateChapterBody = zod.object({
   status: zod.string().optional(),
   date: zod.string().optional(),
   file: zod.string().optional(),
+});
+
+/**
+ * @summary Delete a chapter
+ */
+export const DeleteChapterParams = zod.object({
+  bookId: zod.coerce.number(),
+  chapterId: zod.coerce.number(),
+});
+
+/**
+ * @summary Get the generated student workbook HTML for a chapter
+ */
+export const GetWorkbookParams = zod.object({
+  bookId: zod.coerce.number(),
+  chapterId: zod.coerce.number(),
+});
+
+export const GetWorkbookResponse = zod.object({
+  html: zod.string(),
+  chapterId: zod.number(),
+  type: zod.string(),
+});
+
+/**
+ * @summary Get the generated teacher guide HTML for a chapter
+ */
+export const GetTeacherGuideParams = zod.object({
+  bookId: zod.coerce.number(),
+  chapterId: zod.coerce.number(),
+});
+
+export const GetTeacherGuideResponse = zod.object({
+  html: zod.string(),
+  chapterId: zod.number(),
+  type: zod.string(),
+});
+
+/**
+ * @summary Trigger regeneration of AI content for a chapter
+ */
+export const RegenerateChapterParams = zod.object({
+  bookId: zod.coerce.number(),
+  chapterId: zod.coerce.number(),
 });
