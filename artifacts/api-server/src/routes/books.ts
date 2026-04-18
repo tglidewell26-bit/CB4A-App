@@ -140,7 +140,14 @@ router.patch("/books/:bookId", async (req, res) => {
   const updates: Partial<{ title: string; author: string; grade: number }> = {};
   if (typeof title === "string" && title.trim()) updates.title = title.trim();
   if (typeof author === "string" && author.trim()) updates.author = author.trim();
-  if (typeof grade === "number") updates.grade = grade;
+  if (grade !== undefined) {
+    const gradeNum = Number(grade);
+    if (!Number.isInteger(gradeNum) || gradeNum < 3 || gradeNum > 8) {
+      res.status(400).json({ error: "Grade must be an integer between 3 and 8" });
+      return;
+    }
+    updates.grade = gradeNum;
+  }
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "No valid fields to update" });
     return;
