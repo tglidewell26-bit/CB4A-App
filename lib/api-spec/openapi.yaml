@@ -62,6 +62,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/Book"
   /books/{bookId}:
+    patch:
+      operationId: updateBook
+      tags: [books]
+      summary: Update a book's title, author, or grade
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBookInput"
+      responses:
+        "200":
+          description: Book updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+        "404":
+          description: Book not found
     delete:
       operationId: deleteBook
       tags: [books]
@@ -75,25 +100,6 @@ paths:
       responses:
         "204":
           description: Book deleted
-  /books/{bookId}/chapters/{chapterId}:
-    delete:
-      operationId: deleteChapter
-      tags: [chapters]
-      summary: Delete a chapter
-      parameters:
-        - name: bookId
-          in: path
-          required: true
-          schema:
-            type: integer
-        - name: chapterId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "204":
-          description: Chapter deleted
   /books/{bookId}/chapters:
     get:
       operationId: listChapters
@@ -274,6 +280,15 @@ components:
         - title
         - author
         - grade
+    UpdateBookInput:
+      type: object
+      properties:
+        title:
+          type: string
+        author:
+          type: string
+        grade:
+          type: integer
     Chapter:
       type: object
       properties:

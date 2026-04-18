@@ -24,6 +24,12 @@ export interface CreateBookInput {
   grade: number;
 }
 
+export interface UpdateBookInput {
+  title?: string;
+  author?: string;
+  grade?: number;
+}
+
 export interface Chapter {
   id: number;
   bookId: number;

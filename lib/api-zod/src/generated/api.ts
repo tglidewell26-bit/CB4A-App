@@ -38,18 +38,32 @@ export const CreateBookBody = zod.object({
 });
 
 /**
+ * @summary Update a book's title, author, or grade
+ */
+export const UpdateBookParams = zod.object({
+  bookId: zod.coerce.number(),
+});
+
+export const UpdateBookBody = zod.object({
+  title: zod.string().optional(),
+  author: zod.string().optional(),
+  grade: zod.number().optional(),
+});
+
+export const UpdateBookResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  author: zod.string(),
+  grade: zod.number(),
+  chapterCount: zod.number(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary Delete a book
  */
 export const DeleteBookParams = zod.object({
   bookId: zod.coerce.number(),
-});
-
-/**
- * @summary Delete a chapter
- */
-export const DeleteChapterParams = zod.object({
-  bookId: zod.coerce.number(),
-  chapterId: zod.coerce.number(),
 });
 
 /**

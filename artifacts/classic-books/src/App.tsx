@@ -4,6 +4,7 @@ import type { Book, Chapter } from "./types";
 import {
   useListBooks,
   useDeleteBook,
+  useUpdateBook,
   useDeleteChapter,
   useRegenerateChapter,
   useListChapters,
@@ -16,6 +17,7 @@ import { Sidebar } from "./components/Sidebar";
 import { ChapterCard } from "./components/ChapterCard";
 import { EmptyState } from "./components/EmptyState";
 import { NewBookModal } from "./components/NewBookModal";
+import { EditBookModal } from "./components/EditBookModal";
 import { AddChapterModal, type NewChapterData } from "./components/AddChapterModal";
 import { ConfirmModal } from "./components/ConfirmModal";
 
@@ -26,6 +28,7 @@ export default function App() {
   const [showAddChapter, setShowAddChapter] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [confirmDeleteBookId, setConfirmDeleteBookId] = useState<number | null>(null);
+  const [showEditBook, setShowEditBook] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data: apiBooks = [], isLoading: booksLoading } = useListBooks();
@@ -65,6 +68,7 @@ export default function App() {
   }, [hasGenerating, selectedBookId, queryClient]);
 
   const deleteBookMutation = useDeleteBook();
+  const updateBookMutation = useUpdateBook();
   const deleteChapterMutation = useDeleteChapter();
   const regenerateMutation = useRegenerateChapter();
 
@@ -144,6 +148,19 @@ export default function App() {
             setSelectedBookId(remaining.length > 0 ? remaining[0].id : null);
           }
           setConfirmDeleteBookId(null);
+        },
+      }
+    );
+  };
+
+  const updateBook = (data: Omit<Book, "id" | "chapters">) => {
+    if (!selectedBookId) return;
+    updateBookMutation.mutate(
+      { bookId: selectedBookId, data: { title: data.title, author: data.author, grade: data.grade } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+          setShowEditBook(false);
         },
       }
     );
@@ -298,23 +315,54 @@ export default function App() {
                 Loading…
               </div>
             ) : selectedBook ? (
-              <div>
-                <div style={{
-                  fontFamily: "'Playfair Display', serif",
-                  fontSize: 20,
-                  fontWeight: 500,
-                  color: "#1C1917",
-                }}>
-                  {selectedBook.title}
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div>
+                  <div style={{
+                    fontFamily: "'Playfair Display', serif",
+                    fontSize: 20,
+                    fontWeight: 500,
+                    color: "#1C1917",
+                  }}>
+                    {selectedBook.title}
+                  </div>
+                  <div style={{
+                    fontFamily: "'Source Sans 3', sans-serif",
+                    fontSize: 12,
+                    color: "#78716C",
+                    marginTop: 1,
+                  }}>
+                    {selectedBook.author} · Grade {selectedBook.grade} · California Common Core
+                  </div>
                 </div>
-                <div style={{
-                  fontFamily: "'Source Sans 3', sans-serif",
-                  fontSize: 12,
-                  color: "#78716C",
-                  marginTop: 1,
-                }}>
-                  {selectedBook.author} · Grade {selectedBook.grade} · California Common Core
-                </div>
+                <button
+                  onClick={() => setShowEditBook(true)}
+                  title="Edit book details"
+                  style={{
+                    background: "none",
+                    border: "1px solid #E8E0D4",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    padding: "5px 8px",
+                    color: "#78716C",
+                    fontSize: 13,
+                    lineHeight: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    fontFamily: "'Source Sans 3', sans-serif",
+                    transition: "all 0.15s ease",
+                  }}
+                  onMouseOver={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "#92400E";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#92400E";
+                  }}
+                  onMouseOut={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "#E8E0D4";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#78716C";
+                  }}
+                >
+                  ✎ Edit
+                </button>
               </div>
             ) : null}
           </div>
@@ -366,6 +414,14 @@ export default function App() {
 
       {showNewBook && (
         <NewBookModal onClose={() => setShowNewBook(false)} onSave={addBook} />
+      )}
+      {showEditBook && selectedBook && (
+        <EditBookModal
+          book={selectedBook}
+          onClose={() => setShowEditBook(false)}
+          onSave={updateBook}
+          loading={updateBookMutation.isPending}
+        />
       )}
       {showAddChapter && selectedBook && (
         <AddChapterModal

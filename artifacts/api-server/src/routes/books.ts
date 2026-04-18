@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import multer from "multer";
 import { db, booksTable, chaptersTable, insertBookSchema } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { extractTextFromBuffer } from "../lib/textExtractor.js";
 import { generateWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
 import { logger } from "../lib/logger.js";
@@ -130,6 +130,33 @@ router.post("/books", async (req, res) => {
   res.status(201).json({ ...book, chapterCount: 0 });
 });
 
+router.patch("/books/:bookId", async (req, res) => {
+  const bookId = Number(req.params.bookId);
+  if (isNaN(bookId)) {
+    res.status(400).json({ error: "Invalid bookId" });
+    return;
+  }
+  const { title, author, grade } = req.body;
+  const updates: Partial<{ title: string; author: string; grade: number }> = {};
+  if (typeof title === "string" && title.trim()) updates.title = title.trim();
+  if (typeof author === "string" && author.trim()) updates.author = author.trim();
+  if (typeof grade === "number") updates.grade = grade;
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No valid fields to update" });
+    return;
+  }
+  const [book] = await db.update(booksTable).set(updates).where(eq(booksTable.id, bookId)).returning();
+  if (!book) {
+    res.status(404).json({ error: "Book not found" });
+    return;
+  }
+  const [{ chapterCount }] = await db
+    .select({ chapterCount: sql<number>`cast(count(${chaptersTable.id}) as int)` })
+    .from(chaptersTable)
+    .where(eq(chaptersTable.bookId, bookId));
+  res.json({ ...book, chapterCount });
+});
+
 router.delete("/books/:bookId", async (req, res) => {
   const bookId = Number(req.params.bookId);
   if (isNaN(bookId)) {
@@ -221,16 +248,6 @@ router.post(
     }
   },
 );
-
-router.delete("/books/:bookId/chapters/:chapterId", async (req, res) => {
-  const chapterId = Number(req.params.chapterId);
-  if (isNaN(chapterId)) {
-    res.status(400).json({ error: "Invalid chapterId" });
-    return;
-  }
-  await db.delete(chaptersTable).where(eq(chaptersTable.id, chapterId));
-  res.status(204).send();
-});
 
 router.get(
   "/books/:bookId/chapters/:chapterId/workbook",
