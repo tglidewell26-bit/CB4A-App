@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, booksTable, chaptersTable, insertBookSchema, insertChapterSchema } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -42,12 +42,15 @@ router.delete("/books/:bookId", async (req, res) => {
 });
 
 router.delete("/books/:bookId/chapters/:chapterId", async (req, res) => {
+  const bookId = Number(req.params.bookId);
   const chapterId = Number(req.params.chapterId);
-  if (isNaN(chapterId)) {
-    res.status(400).json({ error: "Invalid chapterId" });
+  if (isNaN(bookId) || isNaN(chapterId)) {
+    res.status(400).json({ error: "Invalid bookId or chapterId" });
     return;
   }
-  await db.delete(chaptersTable).where(eq(chaptersTable.id, chapterId));
+  await db.delete(chaptersTable).where(
+    and(eq(chaptersTable.id, chapterId), eq(chaptersTable.bookId, bookId))
+  );
   res.status(204).send();
 });
 
