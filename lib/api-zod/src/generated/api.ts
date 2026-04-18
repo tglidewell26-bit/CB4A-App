@@ -14,3 +14,68 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary List all books
+ */
+export const ListBooksResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  author: zod.string(),
+  grade: zod.number(),
+  chapterCount: zod.number(),
+  createdAt: zod.coerce.date(),
+});
+export const ListBooksResponse = zod.array(ListBooksResponseItem);
+
+/**
+ * @summary Create a new book
+ */
+export const CreateBookBody = zod.object({
+  title: zod.string(),
+  author: zod.string(),
+  grade: zod.number(),
+});
+
+/**
+ * @summary Delete a book
+ */
+export const DeleteBookParams = zod.object({
+  bookId: zod.coerce.number(),
+});
+
+/**
+ * @summary List chapters for a book
+ */
+export const ListChaptersParams = zod.object({
+  bookId: zod.coerce.number(),
+});
+
+export const ListChaptersResponseItem = zod.object({
+  id: zod.number(),
+  bookId: zod.number(),
+  num: zod.number().nullish(),
+  title: zod.string(),
+  pages: zod.string(),
+  status: zod.string(),
+  date: zod.string().nullish(),
+  file: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListChaptersResponse = zod.array(ListChaptersResponseItem);
+
+/**
+ * @summary Add a chapter to a book
+ */
+export const CreateChapterParams = zod.object({
+  bookId: zod.coerce.number(),
+});
+
+export const CreateChapterBody = zod.object({
+  num: zod.number().optional(),
+  title: zod.string(),
+  pages: zod.string(),
+  status: zod.string().optional(),
+  date: zod.string().optional(),
+  file: zod.string().optional(),
+});

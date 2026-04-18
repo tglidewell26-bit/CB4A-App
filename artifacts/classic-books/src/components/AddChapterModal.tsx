@@ -27,7 +27,7 @@ export function AddChapterModal({ book, onClose, onSave }: AddChapterModalProps)
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  const canSave = num && title.trim() && startPage && endPage && file;
+  const canSave = num && title.trim() && startPage && endPage;
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -37,12 +37,12 @@ export function AddChapterModal({ book, onClose, onSave }: AddChapterModalProps)
   };
 
   const handleSave = () => {
-    if (!canSave || !file) return;
+    if (!canSave) return;
     onSave({
       title: title.trim(),
       num: Number(num),
       pages: `${startPage}–${endPage}`,
-      file: file.name,
+      file: file ? file.name : undefined,
     });
   };
 

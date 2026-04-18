@@ -1,6 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Book, Chapter } from "./types";
-import { SAMPLE_BOOKS } from "./constants";
+import {
+  useListBooks,
+  useCreateBook,
+  useListChapters,
+  useCreateChapter,
+  getListBooksQueryKey,
+  getListChaptersQueryKey,
+} from "@workspace/api-client-react";
 import { Sidebar } from "./components/Sidebar";
 import { ChapterCard } from "./components/ChapterCard";
 import { EmptyState } from "./components/EmptyState";
@@ -8,30 +16,103 @@ import { NewBookModal } from "./components/NewBookModal";
 import { AddChapterModal } from "./components/AddChapterModal";
 
 export default function App() {
-  const [books, setBooks] = useState<Book[]>(SAMPLE_BOOKS);
-  const [selectedBook, setSelectedBook] = useState<Book | null>(SAMPLE_BOOKS[0]);
+  const queryClient = useQueryClient();
+  const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
   const [showNewBook, setShowNewBook] = useState(false);
   const [showAddChapter, setShowAddChapter] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  const { data: apiBooks = [], isLoading: booksLoading } = useListBooks();
+  const { data: apiChapters = [] } = useListChapters(selectedBookId ?? 0, {
+    query: {
+      queryKey: getListChaptersQueryKey(selectedBookId ?? 0),
+      enabled: selectedBookId !== null,
+    },
+  });
+
+  useEffect(() => {
+    if (selectedBookId === null && apiBooks.length > 0) {
+      setSelectedBookId(apiBooks[0].id);
+    }
+  }, [apiBooks, selectedBookId]);
+
+  const createBookMutation = useCreateBook();
+  const createChapterMutation = useCreateChapter();
+
+  const booksForSidebar: Book[] = apiBooks.map((b) => ({
+    id: b.id,
+    title: b.title,
+    author: b.author,
+    grade: b.grade as Book["grade"],
+    chapters: Array.from({ length: b.chapterCount }, (_, i) => ({
+      id: i,
+      title: "",
+      pages: "",
+      status: "ready" as const,
+    })),
+  }));
+
+  const selectedApiBook = apiBooks.find((b) => b.id === selectedBookId) ?? null;
+
+  const selectedBookChapters: Chapter[] = apiChapters.map((c) => ({
+    id: c.id,
+    title: c.title,
+    pages: c.pages,
+    status: (c.status as Chapter["status"]) ?? "pending",
+    num: c.num ?? undefined,
+    date: c.date ?? undefined,
+    file: c.file ?? undefined,
+  }));
+
+  const selectedBook: Book | null = selectedApiBook
+    ? {
+        id: selectedApiBook.id,
+        title: selectedApiBook.title,
+        author: selectedApiBook.author,
+        grade: selectedApiBook.grade as Book["grade"],
+        chapters: selectedBookChapters,
+      }
+    : null;
+
   const handleBookSelect = (book: Book) => {
-    setSelectedBook(book);
+    setSelectedBookId(book.id);
   };
 
   const addBook = (bookData: Omit<Book, "id" | "chapters">) => {
-    const newBook: Book = { ...bookData, id: Date.now(), chapters: [] };
-    setBooks((prev) => [...prev, newBook]);
-    setSelectedBook(newBook);
-    setShowNewBook(false);
+    createBookMutation.mutate(
+      { data: { title: bookData.title, author: bookData.author, grade: bookData.grade } },
+      {
+        onSuccess: (newBook) => {
+          queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+          setSelectedBookId(newBook.id);
+          setShowNewBook(false);
+        },
+      }
+    );
   };
 
   const addChapter = (chapterData: Omit<Chapter, "id" | "status">) => {
-    if (!selectedBook) return;
-    const newChapter: Chapter = { ...chapterData, id: Date.now(), status: "generating" };
-    const updatedBook = { ...selectedBook, chapters: [...selectedBook.chapters, newChapter] };
-    setBooks((prev) => prev.map((b) => (b.id === selectedBook.id ? updatedBook : b)));
-    setSelectedBook(updatedBook);
-    setShowAddChapter(false);
+    if (!selectedBookId) return;
+    createChapterMutation.mutate(
+      {
+        bookId: selectedBookId,
+        data: {
+          title: chapterData.title,
+          pages: chapterData.pages,
+          num: chapterData.num,
+          date: chapterData.date,
+          file: chapterData.file,
+          status: "generating",
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
+          setShowAddChapter(false);
+        },
+      }
+    );
   };
 
   const deleteBook = (bookId: number) => {
@@ -102,7 +183,7 @@ export default function App() {
       `}</style>
 
       <Sidebar
-        books={books}
+        books={booksForSidebar}
         selectedBook={selectedBook}
         onBookSelect={handleBookSelect}
         onNewBook={() => setShowNewBook(true)}
@@ -138,7 +219,15 @@ export default function App() {
                 <rect y="13.5" width="18" height="1.5" rx="0.75" fill="currentColor" />
               </svg>
             </button>
-            {selectedBook && (
+            {booksLoading ? (
+              <div style={{
+                fontFamily: "'Source Sans 3', sans-serif",
+                fontSize: 13,
+                color: "#78716C",
+              }}>
+                Loading…
+              </div>
+            ) : selectedBook ? (
               <div>
                 <div style={{
                   fontFamily: "'Playfair Display', serif",
@@ -157,7 +246,7 @@ export default function App() {
                   {selectedBook.author} · Grade {selectedBook.grade} · California Common Core
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
           {selectedBook && (
             <button
@@ -184,7 +273,9 @@ export default function App() {
 
         {/* Chapter list */}
         <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px" }}>
-          {!selectedBook ? (
+          {booksLoading ? (
+            <EmptyState message="Loading your library…" />
+          ) : !selectedBook ? (
             <EmptyState message="Select a book from the sidebar" />
           ) : selectedBook.chapters.length === 0 ? (
             <EmptyState message="No chapters yet — click Add chapter to get started" />

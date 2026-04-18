@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: books
+    description: Book operations
+  - name: chapters
+    description: Chapter operations
 paths:
   /healthz:
     get:
@@ -24,6 +28,94 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /books:
+    get:
+      operationId: listBooks
+      tags: [books]
+      summary: List all books
+      responses:
+        "200":
+          description: List of books
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Book"
+    post:
+      operationId: createBook
+      tags: [books]
+      summary: Create a new book
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookInput"
+      responses:
+        "201":
+          description: Book created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+  /books/{bookId}:
+    delete:
+      operationId: deleteBook
+      tags: [books]
+      summary: Delete a book
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Book deleted
+  /books/{bookId}/chapters:
+    get:
+      operationId: listChapters
+      tags: [chapters]
+      summary: List chapters for a book
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of chapters
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Chapter"
+    post:
+      operationId: createChapter
+      tags: [chapters]
+      summary: Add a chapter to a book
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChapterInput"
+      responses:
+        "201":
+          description: Chapter created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chapter"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +125,89 @@ components:
           type: string
       required:
         - status
-
+    Book:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        author:
+          type: string
+        grade:
+          type: integer
+        chapterCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - author
+        - grade
+        - chapterCount
+        - createdAt
+    CreateBookInput:
+      type: object
+      properties:
+        title:
+          type: string
+        author:
+          type: string
+        grade:
+          type: integer
+      required:
+        - title
+        - author
+        - grade
+    Chapter:
+      type: object
+      properties:
+        id:
+          type: integer
+        bookId:
+          type: integer
+        num:
+          type: integer
+          nullable: true
+        title:
+          type: string
+        pages:
+          type: string
+        status:
+          type: string
+        date:
+          type: string
+          nullable: true
+        file:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - bookId
+        - title
+        - pages
+        - status
+        - createdAt
+    CreateChapterInput:
+      type: object
+      properties:
+        num:
+          type: integer
+        title:
+          type: string
+        pages:
+          type: string
+        status:
+          type: string
+        date:
+          type: string
+        file:
+          type: string
+      required:
+        - title
+        - pages
