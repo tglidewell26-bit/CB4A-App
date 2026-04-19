@@ -6,4 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./book";
+export * from "./chapter";
+export * from "./createBookInput";
+export * from "./createChapterInput";
+export * from "./generatedContent";
 export * from "./healthStatus";
+export * from "./updateBookInput";

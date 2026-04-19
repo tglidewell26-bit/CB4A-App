@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Book, Chapter } from "../types";
+import type { Book } from "../types";
 import { Label } from "./Label";
 
 const inputStyle: React.CSSProperties = {
@@ -13,10 +13,17 @@ const inputStyle: React.CSSProperties = {
   color: "#1C1917",
 };
 
+export interface NewChapterData {
+  title: string;
+  num?: number;
+  pages: string;
+  file?: File;
+}
+
 interface AddChapterModalProps {
   book: Book;
   onClose: () => void;
-  onSave: (chapter: Omit<Chapter, "id" | "status">) => void;
+  onSave: (chapter: NewChapterData) => void;
 }
 
 export function AddChapterModal({ book, onClose, onSave }: AddChapterModalProps) {
@@ -27,7 +34,7 @@ export function AddChapterModal({ book, onClose, onSave }: AddChapterModalProps)
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  const canSave = num && title.trim() && startPage && endPage && file;
+  const canSave = num && title.trim() && startPage && endPage;
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -37,12 +44,12 @@ export function AddChapterModal({ book, onClose, onSave }: AddChapterModalProps)
   };
 
   const handleSave = () => {
-    if (!canSave || !file) return;
+    if (!canSave) return;
     onSave({
       title: title.trim(),
       num: Number(num),
       pages: `${startPage}–${endPage}`,
-      file: file.name,
+      file: file ?? undefined,
     });
   };
 
@@ -123,6 +130,14 @@ export function AddChapterModal({ book, onClose, onSave }: AddChapterModalProps)
         </div>
 
         <Label mt={14}>Upload chapter file</Label>
+        <div style={{
+          fontFamily: "'Source Sans 3', sans-serif",
+          fontSize: 11,
+          color: "#A8967E",
+          marginBottom: 6,
+        }}>
+          Required for AI generation — supports PDF or Word documents
+        </div>
         <div
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
@@ -186,6 +201,20 @@ export function AddChapterModal({ book, onClose, onSave }: AddChapterModalProps)
           )}
         </div>
 
+        {!file && (
+          <div style={{
+            fontFamily: "'Source Sans 3', sans-serif",
+            fontSize: 11,
+            color: "#D97706",
+            marginTop: 6,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}>
+            ⚠ Without a file, the chapter will be created but AI packets won't be generated
+          </div>
+        )}
+
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24 }}>
           <button
             onClick={onClose}
@@ -217,7 +246,7 @@ export function AddChapterModal({ book, onClose, onSave }: AddChapterModalProps)
               cursor: canSave ? "pointer" : "default",
             }}
           >
-            Generate packets
+            {file ? "Upload & Generate" : "Create chapter"}
           </button>
         </div>
       </div>

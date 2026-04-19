@@ -1,38 +1,223 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Book, Chapter } from "./types";
-import { SAMPLE_BOOKS } from "./constants";
+import {
+  useListBooks,
+  useDeleteBook,
+  useUpdateBook,
+  useDeleteChapter,
+  useRegenerateChapter,
+  useListChapters,
+  getListBooksQueryKey,
+  getListChaptersQueryKey,
+  getCreateChapterUrl,
+} from "@workspace/api-client-react";
+import type { CreateBookInput } from "@workspace/api-client-react";
 import { Sidebar } from "./components/Sidebar";
 import { ChapterCard } from "./components/ChapterCard";
 import { EmptyState } from "./components/EmptyState";
 import { NewBookModal } from "./components/NewBookModal";
-import { AddChapterModal } from "./components/AddChapterModal";
+import { EditBookModal } from "./components/EditBookModal";
+import { AddChapterModal, type NewChapterData } from "./components/AddChapterModal";
+import { ConfirmModal } from "./components/ConfirmModal";
 
 export default function App() {
-  const [books, setBooks] = useState<Book[]>(SAMPLE_BOOKS);
-  const [selectedBook, setSelectedBook] = useState<Book | null>(SAMPLE_BOOKS[0]);
+  const queryClient = useQueryClient();
+  const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
   const [showNewBook, setShowNewBook] = useState(false);
   const [showAddChapter, setShowAddChapter] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [confirmDeleteBookId, setConfirmDeleteBookId] = useState<number | null>(null);
+  const [showEditBook, setShowEditBook] = useState(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const { data: apiBooks = [], isLoading: booksLoading } = useListBooks();
+  const { data: apiChapters = [] } = useListChapters(selectedBookId ?? 0, {
+    query: {
+      queryKey: getListChaptersQueryKey(selectedBookId ?? 0),
+      enabled: selectedBookId !== null,
+    },
+  });
+
+  useEffect(() => {
+    if (selectedBookId === null && apiBooks.length > 0) {
+      setSelectedBookId(apiBooks[0].id);
+    }
+  }, [apiBooks, selectedBookId]);
+
+  const hasGenerating = apiChapters.some((c) => c.status === "generating");
+
+  useEffect(() => {
+    if (hasGenerating && selectedBookId !== null) {
+      if (pollingRef.current) return;
+      pollingRef.current = setInterval(() => {
+        queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
+      }, 4000);
+    } else {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    }
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [hasGenerating, selectedBookId, queryClient]);
+
+  const deleteBookMutation = useDeleteBook();
+  const updateBookMutation = useUpdateBook();
+  const deleteChapterMutation = useDeleteChapter();
+  const regenerateMutation = useRegenerateChapter();
+
+  const booksForSidebar: Book[] = apiBooks.map((b) => ({
+    id: b.id,
+    title: b.title,
+    author: b.author,
+    grade: b.grade as Book["grade"],
+    chapters: Array.from({ length: b.chapterCount }, (_, i) => ({
+      id: i,
+      title: "",
+      pages: "",
+      status: "ready" as const,
+    })),
+  }));
+
+  const selectedApiBook = apiBooks.find((b) => b.id === selectedBookId) ?? null;
+
+  const selectedBookChapters: Chapter[] = apiChapters.map((c) => ({
+    id: c.id,
+    title: c.title,
+    pages: c.pages,
+    status: (c.status as Chapter["status"]) ?? "pending",
+    num: c.num ?? undefined,
+    date: c.date ?? undefined,
+    file: c.file ?? undefined,
+    hasWorkbook: c.hasWorkbook,
+    hasTeacherGuide: c.hasTeacherGuide,
+  }));
+
+  const selectedBook: Book | null = selectedApiBook
+    ? {
+        id: selectedApiBook.id,
+        title: selectedApiBook.title,
+        author: selectedApiBook.author,
+        grade: selectedApiBook.grade as Book["grade"],
+        chapters: selectedBookChapters,
+      }
+    : null;
 
   const handleBookSelect = (book: Book) => {
-    setSelectedBook(book);
+    setSelectedBookId(book.id);
   };
 
   const addBook = (bookData: Omit<Book, "id" | "chapters">) => {
-    const newBook: Book = { ...bookData, id: Date.now(), chapters: [] };
-    setBooks((prev) => [...prev, newBook]);
-    setSelectedBook(newBook);
-    setShowNewBook(false);
+    const input: CreateBookInput = {
+      title: bookData.title,
+      author: bookData.author,
+      grade: bookData.grade,
+    };
+    fetch("/api/books", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    })
+      .then((r) => r.json())
+      .then((newBook) => {
+        queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+        setSelectedBookId(newBook.id);
+        setShowNewBook(false);
+      });
   };
 
-  const addChapter = (chapterData: Omit<Chapter, "id" | "status">) => {
-    if (!selectedBook) return;
-    const newChapter: Chapter = { ...chapterData, id: Date.now(), status: "generating" };
-    const updatedBook = { ...selectedBook, chapters: [...selectedBook.chapters, newChapter] };
-    setBooks((prev) => prev.map((b) => (b.id === selectedBook.id ? updatedBook : b)));
-    setSelectedBook(updatedBook);
-    setShowAddChapter(false);
+  const requestDeleteBook = (bookId: number) => {
+    setConfirmDeleteBookId(bookId);
   };
+
+  const confirmDeleteBook = () => {
+    if (confirmDeleteBookId === null) return;
+    deleteBookMutation.mutate(
+      { bookId: confirmDeleteBookId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+          if (selectedBookId === confirmDeleteBookId) {
+            const remaining = apiBooks.filter((b) => b.id !== confirmDeleteBookId);
+            setSelectedBookId(remaining.length > 0 ? remaining[0].id : null);
+          }
+          setConfirmDeleteBookId(null);
+        },
+      }
+    );
+  };
+
+  const updateBook = (data: Omit<Book, "id" | "chapters">) => {
+    if (!selectedBookId) return;
+    updateBookMutation.mutate(
+      { bookId: selectedBookId, data: { title: data.title, author: data.author, grade: data.grade } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+          setShowEditBook(false);
+        },
+      }
+    );
+  };
+
+  const addChapter = (chapterData: NewChapterData) => {
+    if (!selectedBookId) return;
+    const formData = new FormData();
+    formData.append("title", chapterData.title);
+    formData.append("pages", chapterData.pages);
+    if (chapterData.num !== undefined) {
+      formData.append("num", String(chapterData.num));
+    }
+    if (chapterData.file) {
+      formData.append("file", chapterData.file);
+    }
+
+    fetch(getCreateChapterUrl(selectedBookId), {
+      method: "POST",
+      body: formData,
+    })
+      .then((r) => r.json())
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
+        setShowAddChapter(false);
+      });
+  };
+
+  const deleteChapter = (chapterId: number) => {
+    if (!selectedBookId) return;
+    deleteChapterMutation.mutate(
+      { bookId: selectedBookId, chapterId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
+          queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+        },
+      },
+    );
+  };
+
+  const regenerateChapter = (chapterId: number) => {
+    if (!selectedBookId) return;
+    regenerateMutation.mutate(
+      { bookId: selectedBookId, chapterId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
+        },
+      },
+    );
+  };
+
+  const bookToDelete = confirmDeleteBookId !== null
+    ? apiBooks.find((b) => b.id === confirmDeleteBookId)
+    : null;
 
   return (
     <div style={{
@@ -87,16 +272,15 @@ export default function App() {
       `}</style>
 
       <Sidebar
-        books={books}
+        books={booksForSidebar}
         selectedBook={selectedBook}
         onBookSelect={handleBookSelect}
         onNewBook={() => setShowNewBook(true)}
+        onDeleteBook={requestDeleteBook}
         open={sidebarOpen}
       />
 
-      {/* Main panel */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        {/* Top bar */}
         <div style={{
           padding: "16px 28px",
           background: "#FFFFFF",
@@ -122,26 +306,65 @@ export default function App() {
                 <rect y="13.5" width="18" height="1.5" rx="0.75" fill="currentColor" />
               </svg>
             </button>
-            {selectedBook && (
-              <div>
-                <div style={{
-                  fontFamily: "'Playfair Display', serif",
-                  fontSize: 20,
-                  fontWeight: 500,
-                  color: "#1C1917",
-                }}>
-                  {selectedBook.title}
-                </div>
-                <div style={{
-                  fontFamily: "'Source Sans 3', sans-serif",
-                  fontSize: 12,
-                  color: "#78716C",
-                  marginTop: 1,
-                }}>
-                  {selectedBook.author} · Grade {selectedBook.grade} · California Common Core
-                </div>
+            {booksLoading ? (
+              <div style={{
+                fontFamily: "'Source Sans 3', sans-serif",
+                fontSize: 13,
+                color: "#78716C",
+              }}>
+                Loading…
               </div>
-            )}
+            ) : selectedBook ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div>
+                  <div style={{
+                    fontFamily: "'Playfair Display', serif",
+                    fontSize: 20,
+                    fontWeight: 500,
+                    color: "#1C1917",
+                  }}>
+                    {selectedBook.title}
+                  </div>
+                  <div style={{
+                    fontFamily: "'Source Sans 3', sans-serif",
+                    fontSize: 12,
+                    color: "#78716C",
+                    marginTop: 1,
+                  }}>
+                    {selectedBook.author} · Grade {selectedBook.grade} · California Common Core
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowEditBook(true)}
+                  title="Edit book details"
+                  style={{
+                    background: "none",
+                    border: "1px solid #E8E0D4",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    padding: "5px 8px",
+                    color: "#78716C",
+                    fontSize: 13,
+                    lineHeight: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    fontFamily: "'Source Sans 3', sans-serif",
+                    transition: "all 0.15s ease",
+                  }}
+                  onMouseOver={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "#92400E";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#92400E";
+                  }}
+                  onMouseOut={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "#E8E0D4";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#78716C";
+                  }}
+                >
+                  ✎ Edit
+                </button>
+              </div>
+            ) : null}
           </div>
           {selectedBook && (
             <button
@@ -166,16 +389,23 @@ export default function App() {
           )}
         </div>
 
-        {/* Chapter list */}
         <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px" }}>
-          {!selectedBook ? (
+          {booksLoading ? (
+            <EmptyState message="Loading your library…" />
+          ) : !selectedBook ? (
             <EmptyState message="Select a book from the sidebar" />
           ) : selectedBook.chapters.length === 0 ? (
             <EmptyState message="No chapters yet — click Add chapter to get started" />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 800 }}>
               {selectedBook.chapters.map((ch) => (
-                <ChapterCard key={ch.id} chapter={ch} book={selectedBook} />
+                <ChapterCard
+                  key={ch.id}
+                  chapter={ch}
+                  book={selectedBook}
+                  onDelete={deleteChapter}
+                  onRegenerate={regenerateChapter}
+                />
               ))}
             </div>
           )}
@@ -185,11 +415,29 @@ export default function App() {
       {showNewBook && (
         <NewBookModal onClose={() => setShowNewBook(false)} onSave={addBook} />
       )}
+      {showEditBook && selectedBook && (
+        <EditBookModal
+          book={selectedBook}
+          onClose={() => setShowEditBook(false)}
+          onSave={updateBook}
+          loading={updateBookMutation.isPending}
+        />
+      )}
       {showAddChapter && selectedBook && (
         <AddChapterModal
           book={selectedBook}
           onClose={() => setShowAddChapter(false)}
           onSave={addChapter}
+        />
+      )}
+      {confirmDeleteBookId !== null && bookToDelete && (
+        <ConfirmModal
+          title={`Delete "${bookToDelete.title}"?`}
+          message={`This will permanently remove the book and all ${bookToDelete.chapterCount} ${bookToDelete.chapterCount === 1 ? "chapter" : "chapters"} from your library. This cannot be undone.`}
+          confirmLabel="Delete book"
+          onConfirm={confirmDeleteBook}
+          onCancel={() => setConfirmDeleteBookId(null)}
+          loading={deleteBookMutation.isPending}
         />
       )}
     </div>

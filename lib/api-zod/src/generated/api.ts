@@ -14,3 +14,136 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary List all books
+ */
+export const ListBooksResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  author: zod.string(),
+  grade: zod.number(),
+  chapterCount: zod.number(),
+  createdAt: zod.coerce.date(),
+});
+export const ListBooksResponse = zod.array(ListBooksResponseItem);
+
+/**
+ * @summary Create a new book
+ */
+export const CreateBookBody = zod.object({
+  title: zod.string(),
+  author: zod.string(),
+  grade: zod.number(),
+});
+
+/**
+ * @summary Update a book's title, author, or grade
+ */
+export const UpdateBookParams = zod.object({
+  bookId: zod.coerce.number(),
+});
+
+export const UpdateBookBody = zod.object({
+  title: zod.string().optional(),
+  author: zod.string().optional(),
+  grade: zod.number().optional(),
+});
+
+export const UpdateBookResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  author: zod.string(),
+  grade: zod.number(),
+  chapterCount: zod.number(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a book
+ */
+export const DeleteBookParams = zod.object({
+  bookId: zod.coerce.number(),
+});
+
+/**
+ * @summary List chapters for a book
+ */
+export const ListChaptersParams = zod.object({
+  bookId: zod.coerce.number(),
+});
+
+export const ListChaptersResponseItem = zod.object({
+  id: zod.number(),
+  bookId: zod.number(),
+  num: zod.number().nullish(),
+  title: zod.string(),
+  pages: zod.string(),
+  status: zod.string(),
+  date: zod.string().nullish(),
+  file: zod.string().nullish(),
+  hasWorkbook: zod.boolean(),
+  hasTeacherGuide: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+export const ListChaptersResponse = zod.array(ListChaptersResponseItem);
+
+/**
+ * @summary Add a chapter to a book (with optional file upload)
+ */
+export const CreateChapterParams = zod.object({
+  bookId: zod.coerce.number(),
+});
+
+export const CreateChapterBody = zod.object({
+  num: zod.number().optional(),
+  title: zod.string(),
+  pages: zod.string(),
+  status: zod.string().optional(),
+  date: zod.string().optional(),
+  file: zod.string().optional(),
+});
+
+/**
+ * @summary Delete a chapter
+ */
+export const DeleteChapterParams = zod.object({
+  bookId: zod.coerce.number(),
+  chapterId: zod.coerce.number(),
+});
+
+/**
+ * @summary Get the generated student workbook HTML for a chapter
+ */
+export const GetWorkbookParams = zod.object({
+  bookId: zod.coerce.number(),
+  chapterId: zod.coerce.number(),
+});
+
+export const GetWorkbookResponse = zod.object({
+  html: zod.string(),
+  chapterId: zod.number(),
+  type: zod.string(),
+});
+
+/**
+ * @summary Get the generated teacher guide HTML for a chapter
+ */
+export const GetTeacherGuideParams = zod.object({
+  bookId: zod.coerce.number(),
+  chapterId: zod.coerce.number(),
+});
+
+export const GetTeacherGuideResponse = zod.object({
+  html: zod.string(),
+  chapterId: zod.number(),
+  type: zod.string(),
+});
+
+/**
+ * @summary Trigger regeneration of AI content for a chapter
+ */
+export const RegenerateChapterParams = zod.object({
+  bookId: zod.coerce.number(),
+  chapterId: zod.coerce.number(),
+});

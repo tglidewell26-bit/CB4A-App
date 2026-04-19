@@ -5,18 +5,29 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  Book,
+  Chapter,
+  CreateBookInput,
+  CreateChapterInput,
+  GeneratedContent,
+  HealthStatus,
+  UpdateBookInput,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +110,876 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List all books
+ */
+export const getListBooksUrl = () => {
+  return `/api/books`;
+};
+
+export const listBooks = async (options?: RequestInit): Promise<Book[]> => {
+  return customFetch<Book[]>(getListBooksUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListBooksQueryKey = () => {
+  return [`/api/books`] as const;
+};
+
+export const getListBooksQueryOptions = <
+  TData = Awaited<ReturnType<typeof listBooks>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listBooks>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListBooksQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listBooks>>> = ({
+    signal,
+  }) => listBooks({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listBooks>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListBooksQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listBooks>>
+>;
+export type ListBooksQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all books
+ */
+
+export function useListBooks<
+  TData = Awaited<ReturnType<typeof listBooks>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listBooks>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListBooksQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new book
+ */
+export const getCreateBookUrl = () => {
+  return `/api/books`;
+};
+
+export const createBook = async (
+  createBookInput: CreateBookInput,
+  options?: RequestInit,
+): Promise<Book> => {
+  return customFetch<Book>(getCreateBookUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createBookInput),
+  });
+};
+
+export const getCreateBookMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBook>>,
+    TError,
+    { data: BodyType<CreateBookInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createBook>>,
+  TError,
+  { data: BodyType<CreateBookInput> },
+  TContext
+> => {
+  const mutationKey = ["createBook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createBook>>,
+    { data: BodyType<CreateBookInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createBook(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateBookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createBook>>
+>;
+export type CreateBookMutationBody = BodyType<CreateBookInput>;
+export type CreateBookMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new book
+ */
+export const useCreateBook = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createBook>>,
+    TError,
+    { data: BodyType<CreateBookInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createBook>>,
+  TError,
+  { data: BodyType<CreateBookInput> },
+  TContext
+> => {
+  return useMutation(getCreateBookMutationOptions(options));
+};
+
+/**
+ * @summary Update a book's title, author, or grade
+ */
+export const getUpdateBookUrl = (bookId: number) => {
+  return `/api/books/${bookId}`;
+};
+
+export const updateBook = async (
+  bookId: number,
+  updateBookInput: UpdateBookInput,
+  options?: RequestInit,
+): Promise<Book> => {
+  return customFetch<Book>(getUpdateBookUrl(bookId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateBookInput),
+  });
+};
+
+export const getUpdateBookMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateBook>>,
+    TError,
+    { bookId: number; data: BodyType<UpdateBookInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateBook>>,
+  TError,
+  { bookId: number; data: BodyType<UpdateBookInput> },
+  TContext
+> => {
+  const mutationKey = ["updateBook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateBook>>,
+    { bookId: number; data: BodyType<UpdateBookInput> }
+  > = (props) => {
+    const { bookId, data } = props ?? {};
+
+    return updateBook(bookId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateBookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateBook>>
+>;
+export type UpdateBookMutationBody = BodyType<UpdateBookInput>;
+export type UpdateBookMutationError = ErrorType<void>;
+
+/**
+ * @summary Update a book's title, author, or grade
+ */
+export const useUpdateBook = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateBook>>,
+    TError,
+    { bookId: number; data: BodyType<UpdateBookInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateBook>>,
+  TError,
+  { bookId: number; data: BodyType<UpdateBookInput> },
+  TContext
+> => {
+  return useMutation(getUpdateBookMutationOptions(options));
+};
+
+/**
+ * @summary Delete a book
+ */
+export const getDeleteBookUrl = (bookId: number) => {
+  return `/api/books/${bookId}`;
+};
+
+export const deleteBook = async (
+  bookId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteBookUrl(bookId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteBookMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteBook>>,
+    TError,
+    { bookId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteBook>>,
+  TError,
+  { bookId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteBook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteBook>>,
+    { bookId: number }
+  > = (props) => {
+    const { bookId } = props ?? {};
+
+    return deleteBook(bookId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteBookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteBook>>
+>;
+
+export type DeleteBookMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a book
+ */
+export const useDeleteBook = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteBook>>,
+    TError,
+    { bookId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteBook>>,
+  TError,
+  { bookId: number },
+  TContext
+> => {
+  return useMutation(getDeleteBookMutationOptions(options));
+};
+
+/**
+ * @summary List chapters for a book
+ */
+export const getListChaptersUrl = (bookId: number) => {
+  return `/api/books/${bookId}/chapters`;
+};
+
+export const listChapters = async (
+  bookId: number,
+  options?: RequestInit,
+): Promise<Chapter[]> => {
+  return customFetch<Chapter[]>(getListChaptersUrl(bookId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListChaptersQueryKey = (bookId: number) => {
+  return [`/api/books/${bookId}/chapters`] as const;
+};
+
+export const getListChaptersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listChapters>>,
+  TError = ErrorType<unknown>,
+>(
+  bookId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listChapters>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListChaptersQueryKey(bookId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listChapters>>> = ({
+    signal,
+  }) => listChapters(bookId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!bookId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listChapters>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListChaptersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listChapters>>
+>;
+export type ListChaptersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List chapters for a book
+ */
+
+export function useListChapters<
+  TData = Awaited<ReturnType<typeof listChapters>>,
+  TError = ErrorType<unknown>,
+>(
+  bookId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listChapters>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListChaptersQueryOptions(bookId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a chapter to a book (with optional file upload)
+ */
+export const getCreateChapterUrl = (bookId: number) => {
+  return `/api/books/${bookId}/chapters`;
+};
+
+export const createChapter = async (
+  bookId: number,
+  createChapterInput: CreateChapterInput,
+  options?: RequestInit,
+): Promise<Chapter> => {
+  const formData = new FormData();
+  if (createChapterInput.num !== undefined) {
+    formData.append(`num`, createChapterInput.num.toString());
+  }
+  formData.append(`title`, createChapterInput.title);
+  formData.append(`pages`, createChapterInput.pages);
+  if (createChapterInput.status !== undefined) {
+    formData.append(`status`, createChapterInput.status);
+  }
+  if (createChapterInput.date !== undefined) {
+    formData.append(`date`, createChapterInput.date);
+  }
+  if (createChapterInput.file !== undefined) {
+    formData.append(`file`, createChapterInput.file);
+  }
+
+  return customFetch<Chapter>(getCreateChapterUrl(bookId), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getCreateChapterMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createChapter>>,
+    TError,
+    { bookId: number; data: BodyType<CreateChapterInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createChapter>>,
+  TError,
+  { bookId: number; data: BodyType<CreateChapterInput> },
+  TContext
+> => {
+  const mutationKey = ["createChapter"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createChapter>>,
+    { bookId: number; data: BodyType<CreateChapterInput> }
+  > = (props) => {
+    const { bookId, data } = props ?? {};
+
+    return createChapter(bookId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateChapterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createChapter>>
+>;
+export type CreateChapterMutationBody = BodyType<CreateChapterInput>;
+export type CreateChapterMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a chapter to a book (with optional file upload)
+ */
+export const useCreateChapter = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createChapter>>,
+    TError,
+    { bookId: number; data: BodyType<CreateChapterInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createChapter>>,
+  TError,
+  { bookId: number; data: BodyType<CreateChapterInput> },
+  TContext
+> => {
+  return useMutation(getCreateChapterMutationOptions(options));
+};
+
+/**
+ * @summary Delete a chapter
+ */
+export const getDeleteChapterUrl = (bookId: number, chapterId: number) => {
+  return `/api/books/${bookId}/chapters/${chapterId}`;
+};
+
+export const deleteChapter = async (
+  bookId: number,
+  chapterId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteChapterUrl(bookId, chapterId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteChapterMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteChapter>>,
+    TError,
+    { bookId: number; chapterId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteChapter>>,
+  TError,
+  { bookId: number; chapterId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteChapter"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteChapter>>,
+    { bookId: number; chapterId: number }
+  > = (props) => {
+    const { bookId, chapterId } = props ?? {};
+
+    return deleteChapter(bookId, chapterId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteChapterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteChapter>>
+>;
+
+export type DeleteChapterMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a chapter
+ */
+export const useDeleteChapter = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteChapter>>,
+    TError,
+    { bookId: number; chapterId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteChapter>>,
+  TError,
+  { bookId: number; chapterId: number },
+  TContext
+> => {
+  return useMutation(getDeleteChapterMutationOptions(options));
+};
+
+/**
+ * @summary Get the generated student workbook HTML for a chapter
+ */
+export const getGetWorkbookUrl = (bookId: number, chapterId: number) => {
+  return `/api/books/${bookId}/chapters/${chapterId}/workbook`;
+};
+
+export const getWorkbook = async (
+  bookId: number,
+  chapterId: number,
+  options?: RequestInit,
+): Promise<GeneratedContent> => {
+  return customFetch<GeneratedContent>(getGetWorkbookUrl(bookId, chapterId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWorkbookQueryKey = (bookId: number, chapterId: number) => {
+  return [`/api/books/${bookId}/chapters/${chapterId}/workbook`] as const;
+};
+
+export const getGetWorkbookQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWorkbook>>,
+  TError = ErrorType<void>,
+>(
+  bookId: number,
+  chapterId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWorkbook>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetWorkbookQueryKey(bookId, chapterId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getWorkbook>>> = ({
+    signal,
+  }) => getWorkbook(bookId, chapterId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(bookId && chapterId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getWorkbook>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetWorkbookQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWorkbook>>
+>;
+export type GetWorkbookQueryError = ErrorType<void>;
+
+/**
+ * @summary Get the generated student workbook HTML for a chapter
+ */
+
+export function useGetWorkbook<
+  TData = Awaited<ReturnType<typeof getWorkbook>>,
+  TError = ErrorType<void>,
+>(
+  bookId: number,
+  chapterId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getWorkbook>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWorkbookQueryOptions(bookId, chapterId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get the generated teacher guide HTML for a chapter
+ */
+export const getGetTeacherGuideUrl = (bookId: number, chapterId: number) => {
+  return `/api/books/${bookId}/chapters/${chapterId}/teacher-guide`;
+};
+
+export const getTeacherGuide = async (
+  bookId: number,
+  chapterId: number,
+  options?: RequestInit,
+): Promise<GeneratedContent> => {
+  return customFetch<GeneratedContent>(
+    getGetTeacherGuideUrl(bookId, chapterId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetTeacherGuideQueryKey = (
+  bookId: number,
+  chapterId: number,
+) => {
+  return [`/api/books/${bookId}/chapters/${chapterId}/teacher-guide`] as const;
+};
+
+export const getGetTeacherGuideQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTeacherGuide>>,
+  TError = ErrorType<void>,
+>(
+  bookId: number,
+  chapterId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTeacherGuide>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetTeacherGuideQueryKey(bookId, chapterId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeacherGuide>>> = ({
+    signal,
+  }) => getTeacherGuide(bookId, chapterId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!(bookId && chapterId),
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTeacherGuide>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTeacherGuideQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTeacherGuide>>
+>;
+export type GetTeacherGuideQueryError = ErrorType<void>;
+
+/**
+ * @summary Get the generated teacher guide HTML for a chapter
+ */
+
+export function useGetTeacherGuide<
+  TData = Awaited<ReturnType<typeof getTeacherGuide>>,
+  TError = ErrorType<void>,
+>(
+  bookId: number,
+  chapterId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getTeacherGuide>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTeacherGuideQueryOptions(
+    bookId,
+    chapterId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Trigger regeneration of AI content for a chapter
+ */
+export const getRegenerateChapterUrl = (bookId: number, chapterId: number) => {
+  return `/api/books/${bookId}/chapters/${chapterId}/regenerate`;
+};
+
+export const regenerateChapter = async (
+  bookId: number,
+  chapterId: number,
+  options?: RequestInit,
+): Promise<Chapter> => {
+  return customFetch<Chapter>(getRegenerateChapterUrl(bookId, chapterId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRegenerateChapterMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof regenerateChapter>>,
+    TError,
+    { bookId: number; chapterId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof regenerateChapter>>,
+  TError,
+  { bookId: number; chapterId: number },
+  TContext
+> => {
+  const mutationKey = ["regenerateChapter"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof regenerateChapter>>,
+    { bookId: number; chapterId: number }
+  > = (props) => {
+    const { bookId, chapterId } = props ?? {};
+
+    return regenerateChapter(bookId, chapterId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegenerateChapterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof regenerateChapter>>
+>;
+
+export type RegenerateChapterMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Trigger regeneration of AI content for a chapter
+ */
+export const useRegenerateChapter = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof regenerateChapter>>,
+    TError,
+    { bookId: number; chapterId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof regenerateChapter>>,
+  TError,
+  { bookId: number; chapterId: number },
+  TContext
+> => {
+  return useMutation(getRegenerateChapterMutationOptions(options));
+};

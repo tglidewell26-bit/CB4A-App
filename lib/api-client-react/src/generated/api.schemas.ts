@@ -8,3 +8,53 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface Book {
+  id: number;
+  title: string;
+  author: string;
+  grade: number;
+  chapterCount: number;
+  createdAt: string;
+}
+
+export interface CreateBookInput {
+  title: string;
+  author: string;
+  grade: number;
+}
+
+export interface UpdateBookInput {
+  title?: string;
+  author?: string;
+  grade?: number;
+}
+
+export interface Chapter {
+  id: number;
+  bookId: number;
+  num?: number | null;
+  title: string;
+  pages: string;
+  status: string;
+  date?: string | null;
+  file?: string | null;
+  hasWorkbook: boolean;
+  hasTeacherGuide: boolean;
+  createdAt: string;
+}
+
+export interface CreateChapterInput {
+  num?: number;
+  title: string;
+  pages: string;
+  status?: string;
+  date?: string;
+  file?: string;
+}
+
+export interface GeneratedContent {
+  html: string;
+  chapterId: number;
+  type: string;
+}

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Book } from "../types";
 import { GRADE_COLORS } from "../constants";
 
@@ -6,10 +7,11 @@ interface SidebarProps {
   selectedBook: Book | null;
   onBookSelect: (book: Book) => void;
   onNewBook: () => void;
+  onDeleteBook: (bookId: number) => void;
   open: boolean;
 }
 
-export function Sidebar({ books, selectedBook, onBookSelect, onNewBook, open }: SidebarProps) {
+export function Sidebar({ books, selectedBook, onBookSelect, onNewBook, onDeleteBook, open }: SidebarProps) {
   return (
     <div style={{
       width: open ? 280 : 0,
@@ -75,47 +77,14 @@ export function Sidebar({ books, selectedBook, onBookSelect, onNewBook, open }: 
           const gc = GRADE_COLORS[book.grade];
           const isActive = selectedBook?.id === book.id;
           return (
-            <div
+            <BookRow
               key={book.id}
-              className={`book-row ${isActive ? "active" : ""}`}
-              onClick={() => onBookSelect(book)}
-              style={{
-                padding: "12px 20px",
-                cursor: "pointer",
-                borderLeft: isActive ? "3px solid #92400E" : "3px solid transparent",
-                background: isActive ? "#FFFFFF08" : "transparent",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <span style={{
-                  fontFamily: "'Playfair Display', serif",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: isActive ? "#F5F0E8" : "#C4B5A0",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}>
-                  {book.title}
-                </span>
-                <span style={{
-                  padding: "1px 6px",
-                  borderRadius: 4,
-                  fontSize: 10,
-                  fontWeight: 600,
-                  fontFamily: "'Source Sans 3', sans-serif",
-                  background: gc.bg,
-                  color: gc.text,
-                  border: `1px solid ${gc.border}`,
-                  flexShrink: 0,
-                }}>
-                  Gr {book.grade}
-                </span>
-              </div>
-              <div style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 11, color: "#6B5D4E", whiteSpace: "nowrap" }}>
-                {book.author} · {book.chapters.length} {book.chapters.length === 1 ? "chapter" : "chapters"}
-              </div>
-            </div>
+              book={book}
+              gc={gc}
+              isActive={isActive}
+              onSelect={() => onBookSelect(book)}
+              onDelete={() => onDeleteBook(book.id)}
+            />
           );
         })}
       </div>
@@ -130,6 +99,92 @@ export function Sidebar({ books, selectedBook, onBookSelect, onNewBook, open }: 
         }}>
           classicbooksforall.com
         </div>
+      </div>
+    </div>
+  );
+}
+
+interface BookRowProps {
+  book: Book;
+  gc: { bg: string; border: string; text: string };
+  isActive: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+}
+
+function BookRow({ book, gc, isActive, onSelect, onDelete }: BookRowProps) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div
+      className={`book-row ${isActive ? "active" : ""}`}
+      onClick={onSelect}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        padding: "12px 20px",
+        cursor: "pointer",
+        borderLeft: isActive ? "3px solid #92400E" : "3px solid transparent",
+        background: isActive ? "#FFFFFF08" : "transparent",
+        position: "relative",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <span style={{
+          fontFamily: "'Playfair Display', serif",
+          fontSize: 13,
+          fontWeight: 500,
+          color: isActive ? "#F5F0E8" : "#C4B5A0",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          flex: 1,
+          minWidth: 0,
+        }}>
+          {book.title}
+        </span>
+        <span style={{
+          padding: "1px 6px",
+          borderRadius: 4,
+          fontSize: 10,
+          fontWeight: 600,
+          fontFamily: "'Source Sans 3', sans-serif",
+          background: gc.bg,
+          color: gc.text,
+          border: `1px solid ${gc.border}`,
+          flexShrink: 0,
+        }}>
+          Gr {book.grade}
+        </span>
+        {hovered && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            title="Delete book folder"
+            style={{
+              background: "rgba(220,38,38,0.15)",
+              border: "none",
+              cursor: "pointer",
+              padding: "2px 5px",
+              borderRadius: 4,
+              color: "#FCA5A5",
+              fontSize: 12,
+              lineHeight: 1,
+              flexShrink: 0,
+              transition: "background 0.15s ease",
+            }}
+            onMouseOver={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(220,38,38,0.3)";
+            }}
+            onMouseOut={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(220,38,38,0.15)";
+            }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+      <div style={{ fontFamily: "'Source Sans 3', sans-serif", fontSize: 11, color: "#6B5D4E", whiteSpace: "nowrap" }}>
+        {book.author} · {book.chapters.length} {book.chapters.length === 1 ? "chapter" : "chapters"}
       </div>
     </div>
   );
