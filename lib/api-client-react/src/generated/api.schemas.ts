@@ -53,6 +53,12 @@ export interface CreateChapterInput {
   file?: string;
 }
 
+export interface UpdateChapterInput {
+  num?: number | null;
+  title?: string;
+  pages?: string;
+}
+
 export interface GeneratedContent {
   html: string;
   chapterId: number;

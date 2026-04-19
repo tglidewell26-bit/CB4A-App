@@ -13,3 +13,4 @@ export * from "./createChapterInput";
 export * from "./generatedContent";
 export * from "./healthStatus";
 export * from "./updateBookInput";
+export * from "./updateChapterInput";

@@ -5,6 +5,7 @@ import {
   useListBooks,
   useDeleteBook,
   useUpdateBook,
+  useUpdateChapter,
   useDeleteChapter,
   useRegenerateChapter,
   useListChapters,
@@ -69,6 +70,7 @@ export default function App() {
 
   const deleteBookMutation = useDeleteBook();
   const updateBookMutation = useUpdateBook();
+  const updateChapterMutation = useUpdateChapter();
   const deleteChapterMutation = useDeleteChapter();
   const regenerateMutation = useRegenerateChapter();
 
@@ -188,6 +190,22 @@ export default function App() {
         queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
         setShowAddChapter(false);
       });
+  };
+
+  const editChapter = (chapterId: number, data: { title: string; pages: string; num?: number | null }): Promise<void> => {
+    if (!selectedBookId) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      updateChapterMutation.mutate(
+        { bookId: selectedBookId, chapterId, data },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
+            resolve();
+          },
+          onError: (err) => reject(err),
+        },
+      );
+    });
   };
 
   const deleteChapter = (chapterId: number) => {
@@ -405,6 +423,7 @@ export default function App() {
                   book={selectedBook}
                   onDelete={deleteChapter}
                   onRegenerate={regenerateChapter}
+                  onEdit={editChapter}
                 />
               ))}
             </div>

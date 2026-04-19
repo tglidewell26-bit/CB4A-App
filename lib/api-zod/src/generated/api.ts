@@ -105,6 +105,34 @@ export const CreateChapterBody = zod.object({
 });
 
 /**
+ * @summary Update a chapter's title, page range, or number
+ */
+export const UpdateChapterParams = zod.object({
+  bookId: zod.coerce.number(),
+  chapterId: zod.coerce.number(),
+});
+
+export const UpdateChapterBody = zod.object({
+  num: zod.number().nullish(),
+  title: zod.string().optional(),
+  pages: zod.string().optional(),
+});
+
+export const UpdateChapterResponse = zod.object({
+  id: zod.number(),
+  bookId: zod.number(),
+  num: zod.number().nullish(),
+  title: zod.string(),
+  pages: zod.string(),
+  status: zod.string(),
+  date: zod.string().nullish(),
+  file: zod.string().nullish(),
+  hasWorkbook: zod.boolean(),
+  hasTeacherGuide: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary Delete a chapter
  */
 export const DeleteChapterParams = zod.object({

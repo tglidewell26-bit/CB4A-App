@@ -144,6 +144,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/Chapter"
   /books/{bookId}/chapters/{chapterId}:
+    patch:
+      operationId: updateChapter
+      tags: [chapters]
+      summary: Update a chapter's title, page range, or number
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChapterInput"
+      responses:
+        "200":
+          description: Chapter updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chapter"
+        "404":
+          description: Chapter not found
     delete:
       operationId: deleteChapter
       tags: [chapters]
@@ -345,6 +375,16 @@ components:
       required:
         - title
         - pages
+    UpdateChapterInput:
+      type: object
+      properties:
+        num:
+          type: integer
+          nullable: true
+        title:
+          type: string
+        pages:
+          type: string
     GeneratedContent:
       type: object
       properties:

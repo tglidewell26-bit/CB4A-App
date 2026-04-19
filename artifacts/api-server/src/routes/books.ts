@@ -174,6 +174,45 @@ router.delete("/books/:bookId", async (req, res) => {
   res.status(204).send();
 });
 
+router.patch("/books/:bookId/chapters/:chapterId", async (req, res) => {
+  const bookId = Number(req.params.bookId);
+  const chapterId = Number(req.params.chapterId);
+  if (isNaN(bookId) || isNaN(chapterId)) {
+    res.status(400).json({ error: "Invalid bookId or chapterId" });
+    return;
+  }
+  const { title, pages, num } = req.body;
+  const updates: Partial<{ title: string; pages: string; num: number | null }> = {};
+  if (typeof title === "string" && title.trim()) updates.title = title.trim();
+  if (typeof pages === "string" && pages.trim()) updates.pages = pages.trim();
+  if (num !== undefined) {
+    if (num === null) {
+      updates.num = null;
+    } else {
+      const numVal = Number(num);
+      if (!Number.isInteger(numVal) || numVal < 1) {
+        res.status(400).json({ error: "Chapter number must be a positive integer" });
+        return;
+      }
+      updates.num = numVal;
+    }
+  }
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No valid fields to update" });
+    return;
+  }
+  const [chapter] = await db
+    .update(chaptersTable)
+    .set(updates)
+    .where(and(eq(chaptersTable.id, chapterId), eq(chaptersTable.bookId, bookId)))
+    .returning();
+  if (!chapter) {
+    res.status(404).json({ error: "Chapter not found" });
+    return;
+  }
+  res.json(chapterToResponse(chapter));
+});
+
 router.delete("/books/:bookId/chapters/:chapterId", async (req, res) => {
   const bookId = Number(req.params.bookId);
   const chapterId = Number(req.params.chapterId);

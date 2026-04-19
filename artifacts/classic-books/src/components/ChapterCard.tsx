@@ -3,6 +3,7 @@ import { GRADE_COLORS } from "../constants";
 import type { Book, Chapter } from "../types";
 import { ActionPill } from "./ActionPill";
 import { ContentPreviewModal } from "./ContentPreviewModal";
+import { EditChapterModal } from "./EditChapterModal";
 import { getWorkbook, getTeacherGuide } from "@workspace/api-client-react";
 
 interface ChapterCardProps {
@@ -10,11 +11,12 @@ interface ChapterCardProps {
   book: Book;
   onDelete: (chapterId: number) => void;
   onRegenerate: (chapterId: number) => void;
+  onEdit: (chapterId: number, data: { title: string; pages: string; num?: number | null }) => Promise<void>;
 }
 
 type LoadingState = "idle" | "loading" | "error";
 
-export function ChapterCard({ chapter, book, onDelete, onRegenerate }: ChapterCardProps) {
+export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: ChapterCardProps) {
   const isReady = chapter.status === "ready";
   const isGenerating = chapter.status === "generating";
   const isError = chapter.status === "error";
@@ -24,6 +26,8 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate }: ChapterCa
   const [previewTitle, setPreviewTitle] = useState("");
   const [workbookLoading, setWorkbookLoading] = useState<LoadingState>("idle");
   const [guideLoading, setGuideLoading] = useState<LoadingState>("idle");
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
 
   const handleWorkbook = async () => {
     setWorkbookLoading("loading");
@@ -48,6 +52,16 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate }: ChapterCa
     } catch {
       setGuideLoading("error");
       setTimeout(() => setGuideLoading("idle"), 3000);
+    }
+  };
+
+  const handleEditSave = async (data: { title: string; pages: string; num?: number | null }) => {
+    setEditSaving(true);
+    try {
+      await onEdit(chapter.id, data);
+      setShowEditModal(false);
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -148,6 +162,31 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate }: ChapterCa
               Gr {book.grade}
             </div>
             <button
+              onClick={() => setShowEditModal(true)}
+              title="Edit chapter"
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: "3px 5px",
+                borderRadius: 4,
+                color: "#C4B5A0",
+                fontSize: 13,
+                lineHeight: 1,
+                transition: "color 0.15s ease, background 0.15s ease",
+              }}
+              onMouseOver={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.color = "#92400E";
+                (e.currentTarget as HTMLButtonElement).style.background = "#FEF3C7";
+              }}
+              onMouseOut={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.color = "#C4B5A0";
+                (e.currentTarget as HTMLButtonElement).style.background = "none";
+              }}
+            >
+              ✎
+            </button>
+            <button
               onClick={() => onDelete(chapter.id)}
               title="Delete chapter"
               style={{
@@ -230,6 +269,15 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate }: ChapterCa
           html={previewHtml}
           title={previewTitle}
           onClose={() => setPreviewHtml(null)}
+        />
+      )}
+
+      {showEditModal && (
+        <EditChapterModal
+          chapter={chapter}
+          onClose={() => !editSaving && setShowEditModal(false)}
+          onSave={handleEditSave}
+          loading={editSaving}
         />
       )}
     </>
