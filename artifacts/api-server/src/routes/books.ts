@@ -72,10 +72,8 @@ async function triggerGeneration(
 
     logger.info({ chapterId, bookId }, "Starting AI generation");
 
-    const [workbookHtml, teacherGuideHtml] = await Promise.all([
-      generateWorkbook(meta),
-      generateTeacherGuide(meta),
-    ]);
+    const workbookHtml = await generateWorkbook(meta);
+    const teacherGuideHtml = await generateTeacherGuide(meta, workbookHtml);
 
     const today = new Date().toLocaleDateString("en-US", {
       month: "short",
