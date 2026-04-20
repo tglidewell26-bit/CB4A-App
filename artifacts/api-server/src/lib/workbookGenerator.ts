@@ -47,6 +47,15 @@ ${chapterText}`;
 
   const userPrompt = `Generate a complete Student Workbook as HTML for Grade ${meta.grade} students reading "${meta.bookTitle}" by ${meta.author}, Chapter: "${meta.chapterTitle}".
 
+VOCABULARY GROUNDING REQUIREMENTS (MANDATORY):
+1. Build vocabulary ONLY from words that appear in the provided chapter text.
+2. Extract unique candidate words from the chapter text and select words that are 5+ letters long.
+3. Choose exactly 10 words that are likely unfamiliar but grade-appropriate for Grade ${meta.grade}.
+4. For each selected word, find an exact quote from the chapter that contains that exact word (no paraphrasing).
+5. Include a page number only if it is supported by the chapter metadata/pages; never fabricate page numbers.
+6. Never use outside knowledge, training data examples, or invented words.
+7. For student workbook vocabulary entries, leave Meaning and Example blank for student completion.
+
 Produce a self-contained HTML fragment (no <html>/<body> tags) using this exact structure:
 
 <div class="workbook">
@@ -69,8 +78,8 @@ Produce a self-contained HTML fragment (no <html>/<body> tags) using this exact 
       <div class="vocab-item">
         <p class="vocab-word">[word]</p>
         <p class="vocab-quote"><em>"[exact quote from text]" (p. [N])</em></p>
-        <p class="vocab-def"><strong>Meaning:</strong> [grade-appropriate definition]</p>
-        <p class="vocab-example"><strong>Example:</strong> [original example sentence]</p>
+        <p class="vocab-def"><strong>Meaning:</strong> </p>
+        <p class="vocab-example"><strong>Example:</strong> </p>
       </div>
       <!-- repeat for all 10 words -->
     </div>
@@ -185,7 +194,10 @@ Fill in all placeholder text with real content based only on the chapter provide
   return block.type === "text" ? block.text : "";
 }
 
-export async function generateTeacherGuide(meta: ChapterMeta): Promise<string> {
+export async function generateTeacherGuide(
+  meta: ChapterMeta,
+  studentWorkbookOutput: string,
+): Promise<string> {
   const guidance = GRADE_GUIDANCE[meta.grade] ?? GRADE_GUIDANCE[5];
   const chapterText = truncateText(meta.extractedText);
 
@@ -194,7 +206,10 @@ export async function generateTeacherGuide(meta: ChapterMeta): Promise<string> {
 CRITICAL RULES:
 1. Use ONLY the chapter text provided. Never use outside knowledge.
 2. All content must be tailored to Grade ${meta.grade}: ${guidance}
-3. Produce the guide in the exact HTML format specified.
+3. You are creating a Teacher Guide that accompanies an already-generated Student Workbook.
+4. Do NOT generate new vocabulary words or new student questions.
+5. Use ONLY the vocabulary words and student questions from the provided Student Workbook output.
+6. Produce the guide in the exact HTML format specified.
 
 BOOK INFORMATION:
 Title: ${meta.bookTitle}
@@ -204,9 +219,20 @@ Pages: ${meta.pages}
 Grade: ${meta.grade}
 
 CHAPTER TEXT:
-${chapterText}`;
+${chapterText}
+
+STUDENT WORKBOOK OUTPUT (SOURCE OF TRUTH FOR VOCAB/QUESTIONS):
+${studentWorkbookOutput}`;
 
   const userPrompt = `Generate a comprehensive Teacher Guide as HTML for Grade ${meta.grade} instruction of "${meta.bookTitle}" by ${meta.author}, Chapter: "${meta.chapterTitle}".
+
+CRITICAL INSTRUCTIONS:
+- The Student Workbook output is already defined and is the source of truth.
+- Reuse the exact same 10 vocabulary words from the Student Workbook.
+- Reuse the exact same student questions for Basic Comprehension, Reading Between the Lines (Inference), and Analysis Questions.
+- Reuse the same chapter timeline events from the Student Workbook.
+- Do not create alternate or replacement vocabulary/questions.
+- Your role is to provide answer keys grounded in the chapter text, teaching tips, common misconceptions, differentiation guidance, guided reading support, and tiered discussion questions.
 
 Produce a self-contained HTML fragment (no <html>/<body> tags) using this exact structure:
 
