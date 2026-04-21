@@ -59,6 +59,40 @@ function sentenceQuote(text: string, word: string): string {
   return (found ?? text).slice(0, 220).trim();
 }
 
+function isLikelyContraction(token: string): boolean {
+  const lower = token.toLowerCase();
+  if (lower.includes("'")) return true;
+  return /(n't|'re|'ve|'ll|'d|'m|'s)$/.test(lower);
+}
+
+function buildProperNounLexicon(chapterPages: PageText[]): Set<string> {
+  const counts = new Map<string, { upper: number; lower: number }>();
+  const punctuation = /^[^A-Za-z]+|[^A-Za-z]+$/g;
+
+  chapterPages.forEach((page) => {
+    const words = page.text.match(/\b[A-Za-z][A-Za-z'-]*\b/g) ?? [];
+    words.forEach((raw) => {
+      const cleaned = raw.replace(punctuation, "");
+      if (!cleaned) return;
+      const base = cleaned.toLowerCase();
+      if (base.length < 3) return;
+      if (STOPWORDS.has(base)) return;
+      if (isLikelyContraction(cleaned)) return;
+
+      const stat = counts.get(base) ?? { upper: 0, lower: 0 };
+      if (/^[A-Z]/.test(cleaned)) stat.upper += 1;
+      else stat.lower += 1;
+      counts.set(base, stat);
+    });
+  });
+
+  const properNouns = new Set<string>();
+  for (const [base, stat] of counts.entries()) {
+    if (stat.upper >= 2 && stat.lower === 0) properNouns.add(base);
+  }
+  return properNouns;
+}
+
 export function extractVocabulary(
   chapterPages: PageText[],
   gradeLevel: number,
@@ -77,10 +111,14 @@ export function extractVocabulary(
   };
 
   const candidates = new Map<string, Candidate>();
+  const properNounLexicon = buildProperNounLexicon(chapterPages);
 
   chapterPages.forEach((page) => {
     const tokens = page.text.match(/[A-Za-z][A-Za-z'-]{2,}/g) ?? [];
     tokens.forEach((raw, tokenIndex) => {
+      if (isLikelyContraction(raw)) return;
+      if (/^[A-Z]/.test(raw) && properNounLexicon.has(raw.toLowerCase())) return;
+
       const normalized = raw.toLowerCase();
       if (STOPWORDS.has(normalized) || normalized.length < 4) return;
       if (DOLCH_SIGHT_WORDS.has(normalized)) return;
