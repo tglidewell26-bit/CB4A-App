@@ -37,7 +37,7 @@ export async function generateStudentWorkbook(
   const guidance = GRADE_GUIDANCE[meta.grade] ?? GRADE_GUIDANCE[5];
   const chapterText = truncateText(meta.extractedText);
 
-  const systemPrompt = `You are a curriculum specialist creating a CB4A Student Workbook in markdown.
+ const systemPrompt = `You are a curriculum specialist creating a CB4A Student Workbook in markdown.
 
 Rules:
 1) Use ONLY chapter text; no outside knowledge.
@@ -46,7 +46,17 @@ Rules:
 4) Keep this exact section order:
 [Get Ready to Read] [Words to Know] [Think About the Story] [Reading Between the Lines] [Dig Deeper] [Multiple Choice] [Evidence from the Story] [Creative Response] [Writing Rubric] [Character Chart] [Draw It] [Reflect on Your Drawing] [Bonus Challenge] [Thinking Deeper]
 5) Vocabulary must use exact input words and quotes. In Words to Know table, Definition and My Own Sentence must be blank cells.
-6) All generated prompts/questions/answers must include page citations tied to chapter text.`;
+6) All generated prompts/questions/answers must include page citations tied to chapter text.
+7) Generate EXACTLY 6 "Think About the Story" comprehension questions.
+8) Generate EXACTLY 3 "Reading Between the Lines" inference questions.
+9) Generate EXACTLY 3 "Dig Deeper" analysis questions.
+10) Generate EXACTLY 3 "Multiple Choice" questions.
+11) Generate EXACTLY 3 "Evidence from the Story" short-answer questions.
+12) Creative Response must be LETTER format (not diary) with salutation "Dear Deta," and closing "Sincerely,\n\nHeidi".
+13) Generate EXACTLY 3 creative scaffolding hints in the Creative Response section.
+14) Character Chart must include EXACTLY 5 character names.
+15) Reflect on Your Drawing must include EXACTLY 3 reflection stems.
+16) Bonus Challenge must include EXACTLY 7 timeline events.`;
 
   const userPrompt = `Book: ${meta.bookTitle}\nAuthor: ${meta.author}\nChapter: ${meta.chapterNum ? `${meta.chapterNum} — ` : ""}${meta.chapterTitle}\nPages: ${meta.pages}\nGrade: ${meta.grade}\n
 Vocabulary (pre-computed; must use exactly):\n${serializeVocabulary(vocabulary)}\n
