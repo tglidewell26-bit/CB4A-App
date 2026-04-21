@@ -56,7 +56,13 @@ Rules:
 13) Generate EXACTLY 3 creative scaffolding hints in the Creative Response section.
 14) Character Chart must include EXACTLY 5 character names.
 15) Reflect on Your Drawing must include EXACTLY 3 reflection stems.
-16) Bonus Challenge must include EXACTLY 7 timeline events.`;
+16) Bonus Challenge must include EXACTLY 7 timeline events.
+17) Never use emojis or icon symbols anywhere in output.
+18) Use plain bracket section headers only (example: [Get Ready to Read]) with no numbering.
+19) "Words to Know" must include this exact 3-column markdown table header and separator:
+| Word | Definition | My Own Sentence |
+|---|---|---|
+and every row must leave Definition and My Own Sentence blank.`;
 
   const userPrompt = `Book: ${meta.bookTitle}\nAuthor: ${meta.author}\nChapter: ${meta.chapterNum ? `${meta.chapterNum} — ` : ""}${meta.chapterTitle}\nPages: ${meta.pages}\nGrade: ${meta.grade}\n
 Vocabulary (pre-computed; must use exactly):\n${serializeVocabulary(vocabulary)}\n
@@ -89,10 +95,15 @@ Rules:
 3) Output markdown only.
 4) Mirror the student workbook structure exactly.
 5) Use exact same vocabulary and exact same student questions from the input student workbook.
-6) Vocabulary table must fill all 4 columns (Word, Book Quote, Definition, My Own Sentence example).
+6) "Words to Know" must use this exact 4-column markdown table:
+| Word | Definition | Example Sentence | Part of Speech |
+|---|---|---|---|
+All 4 columns must be filled for each vocabulary word.
 7) Generate only teacher-facing content: answers with page citations, teaching tips, misconceptions, differentiation, guided reading, tiered discussion.
 8) Use this exact section order:
-[Lesson Overview] [Get Ready to Read] [Words to Know] [Guided Reading] [Think About the Story + Tiered Discussion] [Reading Between the Lines + answers] [Dig Deeper + answers] [Multiple Choice + answers] [Evidence from Story + answers] [Creative Response Guide] [Character Chart Answer Key] [Draw It + Reflect answers] [Bonus Challenge answers] [Thinking Deeper + Exit Ticket]`;
+[Lesson Overview] [Get Ready to Read] [Words to Know] [Guided Reading] [Think About the Story + Tiered Discussion] [Reading Between the Lines + answers] [Dig Deeper + answers] [Multiple Choice + answers] [Evidence from Story + answers] [Creative Response Guide] [Character Chart Answer Key] [Draw It + Reflect answers] [Bonus Challenge answers] [Thinking Deeper + Exit Ticket]
+9) Never use emojis or icon symbols anywhere in output.
+10) Use plain bracket section headers only with no numbering or extra decoration.`;
 
   const userPrompt = `Book: ${meta.bookTitle}\nAuthor: ${meta.author}\nChapter: ${meta.chapterNum ? `${meta.chapterNum} — ` : ""}${meta.chapterTitle}\nPages: ${meta.pages}\nGrade: ${meta.grade}\n
 Pre-computed vocabulary (must remain unchanged words):\n${serializeVocabulary(vocabulary)}\n
