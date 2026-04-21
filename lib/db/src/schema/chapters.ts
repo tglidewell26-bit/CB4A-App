@@ -15,6 +15,7 @@ export const chaptersTable = pgTable("chapters", {
   date: text("date"),
   file: text("file"),
   extractedText: text("extracted_text"),
+  content: text("content"),
   workbookContent: text("workbook_content"),
   teacherGuideContent: text("teacher_guide_content"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -22,8 +22,9 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
   const isError = chapter.status === "error";
   const gc = GRADE_COLORS[book.grade];
 
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [previewMarkdown, setPreviewMarkdown] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState("");
+  const [previewFilename, setPreviewFilename] = useState("");
   const [workbookLoading, setWorkbookLoading] = useState<LoadingState>("idle");
   const [guideLoading, setGuideLoading] = useState<LoadingState>("idle");
   const [showEditModal, setShowEditModal] = useState(false);
@@ -34,7 +35,8 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
     try {
       const data = await getWorkbook(book.id, chapter.id);
       setPreviewTitle(`Student Workbook — ${chapter.title}`);
-      setPreviewHtml(data.html);
+      setPreviewFilename(`${book.title.replace(/\s+/g, "_")}_${chapter.num ?? chapter.id}_StudentWorkbook.md`);
+      setPreviewMarkdown((data as { markdown?: string; html?: string }).markdown ?? data.html);
       setWorkbookLoading("idle");
     } catch {
       setWorkbookLoading("error");
@@ -47,7 +49,8 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
     try {
       const data = await getTeacherGuide(book.id, chapter.id);
       setPreviewTitle(`Teacher Guide — ${chapter.title}`);
-      setPreviewHtml(data.html);
+      setPreviewFilename(`${book.title.replace(/\s+/g, "_")}_${chapter.num ?? chapter.id}_TeacherGuide.md`);
+      setPreviewMarkdown((data as { markdown?: string; html?: string }).markdown ?? data.html);
       setGuideLoading("idle");
     } catch {
       setGuideLoading("error");
@@ -264,11 +267,12 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
         )}
       </div>
 
-      {previewHtml && (
+      {previewMarkdown && (
         <ContentPreviewModal
-          html={previewHtml}
+          markdown={previewMarkdown}
           title={previewTitle}
-          onClose={() => setPreviewHtml(null)}
+          filename={previewFilename}
+          onClose={() => setPreviewMarkdown(null)}
         />
       )}
 
