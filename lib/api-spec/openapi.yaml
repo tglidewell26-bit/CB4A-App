@@ -144,6 +144,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/Chapter"
   /books/{bookId}/chapters/{chapterId}:
+    patch:
+      operationId: updateChapter
+      tags: [chapters]
+      summary: Update a chapter's title, page range, or number
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChapterInput"
+      responses:
+        "200":
+          description: Chapter updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chapter"
+        "404":
+          description: Chapter not found
     delete:
       operationId: deleteChapter
       tags: [chapters]
@@ -166,7 +196,7 @@ paths:
     get:
       operationId: getWorkbook
       tags: [generation]
-      summary: Get the generated student workbook HTML for a chapter
+      summary: Get the generated student workbook Markdown for a chapter
       parameters:
         - name: bookId
           in: path
@@ -180,7 +210,7 @@ paths:
             type: integer
       responses:
         "200":
-          description: Workbook HTML content
+          description: Workbook markdown content
           content:
             application/json:
               schema:
@@ -191,7 +221,7 @@ paths:
     get:
       operationId: getTeacherGuide
       tags: [generation]
-      summary: Get the generated teacher guide HTML for a chapter
+      summary: Get the generated teacher guide Markdown for a chapter
       parameters:
         - name: bookId
           in: path
@@ -205,7 +235,7 @@ paths:
             type: integer
       responses:
         "200":
-          description: Teacher guide HTML content
+          description: Teacher guide markdown content
           content:
             application/json:
               schema:
@@ -345,16 +375,26 @@ components:
       required:
         - title
         - pages
+    UpdateChapterInput:
+      type: object
+      properties:
+        num:
+          type: integer
+          nullable: true
+        title:
+          type: string
+        pages:
+          type: string
     GeneratedContent:
       type: object
       properties:
-        html:
+        markdown:
           type: string
         chapterId:
           type: integer
         type:
           type: string
       required:
-        - html
+        - markdown
         - chapterId
         - type

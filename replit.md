@@ -31,7 +31,10 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
   - "Student workbook" and "Teacher guide" buttons open a preview modal with printable/downloadable content
   - Auto-polling for chapters in "generating" status (4s interval) to detect when AI finishes
   - Regenerate button triggers new AI generation for existing chapters
+  - Delete book functionality with confirmation modal (fully API-backed)
   - Delete chapter functionality (fully API-backed)
+  - Edit book: "✎ Edit" button in top bar opens pre-filled modal to update title, author, or grade
+  - Edit chapter: pencil button on each chapter card opens modal to update title, page range, or chapter number
   - Books and chapters fully persisted in PostgreSQL via API
 - **State management**: React Query (TanStack Query) with generated API hooks from `@workspace/api-client-react`
 - **Design**: Warm parchment palette, Playfair Display + Source Sans 3 fonts
@@ -51,10 +54,12 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
   - `GET /api/healthz` — health check
   - `GET /api/books` — list all books with chapter counts
   - `POST /api/books` — create a new book
-  - `DELETE /api/books/:bookId` — delete a book
+  - `PATCH /api/books/:bookId` — update a book's title, author, or grade (grade validated 3–8)
+  - `DELETE /api/books/:bookId` — delete a book (cascades to chapters)
   - `GET /api/books/:bookId/chapters` — list chapters for a book (returns hasWorkbook/hasTeacherGuide booleans)
   - `POST /api/books/:bookId/chapters` — create a chapter + upload file (multipart/form-data); triggers async AI generation when file text is extracted
-  - `DELETE /api/books/:bookId/chapters/:chapterId` — delete a chapter
+  - `PATCH /api/books/:bookId/chapters/:chapterId` — update a chapter's title, pages, or num
+  - `DELETE /api/books/:bookId/chapters/:chapterId` — delete a chapter (scoped by bookId)
   - `GET /api/books/:bookId/chapters/:chapterId/workbook` — get generated student workbook HTML
   - `GET /api/books/:bookId/chapters/:chapterId/teacher-guide` — get generated teacher guide HTML
   - `POST /api/books/:bookId/chapters/:chapterId/regenerate` — trigger re-generation with existing extracted text

@@ -2,8 +2,10 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import { db, booksTable, chaptersTable, insertBookSchema } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
-import { extractTextFromBuffer } from "../lib/textExtractor.js";
-import { generateWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
+import { extractTextFromBuffer, type PageText } from "../lib/textExtractor.js";
+import { extractVocabulary } from "../lib/vocabularyExtractor.js";
+import { generateStudentWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
+import { validateWorkbookMarkdownCounts } from "../lib/workbookTemplate.js";
 import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
@@ -72,10 +74,18 @@ async function triggerGeneration(
 
     logger.info({ chapterId, bookId }, "Starting AI generation");
 
-    const [workbookHtml, teacherGuideHtml] = await Promise.all([
-      generateWorkbook(meta),
-      generateTeacherGuide(meta),
-    ]);
+    const chapterPages: PageText[] = chapter.extractedText
+      .split("\n\n---PAGE---\n\n")
+      .map((text: string, index: number) => ({ page_number: index + 1, text }))
+      .filter((page: PageText) => page.text.trim().length > 0);
+    const vocabulary = extractVocabulary(chapterPages, book.grade);
+    const workbookMarkdown = await generateStudentWorkbook(meta, vocabulary);
+    validateWorkbookMarkdownCounts(workbookMarkdown);
+    const teacherGuideMarkdown = await generateTeacherGuide(
+      meta,
+      workbookMarkdown,
+      vocabulary,
+    );
 
     const today = new Date().toLocaleDateString("en-US", {
       month: "short",
@@ -87,8 +97,9 @@ async function triggerGeneration(
       .update(chaptersTable)
       .set({
         status: "ready",
-        workbookContent: workbookHtml,
-        teacherGuideContent: teacherGuideHtml,
+        content: workbookMarkdown,
+        workbookContent: workbookMarkdown,
+        teacherGuideContent: teacherGuideMarkdown,
         date: today,
       })
       .where(eq(chaptersTable.id, chapterId));
@@ -174,6 +185,45 @@ router.delete("/books/:bookId", async (req, res) => {
   res.status(204).send();
 });
 
+router.patch("/books/:bookId/chapters/:chapterId", async (req, res) => {
+  const bookId = Number(req.params.bookId);
+  const chapterId = Number(req.params.chapterId);
+  if (isNaN(bookId) || isNaN(chapterId)) {
+    res.status(400).json({ error: "Invalid bookId or chapterId" });
+    return;
+  }
+  const { title, pages, num } = req.body;
+  const updates: Partial<{ title: string; pages: string; num: number | null }> = {};
+  if (typeof title === "string" && title.trim()) updates.title = title.trim();
+  if (typeof pages === "string" && pages.trim()) updates.pages = pages.trim();
+  if (num !== undefined) {
+    if (num === null) {
+      updates.num = null;
+    } else {
+      const numVal = Number(num);
+      if (!Number.isInteger(numVal) || numVal < 1) {
+        res.status(400).json({ error: "Chapter number must be a positive integer" });
+        return;
+      }
+      updates.num = numVal;
+    }
+  }
+  if (Object.keys(updates).length === 0) {
+    res.status(400).json({ error: "No valid fields to update" });
+    return;
+  }
+  const [chapter] = await db
+    .update(chaptersTable)
+    .set(updates)
+    .where(and(eq(chaptersTable.id, chapterId), eq(chaptersTable.bookId, bookId)))
+    .returning();
+  if (!chapter) {
+    res.status(404).json({ error: "Chapter not found" });
+    return;
+  }
+  res.json(chapterToResponse(chapter));
+});
+
 router.delete("/books/:bookId/chapters/:chapterId", async (req, res) => {
   const bookId = Number(req.params.bookId);
   const chapterId = Number(req.params.chapterId);
@@ -221,11 +271,12 @@ router.post(
     let extractedText: string | null = null;
     if (file) {
       try {
-        extractedText = await extractTextFromBuffer(
+        const pages = await extractTextFromBuffer(
           file.buffer,
           file.mimetype,
           file.originalname,
         );
+        extractedText = pages.map((p) => p.text).join("\n\n---PAGE---\n\n");
       } catch (err) {
         logger.warn({ err }, "Text extraction failed, continuing without text");
       }
@@ -273,7 +324,7 @@ router.get(
       return;
     }
     res.json({
-      html: chapter.workbookContent,
+      markdown: chapter.workbookContent,
       chapterId,
       type: "workbook",
     });
@@ -297,7 +348,7 @@ router.get(
       return;
     }
     res.json({
-      html: chapter.teacherGuideContent,
+      markdown: chapter.teacherGuideContent,
       chapterId,
       type: "teacher-guide",
     });
