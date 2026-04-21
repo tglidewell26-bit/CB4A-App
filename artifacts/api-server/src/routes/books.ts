@@ -2,8 +2,9 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import { db, booksTable, chaptersTable, insertBookSchema } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
-import { extractTextFromBuffer } from "../lib/textExtractor.js";
-import { generateWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
+import { extractTextFromBuffer, type PageText } from "../lib/textExtractor.js";
+import { extractVocabulary } from "../lib/vocabularyExtractor.js";
+import { generateStudentWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
 import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
@@ -72,8 +73,17 @@ async function triggerGeneration(
 
     logger.info({ chapterId, bookId }, "Starting AI generation");
 
-    const workbookHtml = await generateWorkbook(meta);
-    const teacherGuideHtml = await generateTeacherGuide(meta, workbookHtml);
+    const chapterPages: PageText[] = chapter.extractedText
+      .split("\n\n---PAGE---\n\n")
+      .map((text: string, index: number) => ({ page_number: index + 1, text }))
+      .filter((page: PageText) => page.text.trim().length > 0);
+    const vocabulary = extractVocabulary(chapterPages, book.grade);
+    const workbookMarkdown = await generateStudentWorkbook(meta, vocabulary);
+    const teacherGuideMarkdown = await generateTeacherGuide(
+      meta,
+      workbookMarkdown,
+      vocabulary,
+    );
 
     const today = new Date().toLocaleDateString("en-US", {
       month: "short",
@@ -85,8 +95,9 @@ async function triggerGeneration(
       .update(chaptersTable)
       .set({
         status: "ready",
-        workbookContent: workbookHtml,
-        teacherGuideContent: teacherGuideHtml,
+        content: workbookMarkdown,
+        workbookContent: workbookMarkdown,
+        teacherGuideContent: teacherGuideMarkdown,
         date: today,
       })
       .where(eq(chaptersTable.id, chapterId));
@@ -258,11 +269,12 @@ router.post(
     let extractedText: string | null = null;
     if (file) {
       try {
-        extractedText = await extractTextFromBuffer(
+        const pages = await extractTextFromBuffer(
           file.buffer,
           file.mimetype,
           file.originalname,
         );
+        extractedText = pages.map((p) => p.text).join("\n\n---PAGE---\n\n");
       } catch (err) {
         logger.warn({ err }, "Text extraction failed, continuing without text");
       }
@@ -310,7 +322,7 @@ router.get(
       return;
     }
     res.json({
-      html: chapter.workbookContent,
+      markdown: chapter.workbookContent,
       chapterId,
       type: "workbook",
     });
@@ -334,7 +346,7 @@ router.get(
       return;
     }
     res.json({
-      html: chapter.teacherGuideContent,
+      markdown: chapter.teacherGuideContent,
       chapterId,
       type: "teacher-guide",
     });
