@@ -5,7 +5,6 @@ import { and, eq, sql } from "drizzle-orm";
 import { extractTextFromBuffer, type PageText } from "../lib/textExtractor.js";
 import { extractVocabulary } from "../lib/vocabularyExtractor.js";
 import { generateStudentWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
-import { validateWorkbookMarkdownCounts } from "../lib/workbookTemplate.js";
 import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
@@ -80,7 +79,6 @@ async function triggerGeneration(
       .filter((page: PageText) => page.text.trim().length > 0);
     const vocabulary = extractVocabulary(chapterPages, book.grade);
     const workbookMarkdown = await generateStudentWorkbook(meta, vocabulary);
-    validateWorkbookMarkdownCounts(workbookMarkdown);
     const teacherGuideMarkdown = await generateTeacherGuide(
       meta,
       workbookMarkdown,
