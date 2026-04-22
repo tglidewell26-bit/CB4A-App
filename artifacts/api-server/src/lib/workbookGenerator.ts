@@ -136,13 +136,5 @@ Pre-computed vocabulary (must remain unchanged words):\n${serializeVocabulary(vo
 Student workbook markdown (source of truth for sections/questions):\n${studentWorkbookMarkdown}\n
 Chapter text:\n${chapterText}`;
 
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 8192,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userPrompt }],
-  });
-
-  const block = message.content[0];
-  return block.type === "text" ? block.text : "";
+  return generateWithVocabularyRetry(systemPrompt, userPrompt, vocabulary, "teacher guide");
 }
