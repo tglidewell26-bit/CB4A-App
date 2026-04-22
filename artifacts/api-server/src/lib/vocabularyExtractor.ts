@@ -1,3 +1,4 @@
+import { isLikelyKnownByGrade } from "./cefrjVocabularyProfile.js";
 import type { PageText } from "./textExtractor.js";
 
 export interface VocabularyWord {
@@ -30,7 +31,11 @@ const AWL_ACADEMIC_WORDS = new Set([
 function lemmatize(token: string): string {
   if (token.endsWith("ies") && token.length > 4) return `${token.slice(0, -3)}y`;
   if (token.endsWith("ing") && token.length > 5) return token.slice(0, -3);
-  if (token.endsWith("ed") && token.length > 4) return token.slice(0, -2);
+  if (token.endsWith("ed") && token.length > 4) {
+    const stem = token.slice(0, -2);
+    if (stem.endsWith("v") || stem.endsWith("k") || stem.endsWith("z")) return `${stem}e`;
+    return stem;
+  }
   if (token.endsWith("es") && token.length > 4) return token.slice(0, -2);
   if (token.endsWith("s") && token.length > 3) return token.slice(0, -1);
   return token;
@@ -121,9 +126,10 @@ export function extractVocabulary(
 
       const normalized = raw.toLowerCase();
       if (STOPWORDS.has(normalized) || normalized.length < 4) return;
-      if (DOLCH_SIGHT_WORDS.has(normalized)) return;
 
       const lemma = lemmatize(normalized);
+      if (DOLCH_SIGHT_WORDS.has(normalized) || DOLCH_SIGHT_WORDS.has(lemma)) return;
+      if (isLikelyKnownByGrade(lemma, gradeLevel)) return;
       const existing = candidates.get(lemma);
       if (existing) {
         existing.count += 1;
@@ -178,9 +184,12 @@ export function extractVocabulary(
     .sort((a, b) => b.score - a.score)
     .slice(0, 10);
 
-  const easyWordCount = scored.filter((w) => DOLCH_SIGHT_WORDS.has(w.word.toLowerCase())).length;
+  const easyWordCount = scored.filter((w) => {
+    const normalized = w.word.toLowerCase();
+    return DOLCH_SIGHT_WORDS.has(normalized) || DOLCH_SIGHT_WORDS.has(w.lemma) || isLikelyKnownByGrade(w.lemma, gradeLevel);
+  }).length;
   if (easyWordCount > 0) {
-    throw new Error(`${easyWordCount} Dolch words selected - REJECTED. Re-run with stricter filter.`);
+    throw new Error(`${easyWordCount} too-easy words selected (Dolch/CEFR-J) - REJECTED. Re-run with stricter filter.`);
   }
 
   const onGradeCount = scored.filter((w) => {
