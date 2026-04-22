@@ -30,6 +30,31 @@ function serializeVocabulary(vocabulary: VocabularyWord[]): string {
     .join("\n");
 }
 
+function buildStudentWordsToKnowTable(vocabulary: VocabularyWord[]): string {
+  const lines = [
+    "[Words to Know]",
+    "| Word | Definition | My Own Sentence |",
+    "|---|---|---|",
+    ...vocabulary.map((entry) => `| ${entry.word} |  |  |`),
+  ];
+  return lines.join("\n");
+}
+
+function injectStudentWordsToKnowTable(markdown: string, vocabulary: VocabularyWord[]): string {
+  const sectionHeader = "[Words to Know]";
+  const start = markdown.indexOf(sectionHeader);
+  if (start === -1) return markdown;
+
+  const rest = markdown.slice(start + sectionHeader.length);
+  const nextSectionOffset = rest.search(/\n\[[^\]]+\]/);
+  const end = nextSectionOffset === -1
+    ? markdown.length
+    : start + sectionHeader.length + nextSectionOffset;
+
+  const replacement = buildStudentWordsToKnowTable(vocabulary);
+  return `${markdown.slice(0, start)}${replacement}${markdown.slice(end)}`;
+}
+
 export async function generateStudentWorkbook(
   meta: ChapterMeta,
   vocabulary: VocabularyWord[],
@@ -76,7 +101,8 @@ Chapter text:\n${chapterText}`;
   });
 
   const block = message.content[0];
-  return block.type === "text" ? block.text : "";
+  const markdown = block.type === "text" ? block.text : "";
+  return injectStudentWordsToKnowTable(markdown, vocabulary);
 }
 
 export async function generateTeacherGuide(
