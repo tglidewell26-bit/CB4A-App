@@ -30,100 +30,29 @@ function serializeVocabulary(vocabulary: VocabularyWord[]): string {
     .join("\n");
 }
 
-function normalizeWord(word: string): string {
-  return word.toLowerCase().replace(/^[^a-z]+|[^a-z]+$/g, "");
-}
-
-function extractWordsToKnowWords(markdown: string): string[] {
-  const wordsToKnowIndex = markdown.indexOf("[Words to Know]");
-  if (wordsToKnowIndex === -1) return [];
-
-  const nextSectionIndex = markdown.slice(wordsToKnowIndex + 1).search(/\n\[[^\]]+\]/);
-  const section = nextSectionIndex === -1
-    ? markdown.slice(wordsToKnowIndex)
-    : markdown.slice(wordsToKnowIndex, wordsToKnowIndex + 1 + nextSectionIndex);
-
-  const lines = section
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith("|"));
-
-  const rows = lines
-    .filter((line) => !line.startsWith("| Word |") && !line.startsWith("|---|"))
-    .map((line) => line.split("|").map((cell) => cell.trim()).filter(Boolean))
-    .filter((cells) => cells.length > 0);
-
-  return rows.map((cells) => cells[0]).filter(Boolean);
-}
-
-function assertVocabularyRows(
-  markdown: string,
-  vocabulary: VocabularyWord[],
-  context: "student workbook" | "teacher guide",
-): void {
-  const expected = vocabulary.map((v) => normalizeWord(v.word));
-  const actual = extractWordsToKnowWords(markdown).map(normalizeWord).filter(Boolean);
-  if (actual.length !== expected.length) {
-    throw new Error(
-      `${context} vocabulary mismatch: expected ${expected.length} words but found ${actual.length} rows in [Words to Know].`,
-    );
-  }
-
-  const actualSet = new Set(actual);
-  const missing = expected.filter((word) => !actualSet.has(word));
-  if (missing.length > 0) {
-    throw new Error(`${context} vocabulary mismatch: missing required words: ${missing.join(", ")}.`);
-  }
-}
-
-async function generateWithVocabularyRetry(
-  systemPrompt: string,
-  userPrompt: string,
-  vocabulary: VocabularyWord[],
-  context: "student workbook" | "teacher guide",
-): Promise<string> {
-  const baseMessages: Array<{ role: "user" | "assistant"; content: string }> = [
-    { role: "user", content: userPrompt },
+function buildStudentWordsToKnowTable(vocabulary: VocabularyWord[]): string {
+  const lines = [
+    "[Words to Know]",
+    "| Word | Definition | My Own Sentence |",
+    "|---|---|---|",
+    ...vocabulary.map((entry) => `| ${entry.word} |  |  |`),
   ];
+  return lines.join("\n");
+}
 
-  const first = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 8192,
-    system: systemPrompt,
-    messages: baseMessages,
-  });
+function injectStudentWordsToKnowTable(markdown: string, vocabulary: VocabularyWord[]): string {
+  const sectionHeader = "[Words to Know]";
+  const start = markdown.indexOf(sectionHeader);
+  if (start === -1) return markdown;
 
-  const firstBlock = first.content[0];
-  const firstMarkdown = firstBlock.type === "text" ? firstBlock.text : "";
-  try {
-    assertVocabularyRows(firstMarkdown, vocabulary, context);
-    return firstMarkdown;
-  } catch (error) {
-    const requiredWords = vocabulary.map((v) => v.word).join(", ");
-    const correctionPrompt = `Your previous response failed validation for ${context}: ${
-      error instanceof Error ? error.message : "unknown mismatch"
-    }
+  const rest = markdown.slice(start + sectionHeader.length);
+  const nextSectionOffset = rest.search(/\n\[[^\]]+\]/);
+  const end = nextSectionOffset === -1
+    ? markdown.length
+    : start + sectionHeader.length + nextSectionOffset;
 
-Rewrite the full markdown now.
-Critical rule: The [Words to Know] table must use EXACTLY these words (same spelling): ${requiredWords}.
-Do not add, remove, or substitute words.`;
-
-    const second = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 8192,
-      system: systemPrompt,
-      messages: [
-        ...baseMessages,
-        { role: "assistant", content: firstMarkdown },
-        { role: "user", content: correctionPrompt },
-      ],
-    });
-
-    const secondBlock = second.content[0];
-    const secondMarkdown = secondBlock.type === "text" ? secondBlock.text : "";
-    assertVocabularyRows(secondMarkdown, vocabulary, context);
-    return secondMarkdown;
-  }
+  const replacement = buildStudentWordsToKnowTable(vocabulary);
+  return `${markdown.slice(0, start)}${replacement}${markdown.slice(end)}`;
 }
 
 export async function generateStudentWorkbook(
@@ -164,7 +93,16 @@ and every row must leave Definition and My Own Sentence blank.`;
 Vocabulary (pre-computed; must use exactly):\n${serializeVocabulary(vocabulary)}\n
 Chapter text:\n${chapterText}`;
 
-  return generateWithVocabularyRetry(systemPrompt, userPrompt, vocabulary, "student workbook");
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 8192,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userPrompt }],
+  });
+
+  const block = message.content[0];
+  const markdown = block.type === "text" ? block.text : "";
+  return injectStudentWordsToKnowTable(markdown, vocabulary);
 }
 
 export async function generateTeacherGuide(
