@@ -1,4 +1,5 @@
 import { isLikelyKnownByGrade } from "./cefrjVocabularyProfile.js";
+import { getGradeVocabularyTargets } from "./gradeVocabularyTargets.js";
 import type { PageText } from "./textExtractor.js";
 
 export interface VocabularyWord {
@@ -117,6 +118,8 @@ export function extractVocabulary(
 
   const candidates = new Map<string, Candidate>();
   const properNounLexicon = buildProperNounLexicon(chapterPages);
+  const targetWords = getGradeVocabularyTargets(gradeLevel);
+  const hasTargetWords = targetWords.size > 0;
 
   chapterPages.forEach((page) => {
     const tokens = page.text.match(/[A-Za-z][A-Za-z'-]{2,}/g) ?? [];
@@ -125,11 +128,13 @@ export function extractVocabulary(
       if (/^[A-Z]/.test(raw) && properNounLexicon.has(raw.toLowerCase())) return;
 
       const normalized = raw.toLowerCase();
-      if (STOPWORDS.has(normalized) || normalized.length < 4) return;
+      if (STOPWORDS.has(normalized)) return;
+      if (!hasTargetWords && normalized.length < 4) return;
 
       const lemma = lemmatize(normalized);
+      if (hasTargetWords && !targetWords.has(lemma) && !targetWords.has(normalized)) return;
       if (DOLCH_SIGHT_WORDS.has(normalized) || DOLCH_SIGHT_WORDS.has(lemma)) return;
-      if (isLikelyKnownByGrade(lemma, gradeLevel)) return;
+      if (!hasTargetWords && isLikelyKnownByGrade(lemma, gradeLevel)) return;
       const existing = candidates.get(lemma);
       if (existing) {
         existing.count += 1;
@@ -150,10 +155,11 @@ export function extractVocabulary(
   const scored = Array.from(candidates.values())
     .map((item) => {
       const estimatedGrade = estimateWordGrade(item.lemma);
-      if (estimatedGrade > maxAllowedGrade) return null;
-
       const gradeDist = estimatedGrade - gradeLevel;
-      if (gradeDist < -1) return null;
+      if (!hasTargetWords) {
+        if (estimatedGrade > maxAllowedGrade) return null;
+        if (gradeDist < -1) return null;
+      }
 
       let difficultyFit = 0;
       if (gradeDist === 0) difficultyFit = 1.0;
@@ -188,7 +194,7 @@ export function extractVocabulary(
     const normalized = w.word.toLowerCase();
     return DOLCH_SIGHT_WORDS.has(normalized) || DOLCH_SIGHT_WORDS.has(w.lemma) || isLikelyKnownByGrade(w.lemma, gradeLevel);
   }).length;
-  if (easyWordCount > 0) {
+  if (!hasTargetWords && easyWordCount > 0) {
     throw new Error(`${easyWordCount} too-easy words selected (Dolch/CEFR-J) - REJECTED. Re-run with stricter filter.`);
   }
 
@@ -196,7 +202,7 @@ export function extractVocabulary(
     const estimatedGrade = estimateWordGrade(w.lemma);
     return Math.abs(estimatedGrade - gradeLevel) <= 1;
   }).length;
-  if (onGradeCount < 7) {
+  if (!hasTargetWords && onGradeCount < 7) {
     throw new Error(`Only ${onGradeCount}/10 on-grade. REJECTED. Need at least 7.`);
   }
 
