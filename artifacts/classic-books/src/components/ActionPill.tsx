@@ -3,13 +3,15 @@ interface ActionPillProps {
   icon?: string;
   secondary?: boolean;
   onClick?: () => void;
+  disabled?: boolean;
 }
 
-export function ActionPill({ label, icon, secondary, onClick }: ActionPillProps) {
+export function ActionPill({ label, icon, secondary, onClick, disabled = false }: ActionPillProps) {
   return (
     <button
       className="action-pill"
       onClick={onClick}
+      disabled={disabled}
       style={{
         padding: "6px 14px",
         borderRadius: 20,
@@ -22,7 +24,8 @@ export function ActionPill({ label, icon, secondary, onClick }: ActionPillProps)
         display: "flex",
         alignItems: "center",
         gap: 5,
-        cursor: "pointer",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.6 : 1,
       }}
     >
       {icon && <span style={{ fontSize: 12 }}>{icon}</span>}
