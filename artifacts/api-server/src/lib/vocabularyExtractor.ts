@@ -1,3 +1,5 @@
+import { isLikelyKnownByGrade } from "./cefrjVocabularyProfile.js";
+import { getGradeVocabularyTargets } from "./gradeVocabularyTargets.js";
 import type { PageText } from "./textExtractor.js";
 
 export interface VocabularyWord {
@@ -30,7 +32,11 @@ const AWL_ACADEMIC_WORDS = new Set([
 function lemmatize(token: string): string {
   if (token.endsWith("ies") && token.length > 4) return `${token.slice(0, -3)}y`;
   if (token.endsWith("ing") && token.length > 5) return token.slice(0, -3);
-  if (token.endsWith("ed") && token.length > 4) return token.slice(0, -2);
+  if (token.endsWith("ed") && token.length > 4) {
+    const stem = token.slice(0, -2);
+    if (stem.endsWith("v") || stem.endsWith("k") || stem.endsWith("z")) return `${stem}e`;
+    return stem;
+  }
   if (token.endsWith("es") && token.length > 4) return token.slice(0, -2);
   if (token.endsWith("s") && token.length > 3) return token.slice(0, -1);
   return token;
@@ -112,6 +118,8 @@ export function extractVocabulary(
 
   const candidates = new Map<string, Candidate>();
   const properNounLexicon = buildProperNounLexicon(chapterPages);
+  const targetWords = getGradeVocabularyTargets(gradeLevel);
+  const hasTargetWords = targetWords.size > 0;
 
   chapterPages.forEach((page) => {
     const tokens = page.text.match(/[A-Za-z][A-Za-z'-]{2,}/g) ?? [];
@@ -120,10 +128,13 @@ export function extractVocabulary(
       if (/^[A-Z]/.test(raw) && properNounLexicon.has(raw.toLowerCase())) return;
 
       const normalized = raw.toLowerCase();
-      if (STOPWORDS.has(normalized) || normalized.length < 4) return;
-      if (DOLCH_SIGHT_WORDS.has(normalized)) return;
+      if (STOPWORDS.has(normalized)) return;
+      if (!hasTargetWords && normalized.length < 4) return;
 
       const lemma = lemmatize(normalized);
+      if (hasTargetWords && !targetWords.has(lemma) && !targetWords.has(normalized)) return;
+      if (DOLCH_SIGHT_WORDS.has(normalized) || DOLCH_SIGHT_WORDS.has(lemma)) return;
+      if (!hasTargetWords && isLikelyKnownByGrade(lemma, gradeLevel)) return;
       const existing = candidates.get(lemma);
       if (existing) {
         existing.count += 1;
@@ -144,10 +155,11 @@ export function extractVocabulary(
   const scored = Array.from(candidates.values())
     .map((item) => {
       const estimatedGrade = estimateWordGrade(item.lemma);
-      if (estimatedGrade > maxAllowedGrade) return null;
-
       const gradeDist = estimatedGrade - gradeLevel;
-      if (gradeDist < -1) return null;
+      if (!hasTargetWords) {
+        if (estimatedGrade > maxAllowedGrade) return null;
+        if (gradeDist < -1) return null;
+      }
 
       let difficultyFit = 0;
       if (gradeDist === 0) difficultyFit = 1.0;
@@ -178,16 +190,19 @@ export function extractVocabulary(
     .sort((a, b) => b.score - a.score)
     .slice(0, 10);
 
-  const easyWordCount = scored.filter((w) => DOLCH_SIGHT_WORDS.has(w.word.toLowerCase())).length;
-  if (easyWordCount > 0) {
-    throw new Error(`${easyWordCount} Dolch words selected - REJECTED. Re-run with stricter filter.`);
+  const easyWordCount = scored.filter((w) => {
+    const normalized = w.word.toLowerCase();
+    return DOLCH_SIGHT_WORDS.has(normalized) || DOLCH_SIGHT_WORDS.has(w.lemma) || isLikelyKnownByGrade(w.lemma, gradeLevel);
+  }).length;
+  if (!hasTargetWords && easyWordCount > 0) {
+    throw new Error(`${easyWordCount} too-easy words selected (Dolch/CEFR-J) - REJECTED. Re-run with stricter filter.`);
   }
 
   const onGradeCount = scored.filter((w) => {
     const estimatedGrade = estimateWordGrade(w.lemma);
     return Math.abs(estimatedGrade - gradeLevel) <= 1;
   }).length;
-  if (onGradeCount < 7) {
+  if (!hasTargetWords && onGradeCount < 7) {
     throw new Error(`Only ${onGradeCount}/10 on-grade. REJECTED. Need at least 7.`);
   }
 
