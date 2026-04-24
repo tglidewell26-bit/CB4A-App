@@ -3,7 +3,7 @@ import multer from "multer";
 import { db, booksTable, chaptersTable, insertBookSchema } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 import { extractTextFromBuffer, type PageText } from "../lib/textExtractor.js";
-import { extractVocabulary } from "../lib/vocabularyExtractor.js";
+import { enrichVocabularyForTeacherGuide, extractVocabulary } from "../lib/vocabularyExtractor.js";
 import { generateStudentWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
 import { logger } from "../lib/logger.js";
 
@@ -77,7 +77,8 @@ async function triggerGeneration(
       .split("\n\n---PAGE---\n\n")
       .map((text: string, index: number) => ({ page_number: index + 1, text }))
       .filter((page: PageText) => page.text.trim().length > 0);
-    const vocabulary = extractVocabulary(chapterPages, book.grade);
+    const baseVocabulary = extractVocabulary(chapterPages, book.grade);
+    const vocabulary = await enrichVocabularyForTeacherGuide(baseVocabulary, book.grade, chapter.extractedText);
     const workbookResult = await generateStudentWorkbook(meta, vocabulary);
     const teacherGuideResult = await generateTeacherGuide(
       meta,
@@ -322,10 +323,9 @@ router.get(
       return;
     }
     res.json({
-      downloadUrl: chapter.workbookContent,
+      content: chapter.workbookContent,
       chapterId,
       type: "workbook",
-      format: "docx",
     });
   },
 );
@@ -347,10 +347,9 @@ router.get(
       return;
     }
     res.json({
-      downloadUrl: chapter.teacherGuideContent,
+      content: chapter.teacherGuideContent,
       chapterId,
       type: "teacher-guide",
-      format: "docx",
     });
   },
 );

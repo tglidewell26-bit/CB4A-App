@@ -33,10 +33,10 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
   const handleWorkbook = async () => {
     setWorkbookLoading("loading");
     try {
-      const data = await getWorkbook(book.id, chapter.id) as { downloadUrl?: string; previewUrl?: string; content?: string; markdown?: string };
+      const data = await getWorkbook(book.id, chapter.id) as { content?: string };
       setPreviewTitle(`Student Workbook — ${chapter.title}`);
-      setPreviewFilename(`${book.title.replace(/\s+/g, "_")}_${chapter.num ?? chapter.id}_StudentWorkbook.pdf`);
-      setPreviewContent(data.content ?? data.markdown ?? data.downloadUrl ?? "");
+      setPreviewFilename(`${book.title.replace(/\s+/g, "_")}_${chapter.num ?? chapter.id}_StudentWorkbook`);
+      setPreviewContent(data.content ?? "");
       setWorkbookLoading("idle");
     } catch {
       setWorkbookLoading("error");
@@ -47,10 +47,10 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
   const handleTeacherGuide = async () => {
     setGuideLoading("loading");
     try {
-      const data = await getTeacherGuide(book.id, chapter.id) as { downloadUrl?: string; previewUrl?: string; content?: string; markdown?: string };
+      const data = await getTeacherGuide(book.id, chapter.id) as { content?: string };
       setPreviewTitle(`Teacher Guide — ${chapter.title}`);
-      setPreviewFilename(`${book.title.replace(/\s+/g, "_")}_${chapter.num ?? chapter.id}_TeacherGuide.pdf`);
-      setPreviewContent(data.content ?? data.markdown ?? data.downloadUrl ?? "");
+      setPreviewFilename(`${book.title.replace(/\s+/g, "_")}_${chapter.num ?? chapter.id}_TeacherGuide`);
+      setPreviewContent(data.content ?? "");
       setGuideLoading("idle");
     } catch {
       setGuideLoading("error");
