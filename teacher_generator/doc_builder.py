@@ -2,115 +2,97 @@ import io
 from typing import Any, Dict
 
 from docx import Document
-from docx.shared import Pt
+from docx.shared import Inches, Pt
 
 
-def _header(doc: Document, title: str) -> None:
+def _setup(doc: Document) -> None:
+    section = doc.sections[0]
+    section.page_width = Inches(8.5)
+    section.page_height = Inches(11)
+    section.top_margin = Inches(1)
+    section.bottom_margin = Inches(1)
+    section.left_margin = Inches(1)
+    section.right_margin = Inches(1)
+
+    style = doc.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(11)
+
+
+def _h2(doc: Document, text: str) -> None:
     p = doc.add_paragraph()
-    run = p.add_run(f"=== {title} ===")
-    run.bold = True
-    run.font.size = Pt(12)
+    r = p.add_run(text)
+    r.bold = True
+    r.font.name = "Calibri"
+    r.font.size = Pt(14)
 
 
 def _text(doc: Document, text: str) -> None:
-    doc.add_paragraph(text or "—")
-
-
-def _line(doc: Document, label: str, value: str) -> None:
-    p = doc.add_paragraph()
-    r = p.add_run(f"{label}: ")
-    r.bold = True
-    p.add_run(value or "—")
+    doc.add_paragraph(text or "")
 
 
 def build_docx(parsed: Dict[str, Any], chapter_json: Dict[str, Any], grade: int) -> io.BytesIO:
     doc = Document()
+    _setup(doc)
 
-    t = doc.add_paragraph()
-    tr = t.add_run(f"Teacher Guide — {chapter_json.get('book_title', '')}")
+    title = doc.add_paragraph()
+    tr = title.add_run(f"Teacher Guide — Lesson 1 — {chapter_json.get('chapter_title', '')}")
     tr.bold = True
-    tr.font.size = Pt(16)
-    doc.add_paragraph(
-        f"Chapter {chapter_json.get('chapter_num', '')}: {chapter_json.get('chapter_title', '')} | Grade {grade}"
-    )
+    tr.font.size = Pt(18)
 
-    _header(doc, "LESSON OVERVIEW")
-    _text(doc, parsed.get("lesson_overview", ""))
-
-    _header(doc, "MEASURABLE OBJECTIVES")
-    _text(doc, "Students will be able to:")
-    _text(doc, parsed.get("measurable_objectives", ""))
-
-    _header(doc, "STANDARDS LIST")
-    _text(doc, parsed.get("standards_list", ""))
-
-    _header(doc, "MATERIALS NEEDED")
-    _text(doc, parsed.get("materials_needed", ""))
-
-    _header(doc, "GET READY TO READ")
+    _h2(doc, "Get Ready to Read")
     _text(doc, parsed.get("get_ready_to_read", ""))
 
-    _header(doc, "VOCABULARY MINI-LESSON")
-    _line(doc, "Introduce with context", parsed.get("vocab_intro", ""))
-    _line(doc, "Partner practice", parsed.get("vocab_partner_practice", ""))
-    _line(doc, "Quick check", parsed.get("vocab_quick_check", ""))
-    for i, word in enumerate(parsed.get("vocabulary", []), start=1):
-        _line(doc, f"Word {i}", f"{word.get('WORD', '')} (page {word.get('PAGE', '')})")
-        _line(doc, "Kid-friendly definition", word.get("KID_FRIENDLY_DEFINITION", ""))
-        _line(doc, "Context sentence", word.get("CONTEXT_SENTENCE", ""))
-        _line(doc, "Example sentence", word.get("EXAMPLE_SENTENCE", ""))
-    _line(doc, "Differentiation — Struggling Readers", parsed.get("vocab_diff_struggling", ""))
-    _line(doc, "Differentiation — ELL Students", parsed.get("vocab_diff_ell", ""))
-    _line(doc, "Differentiation — Advanced", parsed.get("vocab_diff_advanced", ""))
+    _h2(doc, "Words to Know")
+    for word in parsed.get("vocabulary", []):
+        _text(doc, f"{word.get('WORD', '')} (p.{word.get('PAGE', '')})")
+        _text(doc, f"Definition: {word.get('KID_FRIENDLY_DEFINITION', '')}")
+        _text(doc, f"Context: {word.get('CONTEXT_SENTENCE', '')}")
+        _text(doc, f"Example: {word.get('EXAMPLE_SENTENCE', '')}")
 
-    _header(doc, "GUIDED READING")
+    _h2(doc, "Guided Reading")
     for sec in parsed.get("guided_sections", []):
-        _header(doc, f"GUIDED READING SECTION {sec.get('SECTION_NUMBER', '')}")
-        _line(doc, "Pages", sec.get("PAGE_RANGE", ""))
-        _line(doc, "Read from", sec.get("READ_FROM", ""))
-        _line(doc, "Read to", sec.get("READ_TO", ""))
-        _line(doc, "Pause questions", sec.get("PAUSE_QUESTIONS", ""))
-    _line(doc, "Teaching tip", parsed.get("guided_tip", ""))
-    _line(doc, "Differentiation — Struggling Readers", parsed.get("guided_diff_struggling", ""))
-    _line(doc, "Differentiation — ELL Students", parsed.get("guided_diff_ell", ""))
-    _line(doc, "Differentiation — Advanced", parsed.get("guided_diff_advanced", ""))
+        _text(doc, f"Section {sec.get('SECTION_NUMBER', '')} ({sec.get('PAGE_RANGE', '')})")
+        _text(doc, sec.get("PAUSE_QUESTIONS", ""))
+    _text(doc, f"Teaching tip: {parsed.get('guided_tip', '')}")
 
-    _header(doc, "TIERED DISCUSSION")
-    _line(doc, "Level 1 — Literal", parsed.get("tiered_level_1", ""))
-    _line(doc, "Level 2 — Inferential", parsed.get("tiered_level_2", ""))
-    _line(doc, "Level 3 — Analytical", parsed.get("tiered_level_3", ""))
-    _line(doc, "Level 4 — Personal", parsed.get("tiered_level_4", ""))
-    _line(doc, "Discussion management notes", parsed.get("tiered_management", ""))
-
-    _header(doc, "THINK ABOUT THE STORY — ANSWER KEY")
+    _h2(doc, "Think About the Story (Teacher Notes)")
     _text(doc, parsed.get("think_about_answers", ""))
 
-    _header(doc, "READING BETWEEN THE LINES — ANSWER KEY")
+    _h2(doc, "Reading Between the Lines (Teacher Notes)")
     _text(doc, parsed.get("reading_between_answers", ""))
 
-    _header(doc, "DIG DEEPER — ANSWER KEY")
+    _h2(doc, "Dig Deeper (Teacher Notes)")
     _text(doc, parsed.get("dig_deeper_answers", ""))
 
-    _header(doc, "MULTIPLE CHOICE ANSWERS")
+    _h2(doc, "Multiple Choice (Answer Key)")
     _text(doc, parsed.get("multiple_choice_answers", ""))
 
-    _header(doc, "SHORT ANSWER ANSWERS")
+    _h2(doc, "Evidence from the Story (Answer Key)")
     _text(doc, parsed.get("short_answer_answers", ""))
 
-    _header(doc, "CREATIVE RESPONSE GUIDE")
+    _h2(doc, "Creative Response Guide")
     _text(doc, parsed.get("creative_response_guide", ""))
 
-    _header(doc, "CHARACTER CHART ANSWER KEY")
+    _h2(doc, "Teaching Notes & Differentiation")
+    _text(doc, parsed.get("lesson_overview", ""))
+    _text(doc, parsed.get("measurable_objectives", ""))
+    _text(doc, parsed.get("standards_list", ""))
+    _text(doc, parsed.get("materials_needed", ""))
+    _text(doc, f"Struggling Readers: {parsed.get('vocab_diff_struggling', '')}")
+    _text(doc, f"ELL: {parsed.get('vocab_diff_ell', '')}")
+
+    _h2(doc, "Character Chart (Answer Key)")
     _text(doc, parsed.get("character_chart_answer_key", ""))
 
-    _header(doc, "TIMELINE ANSWER KEY")
-    _text(doc, parsed.get("timeline_answer_key", ""))
-
-    _header(doc, "EXIT TICKET GUIDE")
+    _h2(doc, "Draw It + Reflection (Answers)")
     _text(doc, parsed.get("exit_ticket_guide", ""))
 
-    _header(doc, "DIFFERENTIATION SUMMARY")
+    _h2(doc, "Bonus Challenge (Answer)")
     _text(doc, parsed.get("differentiation_summary", ""))
+
+    _h2(doc, "Thinking Deeper (Timeline Answer Key)")
+    _text(doc, parsed.get("timeline_answer_key", ""))
 
     buf = io.BytesIO()
     doc.save(buf)
