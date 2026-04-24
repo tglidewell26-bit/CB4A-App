@@ -33,9 +33,9 @@ function serializeVocabulary(vocabulary: VocabularyWord[]): string {
 function buildStudentWordsToKnowTable(vocabulary: VocabularyWord[]): string {
   const lines = [
     "[Words to Know]",
-    "| Word | Definition | My Own Sentence |",
-    "|---|---|---|",
-    ...vocabulary.map((entry) => `| ${entry.word} |  |  |`),
+    "| Word | Definition | Sentence from book (with page #) | My own sentence |",
+    "|---|---|---|---|",
+    ...vocabulary.map((entry) => `| ${entry.word} |  | ${entry.book_quote} (p.${entry.page_number}) |  |`),
   ];
   return lines.join("\n");
 }
@@ -53,6 +53,13 @@ function injectStudentWordsToKnowTable(markdown: string, vocabulary: VocabularyW
 
   const replacement = buildStudentWordsToKnowTable(vocabulary);
   return `${markdown.slice(0, start)}${replacement}${markdown.slice(end)}`;
+}
+
+function postProcessMarkdown(markdown: string): string {
+  return markdown
+    .replace(/\[([^\]]+)\]/g, "\n\n## $1\n\n---\n\n")
+    .replace(/[^\p{L}\p{N}\p{P}\p{Z}\n\r\t]/gu, "")
+    .replace(/\n{4,}/g, "\n\n\n");
 }
 
 export async function generateStudentWorkbook(
@@ -85,9 +92,24 @@ Rules:
 17) Never use emojis or icon symbols anywhere in output.
 18) Use plain bracket section headers only (example: [Get Ready to Read]) with no numbering.
 19) "Words to Know" must include this exact 3-column markdown table header and separator:
-| Word | Definition | My Own Sentence |
-|---|---|---|
-and every row must leave Definition and My Own Sentence blank.`;
+| Word | Definition | Sentence from book (with page #) | My own sentence |
+|---|---|---|---|
+and every row must leave Definition and My own sentence blank while pre-filling Sentence from book with chapter evidence.
+- Start EVERY section heading with ## (exactly two hash marks)
+- Add TWO blank lines BEFORE every section heading
+- Add ONE blank line AFTER every section heading
+- Insert a horizontal rule (---) AFTER every section heading
+- Format question numbers as **1.** **2.** **3.** (bold with periods)
+- Add one blank line BETWEEN questions
+- Format all answers as blockquotes starting with >
+- For vocabulary tables:
+  * Header row: | Word | Definition | Sentence from book (with page #) | My own sentence |
+  * Separator row: |---|---|---|---|
+  * Use exact column spacing - never merge or reorder columns
+  * Leave Definition and My own sentence columns BLANK (for students to fill)
+  * Pre-fill Sentence from book with actual quote from chapter
+- Never insert emojis anywhere in the document
+- Use proper Markdown formatting (bold **text**, not [bold]text[/bold])`;
 
   const userPrompt = `Book: ${meta.bookTitle}\nAuthor: ${meta.author}\nChapter: ${meta.chapterNum ? `${meta.chapterNum} — ` : ""}${meta.chapterTitle}\nPages: ${meta.pages}\nGrade: ${meta.grade}\n
 Vocabulary (pre-computed; must use exactly):\n${serializeVocabulary(vocabulary)}\n
@@ -102,7 +124,7 @@ Chapter text:\n${chapterText}`;
 
   const block = message.content[0];
   const markdown = block.type === "text" ? block.text : "";
-  return injectStudentWordsToKnowTable(markdown, vocabulary);
+  return postProcessMarkdown(injectStudentWordsToKnowTable(markdown, vocabulary));
 }
 
 export async function generateTeacherGuide(
@@ -129,12 +151,28 @@ All 4 columns must be filled for each vocabulary word.
 8) Use this exact section order:
 [Lesson Overview] [Get Ready to Read] [Words to Know] [Guided Reading] [Think About the Story + Tiered Discussion] [Reading Between the Lines + answers] [Dig Deeper + answers] [Multiple Choice + answers] [Evidence from Story + answers] [Creative Response Guide] [Character Chart Answer Key] [Draw It + Reflect answers] [Bonus Challenge answers] [Thinking Deeper + Exit Ticket]
 9) Never use emojis or icon symbols anywhere in output.
-10) Use plain bracket section headers only with no numbering or extra decoration.`;
+10) Use plain bracket section headers only with no numbering or extra decoration.
+- Start EVERY section heading with ## (exactly two hash marks)
+- Add TWO blank lines BEFORE every section heading
+- Add ONE blank line AFTER every section heading
+- Insert a horizontal rule (---) AFTER every section heading
+- Format question numbers as **1.** **2.** **3.** (bold with periods)
+- Add one blank line BETWEEN questions
+- Format all answers as blockquotes starting with >
+- For vocabulary tables:
+  * Header row: | Word | Definition | Example Sentence | Part of Speech |
+  * Separator row: |---|---|---|---|
+  * Use exact column spacing - never merge or reorder columns
+  * Pre-fill all columns with actual data from vocabulary algorithm
+- Teacher guide has ALL columns pre-filled (unlike student workbook)
+- Never insert emojis anywhere in the document
+- Use proper Markdown formatting (bold **text**, not [bold]text[/bold])`;
 
   const userPrompt = `Book: ${meta.bookTitle}\nAuthor: ${meta.author}\nChapter: ${meta.chapterNum ? `${meta.chapterNum} — ` : ""}${meta.chapterTitle}\nPages: ${meta.pages}\nGrade: ${meta.grade}\n
 Pre-computed vocabulary (must remain unchanged words):\n${serializeVocabulary(vocabulary)}\n
 Student workbook markdown (source of truth for sections/questions):\n${studentWorkbookMarkdown}\n
 Chapter text:\n${chapterText}`;
 
-  return generateWithVocabularyRetry(systemPrompt, userPrompt, vocabulary, "teacher guide");
+  const markdown = await generateWithVocabularyRetry(systemPrompt, userPrompt, vocabulary, "teacher guide");
+  return postProcessMarkdown(markdown);
 }
