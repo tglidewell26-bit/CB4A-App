@@ -1,8 +1,14 @@
-import * as fs from "node:fs";
-import path from "node:path";
-import { spawn } from "node:child_process";
 import { anthropic } from "@workspace/integrations-anthropic-ai";
 import type { VocabularyWord } from "./vocabularyExtractor.js";
+
+const GRADE_GUIDANCE: Record<number, string> = {
+  3: "Grade 3: very simple vocabulary, short sentences, and concrete thinking.",
+  4: "Grade 4: clear language and a mix of literal + light inference.",
+  5: "Grade 5: increasingly inferential and evidence-focused.",
+  6: "Grade 6: stronger analysis and close-reading language.",
+  7: "Grade 7: literary analysis, theme, and character motivation.",
+  8: "Grade 8: nuanced analysis, author craft, and thematic depth.",
+};
 
 interface ChapterMeta {
   bookTitle: string;
@@ -14,160 +20,136 @@ interface ChapterMeta {
   extractedText: string;
 }
 
-type WorkbookStructured = Record<string, unknown>;
-type TeacherStructured = Record<string, unknown>;
-
-function sanitizeName(value: string): string {
-  return value.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
-}
-
 function truncateText(text: string, maxChars = 80000): string {
   return text.length <= maxChars ? text : `${text.slice(0, maxChars)}\n\n[Text truncated for length]`;
 }
 
-async function generateStructuredWorkbook(meta: ChapterMeta, vocabulary: VocabularyWord[]): Promise<WorkbookStructured> {
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 8192,
-    system: `You create structured JSON for a Grade ${meta.grade} student workbook. Return ONLY JSON object with keys matching this schema:
-{
-  "focus_question": "string",
-  "basic_comprehension": [{"QUESTION":"...","ANSWER":"..."}],
-  "inference_questions": [{"QUESTION":"...","ANSWER":"..."}],
-  "analysis_questions": [{"QUESTION":"...","ANSWER":"..."}],
-  "multiple_choice": [{"QUESTION":"...","OPTION_A":"...","OPTION_B":"...","OPTION_C":"...","OPTION_D":"...","CORRECT_ANSWER":"A"}],
-  "short_answer": [{"QUESTION":"...","ANSWER":"..."}],
-  "creative_response": {"PROMPT":"...","HINT_1":"...","HINT_2":"...","HINT_3":"..."},
-  "writing_rubric": [
-    {"CATEGORY":"Ideas","POINTS":"2","DESCRIPTION":"Does the response show creative thinking?"},
-    {"CATEGORY":"Details from the Chapter","POINTS":"2","DESCRIPTION":"Does it use specific details?"},
-    {"CATEGORY":"Writing Clarity","POINTS":"2","DESCRIPTION":"Is it clear and organized?"},
-    {"CATEGORY":"Spelling/Grammar","POINTS":"2","DESCRIPTION":"Are there spelling/grammar errors?"}
-  ],
-  "timeline_events": ["..."],
-  "character_chart": [{"CHARACTER":"...","TRAITS":"...","EVIDENCE":"..."}],
-  "draw_it_prompt": "Draw what you imagine [scene/character] looks like. Use the description from the book to guide your drawing.",
-  "reflect_stems": ["My drawing shows...","I chose these colors/details because...","This part of the story is important because..."],
-  "thinking_deeper_question": "string"
-}
-Rules:
-- Use chapter evidence only and keep the Classic Books for All section design.
-- 6 basic_comprehension, 3 inference, 3 analysis, 3 multiple_choice, 3 short_answer.
-- timeline_events must contain exactly 7 key chapter events in SCRAMBLED order for a reordering activity.
-- 5 character_chart rows.
-- 3 reflect_stems exactly as shown in schema.
-- focus_question is ONE question for "Get Ready to Read" and should fit inside a shaded prompt box (no answer lines).
-- short_answer should be written for the "Evidence from the Story" section and require complete sentences with page evidence.
-- creative_response prompt must be in letter format: "Dear [character], ... Sincerely, [Student]".
-- creative_response must include exactly 3 helpful hint bullets.
-- Never include markdown fences.`,
-    messages: [{
-      role: "user",
-      content: `Meta: ${JSON.stringify(meta)}\nVocabulary:\n${JSON.stringify(vocabulary, null, 2)}\nChapter:\n${truncateText(meta.extractedText)}`,
-    }],
-  });
-
-  const text = message.content.find((block: { type: string }) => block.type === "text");
-  if (!text || text.type !== "text") throw new Error("Claude returned no structured workbook text");
-  const jsonMatch = text.text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("Unable to parse workbook JSON response");
-  return JSON.parse(jsonMatch[0]) as WorkbookStructured;
+function serializeVocabulary(vocabulary: VocabularyWord[]): string {
+  return vocabulary
+    .map((entry, index) => `${index + 1}. ${entry.word} | lemma=${entry.lemma} | p.${entry.page_number} | quote="${entry.book_quote}"`)
+    .join("\n");
 }
 
-async function generateStructuredTeacherGuide(
+function buildStudentWordsToKnowTable(vocabulary: VocabularyWord[]): string {
+  const lines = [
+    "[Words to Know]",
+    "| Word | Definition | Sentence from book (with page #) | My own sentence |",
+    "|---|---|---|---|",
+    ...vocabulary.map((entry) => `| ${entry.word} |  | ${entry.book_quote} (p.${entry.page_number}) |  |`),
+  ];
+  return lines.join("\n");
+}
+
+function injectStudentWordsToKnowTable(markdown: string, vocabulary: VocabularyWord[]): string {
+  const sectionHeader = "[Words to Know]";
+  const start = markdown.indexOf(sectionHeader);
+  if (start === -1) return markdown;
+
+  const rest = markdown.slice(start + sectionHeader.length);
+  const nextSectionOffset = rest.search(/\n\[[^\]]+\]/);
+  const end = nextSectionOffset === -1
+    ? markdown.length
+    : start + sectionHeader.length + nextSectionOffset;
+
+  const replacement = buildStudentWordsToKnowTable(vocabulary);
+  return `${markdown.slice(0, start)}${replacement}${markdown.slice(end)}`;
+}
+
+function postProcessMarkdown(markdown: string): string {
+  return markdown
+    .replace(/\[([^\]]+)\]/g, "\n\n## $1\n\n---\n\n")
+    .replace(/[^\p{L}\p{N}\p{P}\p{Z}\n\r\t]/gu, "")
+    .replace(/\n{4,}/g, "\n\n\n");
+}
+
+export async function generateStudentWorkbook(
   meta: ChapterMeta,
   vocabulary: VocabularyWord[],
-  workbook: WorkbookStructured,
-): Promise<TeacherStructured> {
+): Promise<string> {
+  const guidance = GRADE_GUIDANCE[meta.grade] ?? GRADE_GUIDANCE[5];
+  const chapterText = truncateText(meta.extractedText);
+
+  const systemPrompt = `You are a curriculum specialist creating a CB4A Student Workbook in markdown.
+
+Rules:
+1) Use ONLY chapter text; no outside knowledge.
+2) Grade ${meta.grade} guidance: ${guidance}
+3) Output markdown only.
+4) Keep this exact section order:
+[Get Ready to Read] [Words to Know] [Think About the Story] [Reading Between the Lines] [Dig Deeper] [Multiple Choice] [Evidence from the Story] [Creative Response] [Writing Rubric] [Character Chart] [Draw It] [Reflect on Your Drawing] [Bonus Challenge] [Thinking Deeper]
+5) Vocabulary must use exact input words and quotes. In Words to Know table, Definition and My Own Sentence must be blank cells.
+6) All generated prompts/questions/answers must include page citations tied to chapter text.
+7) Generate EXACTLY 6 "Think About the Story" comprehension questions.
+8) Generate EXACTLY 3 "Reading Between the Lines" inference questions.
+9) Generate EXACTLY 3 "Dig Deeper" analysis questions.
+10) Generate EXACTLY 3 "Multiple Choice" questions.
+11) Generate EXACTLY 3 "Evidence from the Story" short-answer questions.
+12) Creative Response must involve writing creatively in response to the chapter (letter, journal entry, or narrative — choose the form that fits the chapter best).
+13) Generate EXACTLY 3 creative scaffolding hints in the Creative Response section.
+14) Character Chart must include EXACTLY 5 character names.
+15) Reflect on Your Drawing must include EXACTLY 3 reflection stems.
+16) Bonus Challenge must include EXACTLY 7 timeline events.
+17) Never use emojis or icon symbols anywhere in output.
+18) Use plain bracket section headers only (example: [Get Ready to Read]) with no numbering.
+19) "Words to Know" must include this exact 4-column markdown table header and separator:
+| Word | Definition | Sentence from book (with page #) | My own sentence |
+|---|---|---|---|
+and every row must leave Definition and My own sentence blank while pre-filling Sentence from book with actual quote from chapter.`;
+
+  const userPrompt = `Book: ${meta.bookTitle}\nAuthor: ${meta.author}\nChapter: ${meta.chapterNum ? `${meta.chapterNum} — ` : ""}${meta.chapterTitle}\nPages: ${meta.pages}\nGrade: ${meta.grade}\n
+Vocabulary (pre-computed; must use exactly):\n${serializeVocabulary(vocabulary)}\n
+Chapter text:\n${chapterText}`;
+
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 8192,
-    system: `You create structured JSON for a teacher guide. Return only JSON with keys:
-lesson_overview, measurable_objectives, standards_list, materials_needed, get_ready_to_read,
-vocab_intro, vocab_partner_practice, vocab_quick_check,
-vocab_diff_struggling, vocab_diff_ell, vocab_diff_advanced,
-guided_sections (array with SECTION_NUMBER,PAGE_RANGE,READ_FROM,READ_TO,PAUSE_QUESTIONS),
-guided_tip,guided_diff_struggling,guided_diff_ell,guided_diff_advanced,
-tiered_level_1,tiered_level_2,tiered_level_3,tiered_level_4,tiered_management,
-think_about_answers,reading_between_answers,dig_deeper_answers,multiple_choice_answers,short_answer_answers,
-creative_response_guide,character_chart_answer_key,timeline_answer_key,exit_ticket_guide,differentiation_summary.
-Use workbook questions as source of truth.` ,
-    messages: [{
-      role: "user",
-      content: `Meta: ${JSON.stringify(meta)}\nVocabulary:\n${JSON.stringify(vocabulary, null, 2)}\nWorkbook JSON:\n${JSON.stringify(workbook, null, 2)}\nChapter:\n${truncateText(meta.extractedText)}`,
-    }],
+    system: systemPrompt,
+    messages: [{ role: "user", content: userPrompt }],
   });
 
-  const text = message.content.find((block: { type: string }) => block.type === "text");
-  if (!text || text.type !== "text") throw new Error("Claude returned no structured teacher guide text");
-  const jsonMatch = text.text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("Unable to parse teacher guide JSON response");
-  return JSON.parse(jsonMatch[0]) as TeacherStructured;
-}
-
-async function runPythonDocBuilder(payload: {
-  template: "workbook" | "teacher";
-  meta: ChapterMeta;
-  grade: number;
-  vocabulary: VocabularyWord[];
-  generated: Record<string, unknown>;
-  outputPath: string;
-}): Promise<void> {
-  const bridgePath = path.resolve(process.cwd(), "../../docx_pipeline_bridge.py");
-  await fs.promises.mkdir(path.dirname(payload.outputPath), { recursive: true });
-
-  await new Promise<void>((resolve, reject) => {
-    const proc = spawn("python3", [bridgePath], { stdio: ["pipe", "pipe", "pipe"] });
-    let stderr = "";
-
-    proc.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-
-    proc.on("close", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`python doc builder failed (${code}): ${stderr}`));
-    });
-
-    proc.stdin.write(JSON.stringify(payload));
-    proc.stdin.end();
-  });
-}
-
-export async function generateStudentWorkbook(meta: ChapterMeta, vocabulary: VocabularyWord[]): Promise<{ outputPath: string; structured: WorkbookStructured; }> {
-  const structured = await generateStructuredWorkbook(meta, vocabulary);
-  const fileName = `StudentWorkbook_${sanitizeName(meta.bookTitle)}_Grade${meta.grade}.docx`;
-  const outputPath = path.resolve(process.cwd(), `../../outputs/docx/${fileName}`);
-
-  await runPythonDocBuilder({
-    template: "workbook",
-    meta,
-    grade: meta.grade,
-    vocabulary,
-    generated: structured,
-    outputPath,
-  });
-
-  return { outputPath, structured };
+  const block = message.content[0];
+  const markdown = block.type === "text" ? block.text : "";
+  return postProcessMarkdown(injectStudentWordsToKnowTable(markdown, vocabulary));
 }
 
 export async function generateTeacherGuide(
   meta: ChapterMeta,
+  studentWorkbookMarkdown: string,
   vocabulary: VocabularyWord[],
-  workbookStructured: WorkbookStructured,
-): Promise<{ outputPath: string; structured: TeacherStructured; }> {
-  const structured = await generateStructuredTeacherGuide(meta, vocabulary, workbookStructured);
-  const fileName = `TeacherGuide_${sanitizeName(meta.bookTitle)}_Grade${meta.grade}.docx`;
-  const outputPath = path.resolve(process.cwd(), `../../outputs/docx/${fileName}`);
+): Promise<string> {
+  const guidance = GRADE_GUIDANCE[meta.grade] ?? GRADE_GUIDANCE[5];
+  const chapterText = truncateText(meta.extractedText);
 
-  await runPythonDocBuilder({
-    template: "teacher",
-    meta,
-    grade: meta.grade,
-    vocabulary,
-    generated: structured,
-    outputPath,
+  const systemPrompt = `You are a curriculum specialist creating a CB4A Teacher Guide in markdown.
+
+Rules:
+1) Use ONLY chapter text and provided student workbook.
+2) Grade ${meta.grade} guidance: ${guidance}
+3) Output markdown only.
+4) Mirror the student workbook structure exactly.
+5) Use exact same vocabulary and exact same student questions from the input student workbook.
+6) "Words to Know" must use this exact 4-column markdown table:
+| Word | Definition | Example Sentence | Part of Speech |
+|---|---|---|---|
+All 4 columns must be filled for each vocabulary word.
+7) Generate only teacher-facing content: answers with page citations, teaching tips, misconceptions, differentiation, guided reading, tiered discussion.
+8) Use this exact section order:
+[Lesson Overview] [Get Ready to Read] [Words to Know] [Guided Reading] [Think About the Story + Tiered Discussion] [Reading Between the Lines + answers] [Dig Deeper + answers] [Multiple Choice + answers] [Evidence from Story + answers] [Creative Response Guide] [Character Chart Answer Key] [Draw It + Reflect answers] [Bonus Challenge answers] [Thinking Deeper + Exit Ticket]
+9) Never use emojis or icon symbols anywhere in output.
+10) Use plain bracket section headers only with no numbering or extra decoration.`;
+
+  const userPrompt = `Book: ${meta.bookTitle}\nAuthor: ${meta.author}\nChapter: ${meta.chapterNum ? `${meta.chapterNum} — ` : ""}${meta.chapterTitle}\nPages: ${meta.pages}\nGrade: ${meta.grade}\n
+Pre-computed vocabulary (must remain unchanged words):\n${serializeVocabulary(vocabulary)}\n
+Student workbook markdown (source of truth for sections/questions):\n${studentWorkbookMarkdown}\n
+Chapter text:\n${chapterText}`;
+
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 8192,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userPrompt }],
   });
 
-  return { outputPath, structured };
+  const block = message.content[0];
+  return block.type === "text" ? block.text : "";
 }

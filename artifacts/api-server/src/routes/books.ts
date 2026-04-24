@@ -1,11 +1,9 @@
 import { Router, type IRouter } from "express";
 import multer from "multer";
-import * as fs from "node:fs";
-import path from "node:path";
 import { db, booksTable, chaptersTable, insertBookSchema } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 import { extractTextFromBuffer, type PageText } from "../lib/textExtractor.js";
-import { enrichVocabularyForTeacherGuide, extractVocabulary } from "../lib/vocabularyExtractor.js";
+import { extractVocabulary } from "../lib/vocabularyExtractor.js";
 import { generateStudentWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
 import { logger } from "../lib/logger.js";
 
@@ -79,17 +77,12 @@ async function triggerGeneration(
       .split("\n\n---PAGE---\n\n")
       .map((text: string, index: number) => ({ page_number: index + 1, text }))
       .filter((page: PageText) => page.text.trim().length > 0);
-    const baseVocabulary = extractVocabulary(chapterPages, book.grade);
-    const vocabulary = await enrichVocabularyForTeacherGuide(
-      baseVocabulary,
-      book.grade,
-      chapter.extractedText,
-    );
-    const workbookResult = await generateStudentWorkbook(meta, vocabulary);
-    const teacherGuideResult = await generateTeacherGuide(
+    const vocabulary = extractVocabulary(chapterPages, book.grade);
+    const workbookMarkdown = await generateStudentWorkbook(meta, vocabulary);
+    const teacherGuideMarkdown = await generateTeacherGuide(
       meta,
+      workbookMarkdown,
       vocabulary,
-      workbookResult.structured,
     );
 
     const today = new Date().toLocaleDateString("en-US", {
@@ -102,9 +95,9 @@ async function triggerGeneration(
       .update(chaptersTable)
       .set({
         status: "ready",
-        content: workbookResult.outputPath,
-        workbookContent: workbookResult.outputPath,
-        teacherGuideContent: teacherGuideResult.outputPath,
+        content: workbookMarkdown,
+        workbookContent: workbookMarkdown,
+        teacherGuideContent: teacherGuideMarkdown,
         date: today,
       })
       .where(eq(chaptersTable.id, chapterId));
@@ -328,23 +321,10 @@ router.get(
       res.status(404).json({ error: "Workbook not yet generated" });
       return;
     }
-    const downloadPath = chapter.workbookContent;
-    if (!downloadPath || !fs.existsSync(downloadPath)) {
-      res.status(404).json({ error: "Workbook file missing on server" });
-      return;
-    }
-
-    if (req.query.download === "1") {
-      res.download(downloadPath, path.basename(downloadPath));
-      return;
-    }
-
     res.json({
+      markdown: chapter.workbookContent,
       chapterId,
       type: "workbook",
-      format: "docx",
-      filename: path.basename(downloadPath),
-      downloadUrl: `/api/books/${req.params.bookId}/chapters/${chapterId}/workbook?download=1`,
     });
   },
 );
@@ -365,23 +345,10 @@ router.get(
       res.status(404).json({ error: "Teacher guide not yet generated" });
       return;
     }
-    const downloadPath = chapter.teacherGuideContent;
-    if (!downloadPath || !fs.existsSync(downloadPath)) {
-      res.status(404).json({ error: "Teacher guide file missing on server" });
-      return;
-    }
-
-    if (req.query.download === "1") {
-      res.download(downloadPath, path.basename(downloadPath));
-      return;
-    }
-
     res.json({
+      markdown: chapter.teacherGuideContent,
       chapterId,
       type: "teacher-guide",
-      format: "docx",
-      filename: path.basename(downloadPath),
-      downloadUrl: `/api/books/${req.params.bookId}/chapters/${chapterId}/teacher-guide?download=1`,
     });
   },
 );
