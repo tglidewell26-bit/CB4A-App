@@ -78,10 +78,10 @@ async function triggerGeneration(
       .map((text: string, index: number) => ({ page_number: index + 1, text }))
       .filter((page: PageText) => page.text.trim().length > 0);
     const vocabulary = extractVocabulary(chapterPages, book.grade);
-    const workbookMarkdown = await generateStudentWorkbook(meta, vocabulary);
-    const teacherGuideMarkdown = await generateTeacherGuide(
+    const workbookResult = await generateStudentWorkbook(meta, vocabulary);
+    const teacherGuideResult = await generateTeacherGuide(
       meta,
-      workbookMarkdown,
+      workbookResult,
       vocabulary,
     );
 
@@ -95,9 +95,9 @@ async function triggerGeneration(
       .update(chaptersTable)
       .set({
         status: "ready",
-        content: workbookMarkdown,
-        workbookContent: workbookMarkdown,
-        teacherGuideContent: teacherGuideMarkdown,
+        content: workbookResult,
+        workbookContent: workbookResult,
+        teacherGuideContent: teacherGuideResult,
         date: today,
       })
       .where(eq(chaptersTable.id, chapterId));
@@ -322,9 +322,10 @@ router.get(
       return;
     }
     res.json({
-      markdown: chapter.workbookContent,
+      downloadUrl: chapter.workbookContent,
       chapterId,
       type: "workbook",
+      format: "docx",
     });
   },
 );
@@ -346,9 +347,10 @@ router.get(
       return;
     }
     res.json({
-      markdown: chapter.teacherGuideContent,
+      downloadUrl: chapter.teacherGuideContent,
       chapterId,
       type: "teacher-guide",
+      format: "docx",
     });
   },
 );
