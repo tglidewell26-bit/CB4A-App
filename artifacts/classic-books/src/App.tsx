@@ -115,23 +115,45 @@ export default function App() {
     setSelectedBookId(book.id);
   };
 
-  const addBook = (bookData: Omit<Book, "id" | "chapters">) => {
+  const parseJsonResponse = async <T,>(response: Response): Promise<T | null> => {
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || `Request failed with ${response.status}`);
+    }
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    const text = await response.text();
+    if (!text.trim()) {
+      return null;
+    }
+
+    return JSON.parse(text) as T;
+  };
+
+  const addBook = async (bookData: Omit<Book, "id" | "chapters">) => {
     const input: CreateBookInput = {
       title: bookData.title,
       author: bookData.author,
       grade: bookData.grade,
     };
-    fetch("/api/books", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    })
-      .then((r) => r.json())
-      .then((newBook) => {
-        queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
-        setSelectedBookId(newBook.id);
-        setShowNewBook(false);
+    try {
+      const response = await fetch("/api/books", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
       });
+      const newBook = await parseJsonResponse<{ id: number }>(response);
+      queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+      if (newBook?.id) {
+        setSelectedBookId(newBook.id);
+      }
+      setShowNewBook(false);
+    } catch (err) {
+      console.error("Failed to create book", err);
+    }
   };
 
   const requestDeleteBook = (bookId: number) => {
@@ -168,7 +190,7 @@ export default function App() {
     );
   };
 
-  const addChapter = (chapterData: NewChapterData) => {
+  const addChapter = async (chapterData: NewChapterData) => {
     if (!selectedBookId) return;
     const formData = new FormData();
     formData.append("title", chapterData.title);
@@ -180,16 +202,18 @@ export default function App() {
       formData.append("file", chapterData.file);
     }
 
-    fetch(getCreateChapterUrl(selectedBookId), {
-      method: "POST",
-      body: formData,
-    })
-      .then((r) => r.json())
-      .then(() => {
-        queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
-        setShowAddChapter(false);
+    try {
+      const response = await fetch(getCreateChapterUrl(selectedBookId), {
+        method: "POST",
+        body: formData,
       });
+      await parseJsonResponse(response);
+      queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
+      setShowAddChapter(false);
+    } catch (err) {
+      console.error("Failed to create chapter", err);
+    }
   };
 
   const editChapter = (chapterId: number, data: { title: string; pages: string; num?: number | null }): Promise<void> => {

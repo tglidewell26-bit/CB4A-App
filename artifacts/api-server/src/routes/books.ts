@@ -406,6 +406,11 @@ router.post(
       return;
     }
 
+    if (chapter.status === "generating") {
+      res.status(409).json({ error: "Chapter is already generating" });
+      return;
+    }
+
     if (!chapter.extractedText || chapter.extractedText.length < 50) {
       res.status(422).json({ error: "No chapter text available for regeneration. Please re-upload the file." });
       return;
