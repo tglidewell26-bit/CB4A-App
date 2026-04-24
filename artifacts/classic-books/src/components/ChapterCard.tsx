@@ -230,10 +230,11 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
               onClick={guideLoading === "idle" ? handleTeacherGuide : undefined}
             />
             <ActionPill
-              label="Regenerate"
+              label={isGenerating ? "Generating…" : "Regenerate"}
               icon="↺"
               secondary
               onClick={() => onRegenerate(chapter.id)}
+              disabled={isGenerating}
             />
           </div>
         )}
