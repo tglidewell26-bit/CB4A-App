@@ -21,7 +21,7 @@
 
 import { db, booksTable, chaptersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { extractVocabulary } from "../lib/vocabularyExtractor.js";
+import { enrichVocabularyForTeacherGuide, extractVocabulary } from "../lib/vocabularyExtractor.js";
 import { generateStudentWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
 import type { PageText } from "../lib/textExtractor.js";
 
@@ -53,9 +53,10 @@ async function regenerateChapter(chapterId: number, bookId: number): Promise<voi
     .map((text: string, index: number) => ({ page_number: index + 1, text }))
     .filter((page: PageText) => page.text.trim().length > 0);
 
-  const vocabulary = extractVocabulary(chapterPages, book.grade);
-  const workbookMarkdown = await generateStudentWorkbook(meta, vocabulary);
-  const teacherGuideMarkdown = await generateTeacherGuide(meta, workbookMarkdown, vocabulary);
+  const baseVocabulary = extractVocabulary(chapterPages, book.grade);
+  const vocabulary = await enrichVocabularyForTeacherGuide(baseVocabulary, book.grade, chapter.extractedText);
+  const workbookResult = await generateStudentWorkbook(meta, vocabulary);
+  const teacherGuideResult = await generateTeacherGuide(meta, vocabulary, workbookResult.structured);
 
   const today = new Date().toLocaleDateString("en-US", {
     month: "short",
@@ -68,9 +69,9 @@ async function regenerateChapter(chapterId: number, bookId: number): Promise<voi
     .set({
       status: "ready",
       date: today,
-      content: workbookMarkdown,
-      workbookContent: workbookMarkdown,
-      teacherGuideContent: teacherGuideMarkdown,
+      content: workbookResult.outputPath,
+      workbookContent: workbookResult.outputPath,
+      teacherGuideContent: teacherGuideResult.outputPath,
     })
     .where(eq(chaptersTable.id, chapterId));
 }
@@ -81,7 +82,7 @@ async function main() {
   const allChapters = await db.select().from(chaptersTable);
 
   const htmlChapters = allChapters.filter(
-    (c) => isLegacyHtml(c.workbookContent) || isLegacyHtml(c.teacherGuideContent),
+    (c: typeof chaptersTable.$inferSelect) => isLegacyHtml(c.workbookContent) || isLegacyHtml(c.teacherGuideContent),
   );
 
   if (htmlChapters.length === 0) {
@@ -96,10 +97,10 @@ async function main() {
   console.log();
 
   const canRegenerate = htmlChapters.filter(
-    (c) => c.extractedText && c.extractedText.length >= 50,
+    (c: typeof chaptersTable.$inferSelect) => c.extractedText && c.extractedText.length >= 50,
   );
   const cannotRegenerate = htmlChapters.filter(
-    (c) => !c.extractedText || c.extractedText.length < 50,
+    (c: typeof chaptersTable.$inferSelect) => !c.extractedText || c.extractedText.length < 50,
   );
 
   if (cannotRegenerate.length > 0) {

@@ -1,6 +1,7 @@
 import { isLikelyKnownByGrade } from "./cefrjVocabularyProfile.js";
 import { getGradeVocabularyTargets } from "./gradeVocabularyTargets.js";
 import type { PageText } from "./textExtractor.js";
+import { anthropic } from "@workspace/integrations-anthropic-ai";
 
 export interface VocabularyWord {
   word: string;
@@ -9,6 +10,9 @@ export interface VocabularyWord {
   book_quote: string;
   grade_band: string;
   score: number;
+  kid_friendly_definition?: string;
+  context_sentence?: string;
+  example_sentence?: string;
 }
 
 const STOPWORDS = new Set([
@@ -207,4 +211,79 @@ export function extractVocabulary(
   }
 
   return scored;
+}
+
+type VocabularyEnrichment = {
+  word: string;
+  kid_friendly_definition: string;
+  context_sentence: string;
+  example_sentence: string;
+};
+
+export async function enrichVocabularyForTeacherGuide(
+  vocabulary: VocabularyWord[],
+  gradeLevel: number,
+  chapterText: string,
+): Promise<VocabularyWord[]> {
+  if (vocabulary.length === 0) return vocabulary;
+
+  const prompt = `You are generating kid-safe vocabulary supports for grade ${gradeLevel}.
+Return STRICT JSON only (no markdown, no prose) in this shape:
+{
+  "entries": [
+    {
+      "word": "string",
+      "kid_friendly_definition": "string",
+      "context_sentence": "string",
+      "example_sentence": "string"
+    }
+  ]
+}
+
+Rules:
+- Include exactly one entry per input word, preserving exact word spelling/case.
+- Use short, concrete definitions appropriate for grade ${gradeLevel}.
+- context_sentence must align to chapter context.
+- example_sentence should be original and kid-friendly.
+- Keep each field under 140 characters.
+`;
+
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 2048,
+    system: prompt,
+    messages: [{
+      role: "user",
+      content: `Vocabulary:\n${JSON.stringify(vocabulary.map((v) => ({
+        word: v.word,
+        page_number: v.page_number,
+        book_quote: v.book_quote,
+      })), null, 2)}\n\nChapter excerpt:\n${chapterText.slice(0, 12000)}`,
+    }],
+  });
+
+  const textBlock = message.content.find((block: { type: string }) => block.type === "text");
+  if (!textBlock || textBlock.type !== "text") return vocabulary;
+
+  const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return vocabulary;
+
+  let parsed: { entries?: VocabularyEnrichment[] } = {};
+  try {
+    parsed = JSON.parse(jsonMatch[0]) as { entries?: VocabularyEnrichment[] };
+  } catch {
+    return vocabulary;
+  }
+  const enrichmentByWord = new Map((parsed.entries ?? []).map((entry) => [entry.word.toLowerCase(), entry]));
+
+  return vocabulary.map((entry) => {
+    const enrichment = enrichmentByWord.get(entry.word.toLowerCase());
+    if (!enrichment) return entry;
+    return {
+      ...entry,
+      kid_friendly_definition: enrichment.kid_friendly_definition,
+      context_sentence: enrichment.context_sentence,
+      example_sentence: enrichment.example_sentence,
+    };
+  });
 }
