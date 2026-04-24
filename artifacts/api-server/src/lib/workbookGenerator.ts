@@ -84,7 +84,7 @@ Rules:
 9) Generate EXACTLY 3 "Dig Deeper" analysis questions.
 10) Generate EXACTLY 3 "Multiple Choice" questions.
 11) Generate EXACTLY 3 "Evidence from the Story" short-answer questions.
-12) Creative Response must be LETTER format (not diary) with salutation "Dear Deta," and closing "Sincerely,\n\nHeidi".
+12) Creative Response must involve writing creatively in response to the chapter (letter, journal entry, or narrative — choose the form that fits the chapter best).
 13) Generate EXACTLY 3 creative scaffolding hints in the Creative Response section.
 14) Character Chart must include EXACTLY 5 character names.
 15) Reflect on Your Drawing must include EXACTLY 3 reflection stems.
@@ -173,6 +173,13 @@ Pre-computed vocabulary (must remain unchanged words):\n${serializeVocabulary(vo
 Student workbook markdown (source of truth for sections/questions):\n${studentWorkbookMarkdown}\n
 Chapter text:\n${chapterText}`;
 
-  const markdown = await generateWithVocabularyRetry(systemPrompt, userPrompt, vocabulary, "teacher guide");
-  return postProcessMarkdown(markdown);
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 8192,
+    system: systemPrompt,
+    messages: [{ role: "user", content: userPrompt }],
+  });
+
+  const block = message.content[0];
+  return block.type === "text" ? block.text : "";
 }
