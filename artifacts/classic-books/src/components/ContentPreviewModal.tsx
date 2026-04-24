@@ -62,12 +62,13 @@ function stripCodeFence(content: string): string {
 
 export function ContentPreviewModal({ markdown, title, filename, onClose }: ContentPreviewModalProps) {
   const legacy = isLegacyHtml(markdown);
+  const isPdf = filename.toLowerCase().endsWith(".pdf");
 
   const displayContent = legacy ? stripCodeFence(markdown) : markdown;
 
   const handleDownload = () => {
-    const ext = legacy ? "html" : "md";
-    const mime = legacy ? "text/html;charset=utf-8" : "text/markdown;charset=utf-8";
+    const ext = legacy ? "html" : isPdf ? "pdf" : "md";
+    const mime = legacy ? "text/html;charset=utf-8" : isPdf ? "application/pdf" : "text/markdown;charset=utf-8";
     const blob = new Blob([displayContent], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -118,7 +119,7 @@ export function ContentPreviewModal({ markdown, title, filename, onClose }: Cont
             {title}
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {legacy && (
+            {(legacy || isPdf) && (
               <button
                 onClick={handlePrintLegacy}
                 style={{
@@ -150,7 +151,7 @@ export function ContentPreviewModal({ markdown, title, filename, onClose }: Cont
                 cursor: "pointer",
               }}
             >
-              {legacy ? "Download HTML" : "Download as Markdown"}
+              {legacy ? "Download HTML" : isPdf ? "Download PDF" : "Download as Markdown"}
             </button>
             <button
               onClick={onClose}
@@ -170,7 +171,7 @@ export function ContentPreviewModal({ markdown, title, filename, onClose }: Cont
           </div>
         </div>
         <div style={{ overflowY: "auto", flex: 1, padding: "24px 28px" }}>
-          {legacy ? (
+          {legacy || isPdf ? (
             <div dangerouslySetInnerHTML={{ __html: `<style>${LEGACY_HTML_STYLES}</style>${displayContent}` }} />
           ) : (
             <article className="prose prose-stone max-w-none">

@@ -23,6 +23,8 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
   const gc = GRADE_COLORS[book.grade];
 
   const [previewTitle, setPreviewTitle] = useState("");
+  const [previewFilename, setPreviewFilename] = useState("");
+  const [previewContent, setPreviewContent] = useState("");
   const [workbookLoading, setWorkbookLoading] = useState<LoadingState>("idle");
   const [guideLoading, setGuideLoading] = useState<LoadingState>("idle");
   const [showEditModal, setShowEditModal] = useState(false);
@@ -31,8 +33,10 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
   const handleWorkbook = async () => {
     setWorkbookLoading("loading");
     try {
-      const data = await getWorkbook(book.id, chapter.id) as { downloadUrl?: string };
-      if (data.downloadUrl) window.open(data.downloadUrl, "_blank", "noopener,noreferrer");
+      const data = await getWorkbook(book.id, chapter.id) as { downloadUrl?: string; previewUrl?: string; content?: string; markdown?: string };
+      setPreviewTitle(`Student Workbook — ${chapter.title}`);
+      setPreviewFilename(`${book.title.replace(/\s+/g, "_")}_${chapter.num ?? chapter.id}_StudentWorkbook.pdf`);
+      setPreviewContent(data.content ?? data.markdown ?? data.downloadUrl ?? "");
       setWorkbookLoading("idle");
     } catch {
       setWorkbookLoading("error");
@@ -43,8 +47,10 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
   const handleTeacherGuide = async () => {
     setGuideLoading("loading");
     try {
-      const data = await getTeacherGuide(book.id, chapter.id) as { downloadUrl?: string };
-      if (data.downloadUrl) window.open(data.downloadUrl, "_blank", "noopener,noreferrer");
+      const data = await getTeacherGuide(book.id, chapter.id) as { downloadUrl?: string; previewUrl?: string; content?: string; markdown?: string };
+      setPreviewTitle(`Teacher Guide — ${chapter.title}`);
+      setPreviewFilename(`${book.title.replace(/\s+/g, "_")}_${chapter.num ?? chapter.id}_TeacherGuide.pdf`);
+      setPreviewContent(data.content ?? data.markdown ?? data.downloadUrl ?? "");
       setGuideLoading("idle");
     } catch {
       setGuideLoading("error");
@@ -262,12 +268,12 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
         )}
       </div>
 
-        {false && (
+        {previewContent && (
           <ContentPreviewModal
-            markdown=""
+            markdown={previewContent}
             title={previewTitle}
-            filename=""
-            onClose={() => setPreviewTitle("")}
+            filename={previewFilename}
+            onClose={() => setPreviewContent("")}
           />
         )}
 
