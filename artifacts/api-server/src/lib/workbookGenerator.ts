@@ -24,6 +24,12 @@ function truncateText(text: string, maxChars = 80000): string {
   return text.length <= maxChars ? text : `${text.slice(0, maxChars)}\n\n[Text truncated for length]`;
 }
 
+function serializeVocabulary(vocabulary: VocabularyWord[]): string {
+  return vocabulary
+    .map((v, i) => `${i + 1}. word="${v.word}" quote="${v.book_quote}" page=${v.page_number}`)
+    .join("\n");
+}
+
 function buildVocabCardsHtml(vocabulary: VocabularyWord[]): string {
   return vocabulary.map((v) => `
     <div class="vocab-item">
@@ -94,7 +100,7 @@ Pages: ${meta.pages}
 Grade: ${meta.grade}
 
 Vocabulary words (pre-extracted — use these exact words and quotes):
-${vocabulary.map((v, i) => `${i + 1}. word="${v.word}" quote="${v.book_quote}" page=${v.page_number}`).join("\n")}
+${serializeVocabulary(vocabulary)}
 
 Chapter text:
 ${chapterText}`;
@@ -164,7 +170,7 @@ Pages: ${meta.pages}
 Grade: ${meta.grade}
 
 Vocabulary words:
-${vocabulary.map((v, i) => `${i + 1}. word="${v.word}" quote="${v.book_quote}" page=${v.page_number}`).join("\n")}
+${serializeVocabulary(vocabulary)}
 
 Student workbook (HTML — source of truth for questions):
 ${studentWorkbookHtml}
