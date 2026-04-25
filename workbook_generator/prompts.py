@@ -56,15 +56,15 @@ XML structure.  Do not add extra commentary, summaries, or text outside the
 <WORKBOOK>
 
 <FOCUS_QUESTION>
-[One engaging before-reading question, grade-appropriate language]
+[One engaging "Get Ready to Read" focus question, grade-appropriate language]
 </FOCUS_QUESTION>
 
 <VOCABULARY>
 <VOCAB_1>
 <WORD>[word]</WORD>
 <BOOK_QUOTE>"[exact verbatim quote from the chapter text]" (p. [N])</BOOK_QUOTE>
-<DEFINITION>[grade-appropriate definition]</DEFINITION>
-<EXAMPLE_SENTENCE>[original example sentence]</EXAMPLE_SENTENCE>
+<DEFINITION>[leave blank]</DEFINITION>
+<EXAMPLE_SENTENCE>[leave blank]</EXAMPLE_SENTENCE>
 </VOCAB_1>
 <VOCAB_2> ... </VOCAB_2>
 [continue through VOCAB_10]
@@ -108,33 +108,42 @@ XML structure.  Do not add extra commentary, summaries, or text outside the
 
 <SHORT_ANSWER>
 <SA_1>
-<QUESTION>[question requiring a text-evidence answer with page number]</QUESTION>
+<QUESTION>[Evidence from the Story question requiring complete-sentence evidence with a page number]</QUESTION>
 <ANSWER>[expected answer with page evidence]</ANSWER>
 </SA_1>
 [continue through SA_3]
 </SHORT_ANSWER>
 
 <CREATIVE_RESPONSE>
-<PROMPT>[writing prompt appropriate to the chapter and grade]</PROMPT>
+<PROMPT>[Letter-format prompt: Dear [character], ... Sincerely, [Student]]</PROMPT>
 <HINT_1>[scaffolding hint 1]</HINT_1>
 <HINT_2>[scaffolding hint 2]</HINT_2>
 <HINT_3>[scaffolding hint 3]</HINT_3>
 </CREATIVE_RESPONSE>
 
 <TIMELINE_EVENTS>
-<EVENT_1>[first key event in correct chronological order]</EVENT_1>
-<EVENT_2>[second event]</EVENT_2>
-<EVENT_3>[third event]</EVENT_3>
-<EVENT_4>[fourth event]</EVENT_4>
-<EVENT_5>[fifth event]</EVENT_5>
-<EVENT_6>[sixth event]</EVENT_6>
-<EVENT_7>[seventh event]</EVENT_7>
+<EVENT_1>[key event, scrambled order item 1]</EVENT_1>
+<EVENT_2>[key event, scrambled order item 2]</EVENT_2>
+<EVENT_3>[key event, scrambled order item 3]</EVENT_3>
+<EVENT_4>[key event, scrambled order item 4]</EVENT_4>
+<EVENT_5>[key event, scrambled order item 5]</EVENT_5>
+<EVENT_6>[key event, scrambled order item 6]</EVENT_6>
+<EVENT_7>[key event, scrambled order item 7]</EVENT_7>
 </TIMELINE_EVENTS>
 
-<PREDICTION_SETUP>
-[One sentence stem for a "Thinking Deeper" prediction activity, e.g.
-"Based on what happened in this chapter, I predict that..."]
-</PREDICTION_SETUP>
+<DRAW_IT_PROMPT>
+[Draw what you imagine [scene/character] looks like. Use the description from the book to guide your drawing.]
+</DRAW_IT_PROMPT>
+
+<REFLECT_STEMS>
+<STEM_1>My drawing shows...</STEM_1>
+<STEM_2>I chose these colors/details because...</STEM_2>
+<STEM_3>This part of the story is important because...</STEM_3>
+</REFLECT_STEMS>
+
+<THINKING_DEEPER_QUESTION>
+[One final reflection question for the Thinking Deeper section.]
+</THINKING_DEEPER_QUESTION>
 
 </WORKBOOK>"""
 
@@ -176,7 +185,7 @@ Student Workbook content for young readers in grades 3–8.
 3. Every question answer must be grounded in — and verifiable against — the
    chapter text.
 4. All content must match the complexity of Grade {grade}: {guidance}
-5. Produce all 10 sections in the exact XML format the user message specifies.
+5. Produce all 14 workbook sections in the exact XML format the user message specifies.
 
 ══ BOOK INFORMATION ══
 Title   : {book_title}
@@ -209,15 +218,19 @@ Complexity target: {guidance}
 Requirements for each section:
 • FOCUS_QUESTION — one compelling before-reading hook question.
 • VOCABULARY — exactly 10 words; each BOOK_QUOTE must be verbatim from the
-  chapter with a (p. N) citation; DEFINITION uses language appropriate for
-  grade {grade}; EXAMPLE_SENTENCE is a brand-new original sentence.
+  chapter with a (p. N) citation; leave DEFINITION blank and leave
+  EXAMPLE_SENTENCE blank (student-fillable columns).
 • BASIC_COMPREHENSION — 6 questions; answers stated explicitly in the text.
 • INFERENCE_QUESTIONS — 3 questions; answers require reading between the lines.
 • ANALYSIS_QUESTIONS — 3 questions; character, theme, or author's craft.
 • MULTIPLE_CHOICE — 3 questions; exactly one correct option per question.
-• SHORT_ANSWER — 3 questions; answers must cite a specific page number.
-• CREATIVE_RESPONSE — one writing prompt + 3 scaffolding hints.
-• TIMELINE_EVENTS — exactly 7 events in correct chronological order.
-• PREDICTION_SETUP — one sentence stem (e.g. "I predict that...").
+• SHORT_ANSWER — 3 "Evidence from the Story" questions; complete-sentence
+  text evidence with page numbers.
+• CREATIVE_RESPONSE — one letter-format writing prompt + exactly 3 scaffolding hints.
+• TIMELINE_EVENTS — exactly 7 events in scrambled order for "Bonus Challenge - Follow the Story".
+• DRAW_IT_PROMPT — exactly the Draw It instruction sentence.
+• REFLECT_STEMS — exactly 3 stems: "My drawing shows...", "I chose these
+  colors/details because...", "This part of the story is important because..."
+• THINKING_DEEPER_QUESTION — one final reflection question.
 
 {_OUTPUT_FORMAT}"""

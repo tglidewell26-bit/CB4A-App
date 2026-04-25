@@ -3,9 +3,8 @@ import multer from "multer";
 import { db, booksTable, chaptersTable, insertBookSchema } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 import { extractTextFromBuffer, type PageText } from "../lib/textExtractor.js";
-import { extractVocabulary } from "../lib/vocabularyExtractor.js";
+import { enrichVocabularyForTeacherGuide, extractVocabulary } from "../lib/vocabularyExtractor.js";
 import { generateStudentWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
-import { validateWorkbookMarkdownCounts } from "../lib/workbookTemplate.js";
 import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
@@ -14,6 +13,47 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
 });
+
+const HEIDI_CH1_MANUAL_WORDS = [
+  "cozy",
+  "guided",
+  "encouraged",
+  "frustrated",
+  "inherited",
+  "nimble",
+  "attire",
+  "gruff",
+  "breathtaking",
+  "stern",
+] as const;
+
+function findSentenceForWord(text: string, word: string): string {
+  const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const found = sentences.find((s) => new RegExp(`\\b${word}\\b`, "i").test(s));
+  return (found ?? "").slice(0, 220).trim();
+}
+
+function manualHeidiChapterOneVocabulary(chapterPages: PageText[]) {
+  const fallbackPage = chapterPages[0]?.page_number ?? 1;
+
+  return HEIDI_CH1_MANUAL_WORDS.map((word) => {
+    const page = chapterPages.find((p) => new RegExp(`\\b${word}\\b`, "i").test(p.text));
+    const pageNumber = page?.page_number ?? fallbackPage;
+    const quote = page ? findSentenceForWord(page.text, word) : word;
+    return {
+      word,
+      lemma: word,
+      page_number: pageNumber,
+      book_quote: quote,
+      grade_band: "3-5",
+      score: 1,
+    };
+  });
+}
+
+function shouldUseHeidiManualVocabulary(bookTitle: string, chapterNum?: number | null): boolean {
+  return bookTitle.trim().toLowerCase() === "heidi" && (chapterNum ?? 0) === 1;
+}
 
 function chapterToResponse(c: typeof chaptersTable.$inferSelect) {
   return {
@@ -78,12 +118,14 @@ async function triggerGeneration(
       .split("\n\n---PAGE---\n\n")
       .map((text: string, index: number) => ({ page_number: index + 1, text }))
       .filter((page: PageText) => page.text.trim().length > 0);
-    const vocabulary = extractVocabulary(chapterPages, book.grade);
-    const workbookMarkdown = await generateStudentWorkbook(meta, vocabulary);
-    validateWorkbookMarkdownCounts(workbookMarkdown);
-    const teacherGuideMarkdown = await generateTeacherGuide(
+    const baseVocabulary = shouldUseHeidiManualVocabulary(book.title, chapter.num)
+      ? manualHeidiChapterOneVocabulary(chapterPages)
+      : extractVocabulary(chapterPages, book.grade);
+    const vocabulary = await enrichVocabularyForTeacherGuide(baseVocabulary, book.grade, chapter.extractedText);
+    const workbookResult = await generateStudentWorkbook(meta, vocabulary);
+    const teacherGuideResult = await generateTeacherGuide(
       meta,
-      workbookMarkdown,
+      workbookResult,
       vocabulary,
     );
 
@@ -97,9 +139,9 @@ async function triggerGeneration(
       .update(chaptersTable)
       .set({
         status: "ready",
-        content: workbookMarkdown,
-        workbookContent: workbookMarkdown,
-        teacherGuideContent: teacherGuideMarkdown,
+        content: workbookResult,
+        workbookContent: workbookResult,
+        teacherGuideContent: teacherGuideResult,
         date: today,
       })
       .where(eq(chaptersTable.id, chapterId));
@@ -324,7 +366,7 @@ router.get(
       return;
     }
     res.json({
-      markdown: chapter.workbookContent,
+      content: chapter.workbookContent,
       chapterId,
       type: "workbook",
     });
@@ -348,7 +390,7 @@ router.get(
       return;
     }
     res.json({
-      markdown: chapter.teacherGuideContent,
+      content: chapter.teacherGuideContent,
       chapterId,
       type: "teacher-guide",
     });
@@ -372,6 +414,11 @@ router.post(
 
     if (!chapter) {
       res.status(404).json({ error: "Chapter not found" });
+      return;
+    }
+
+    if (chapter.status === "generating") {
+      res.status(409).json({ error: "Chapter is already generating" });
       return;
     }
 

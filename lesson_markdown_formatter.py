@@ -30,18 +30,18 @@ TEACHER_REQUIRED_SECTIONS = (
 
 STUDENT_REQUIRED_SECTIONS = (
     "Get Ready to Read",
-    "Words to Know table",
+    "Words to Know",
     "Think About the Story",
     "Reading Between the Lines",
     "Dig Deeper",
-    "Multiple Choice Questions",
+    "Multiple Choice",
     "Evidence from the Story",
     "Creative Response",
     "Writing Rubric",
     "Character Chart",
     "Draw It",
-    "Reflection",
-    "Bonus Challenge",
+    "Reflect on Drawing",
+    "Bonus Challenge - Follow the Story",
     "Thinking Deeper",
 )
 

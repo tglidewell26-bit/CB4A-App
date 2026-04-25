@@ -1,4 +1,7 @@
+import { isLikelyKnownByGrade } from "./cefrjVocabularyProfile.js";
+import { getGradeVocabularyTargets } from "./gradeVocabularyTargets.js";
 import type { PageText } from "./textExtractor.js";
+import { anthropic } from "@workspace/integrations-anthropic-ai";
 
 export interface VocabularyWord {
   word: string;
@@ -7,6 +10,9 @@ export interface VocabularyWord {
   book_quote: string;
   grade_band: string;
   score: number;
+  kid_friendly_definition?: string;
+  context_sentence?: string;
+  example_sentence?: string;
 }
 
 const STOPWORDS = new Set([
@@ -30,7 +36,11 @@ const AWL_ACADEMIC_WORDS = new Set([
 function lemmatize(token: string): string {
   if (token.endsWith("ies") && token.length > 4) return `${token.slice(0, -3)}y`;
   if (token.endsWith("ing") && token.length > 5) return token.slice(0, -3);
-  if (token.endsWith("ed") && token.length > 4) return token.slice(0, -2);
+  if (token.endsWith("ed") && token.length > 4) {
+    const stem = token.slice(0, -2);
+    if (stem.endsWith("v") || stem.endsWith("k") || stem.endsWith("z")) return `${stem}e`;
+    return stem;
+  }
   if (token.endsWith("es") && token.length > 4) return token.slice(0, -2);
   if (token.endsWith("s") && token.length > 3) return token.slice(0, -1);
   return token;
@@ -59,6 +69,40 @@ function sentenceQuote(text: string, word: string): string {
   return (found ?? text).slice(0, 220).trim();
 }
 
+function isLikelyContraction(token: string): boolean {
+  const lower = token.toLowerCase();
+  if (lower.includes("'")) return true;
+  return /(n't|'re|'ve|'ll|'d|'m|'s)$/.test(lower);
+}
+
+function buildProperNounLexicon(chapterPages: PageText[]): Set<string> {
+  const counts = new Map<string, { upper: number; lower: number }>();
+  const punctuation = /^[^A-Za-z]+|[^A-Za-z]+$/g;
+
+  chapterPages.forEach((page) => {
+    const words = page.text.match(/\b[A-Za-z][A-Za-z'-]*\b/g) ?? [];
+    words.forEach((raw) => {
+      const cleaned = raw.replace(punctuation, "");
+      if (!cleaned) return;
+      const base = cleaned.toLowerCase();
+      if (base.length < 3) return;
+      if (STOPWORDS.has(base)) return;
+      if (isLikelyContraction(cleaned)) return;
+
+      const stat = counts.get(base) ?? { upper: 0, lower: 0 };
+      if (/^[A-Z]/.test(cleaned)) stat.upper += 1;
+      else stat.lower += 1;
+      counts.set(base, stat);
+    });
+  });
+
+  const properNouns = new Set<string>();
+  for (const [base, stat] of counts.entries()) {
+    if (stat.upper >= 2 && stat.lower === 0) properNouns.add(base);
+  }
+  return properNouns;
+}
+
 export function extractVocabulary(
   chapterPages: PageText[],
   gradeLevel: number,
@@ -77,15 +121,24 @@ export function extractVocabulary(
   };
 
   const candidates = new Map<string, Candidate>();
+  const properNounLexicon = buildProperNounLexicon(chapterPages);
+  const targetWords = getGradeVocabularyTargets(gradeLevel);
+  const hasTargetWords = targetWords.size > 0;
 
   chapterPages.forEach((page) => {
     const tokens = page.text.match(/[A-Za-z][A-Za-z'-]{2,}/g) ?? [];
     tokens.forEach((raw, tokenIndex) => {
+      if (isLikelyContraction(raw)) return;
+      if (/^[A-Z]/.test(raw) && properNounLexicon.has(raw.toLowerCase())) return;
+
       const normalized = raw.toLowerCase();
-      if (STOPWORDS.has(normalized) || normalized.length < 4) return;
-      if (DOLCH_SIGHT_WORDS.has(normalized)) return;
+      if (STOPWORDS.has(normalized)) return;
+      if (!hasTargetWords && normalized.length < 4) return;
 
       const lemma = lemmatize(normalized);
+      if (hasTargetWords && !targetWords.has(lemma) && !targetWords.has(normalized)) return;
+      if (DOLCH_SIGHT_WORDS.has(normalized) || DOLCH_SIGHT_WORDS.has(lemma)) return;
+      if (!hasTargetWords && isLikelyKnownByGrade(lemma, gradeLevel)) return;
       const existing = candidates.get(lemma);
       if (existing) {
         existing.count += 1;
@@ -106,10 +159,11 @@ export function extractVocabulary(
   const scored = Array.from(candidates.values())
     .map((item) => {
       const estimatedGrade = estimateWordGrade(item.lemma);
-      if (estimatedGrade > maxAllowedGrade) return null;
-
       const gradeDist = estimatedGrade - gradeLevel;
-      if (gradeDist < -1) return null;
+      if (!hasTargetWords) {
+        if (estimatedGrade > maxAllowedGrade) return null;
+        if (gradeDist < -1) return null;
+      }
 
       let difficultyFit = 0;
       if (gradeDist === 0) difficultyFit = 1.0;
@@ -140,18 +194,96 @@ export function extractVocabulary(
     .sort((a, b) => b.score - a.score)
     .slice(0, 10);
 
-  const easyWordCount = scored.filter((w) => DOLCH_SIGHT_WORDS.has(w.word.toLowerCase())).length;
-  if (easyWordCount > 0) {
-    throw new Error(`${easyWordCount} Dolch words selected - REJECTED. Re-run with stricter filter.`);
+  const easyWordCount = scored.filter((w) => {
+    const normalized = w.word.toLowerCase();
+    return DOLCH_SIGHT_WORDS.has(normalized) || DOLCH_SIGHT_WORDS.has(w.lemma) || isLikelyKnownByGrade(w.lemma, gradeLevel);
+  }).length;
+  if (!hasTargetWords && easyWordCount > 0) {
+    throw new Error(`${easyWordCount} too-easy words selected (Dolch/CEFR-J) - REJECTED. Re-run with stricter filter.`);
   }
 
   const onGradeCount = scored.filter((w) => {
     const estimatedGrade = estimateWordGrade(w.lemma);
     return Math.abs(estimatedGrade - gradeLevel) <= 1;
   }).length;
-  if (onGradeCount < 7) {
+  if (!hasTargetWords && onGradeCount < 7) {
     throw new Error(`Only ${onGradeCount}/10 on-grade. REJECTED. Need at least 7.`);
   }
 
   return scored;
+}
+
+type VocabularyEnrichment = {
+  word: string;
+  kid_friendly_definition: string;
+  context_sentence: string;
+  example_sentence: string;
+};
+
+export async function enrichVocabularyForTeacherGuide(
+  vocabulary: VocabularyWord[],
+  gradeLevel: number,
+  chapterText: string,
+): Promise<VocabularyWord[]> {
+  if (vocabulary.length === 0) return vocabulary;
+
+  const prompt = `You are generating kid-safe vocabulary supports for grade ${gradeLevel}.
+Return STRICT JSON only (no markdown, no prose) in this shape:
+{
+  "entries": [
+    {
+      "word": "string",
+      "kid_friendly_definition": "string",
+      "context_sentence": "string",
+      "example_sentence": "string"
+    }
+  ]
+}
+
+Rules:
+- Include exactly one entry per input word, preserving exact word spelling/case.
+- Use short, concrete definitions appropriate for grade ${gradeLevel}.
+- context_sentence must align to chapter context.
+- example_sentence should be original and kid-friendly.
+- Keep each field under 140 characters.
+`;
+
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 2048,
+    system: prompt,
+    messages: [{
+      role: "user",
+      content: `Vocabulary:\n${JSON.stringify(vocabulary.map((v) => ({
+        word: v.word,
+        page_number: v.page_number,
+        book_quote: v.book_quote,
+      })), null, 2)}\n\nChapter excerpt:\n${chapterText.slice(0, 12000)}`,
+    }],
+  });
+
+  const textBlock = message.content.find((block: { type: string }) => block.type === "text");
+  if (!textBlock || textBlock.type !== "text") return vocabulary;
+
+  const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return vocabulary;
+
+  let parsed: { entries?: VocabularyEnrichment[] } = {};
+  try {
+    parsed = JSON.parse(jsonMatch[0]) as { entries?: VocabularyEnrichment[] };
+  } catch {
+    return vocabulary;
+  }
+  const enrichmentByWord = new Map((parsed.entries ?? []).map((entry) => [entry.word.toLowerCase(), entry]));
+
+  return vocabulary.map((entry) => {
+    const enrichment = enrichmentByWord.get(entry.word.toLowerCase());
+    if (!enrichment) return entry;
+    return {
+      ...entry,
+      kid_friendly_definition: enrichment.kid_friendly_definition,
+      context_sentence: enrichment.context_sentence,
+      example_sentence: enrichment.example_sentence,
+    };
+  });
 }

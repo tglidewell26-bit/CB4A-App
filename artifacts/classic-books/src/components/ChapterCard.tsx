@@ -22,9 +22,9 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
   const isError = chapter.status === "error";
   const gc = GRADE_COLORS[book.grade];
 
-  const [previewMarkdown, setPreviewMarkdown] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState("");
   const [previewFilename, setPreviewFilename] = useState("");
+  const [previewContent, setPreviewContent] = useState("");
   const [workbookLoading, setWorkbookLoading] = useState<LoadingState>("idle");
   const [guideLoading, setGuideLoading] = useState<LoadingState>("idle");
   const [showEditModal, setShowEditModal] = useState(false);
@@ -33,10 +33,10 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
   const handleWorkbook = async () => {
     setWorkbookLoading("loading");
     try {
-      const data = await getWorkbook(book.id, chapter.id);
+      const data = await getWorkbook(book.id, chapter.id) as { content?: string };
       setPreviewTitle(`Student Workbook — ${chapter.title}`);
-      setPreviewFilename(`${book.title.replace(/\s+/g, "_")}_${chapter.num ?? chapter.id}_StudentWorkbook.md`);
-      setPreviewMarkdown((data as { markdown?: string; html?: string }).markdown ?? data.html);
+      setPreviewFilename(`${book.title.replace(/\s+/g, "_")}_${chapter.num ?? chapter.id}_StudentWorkbook`);
+      setPreviewContent(data.content ?? "");
       setWorkbookLoading("idle");
     } catch {
       setWorkbookLoading("error");
@@ -47,10 +47,10 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
   const handleTeacherGuide = async () => {
     setGuideLoading("loading");
     try {
-      const data = await getTeacherGuide(book.id, chapter.id);
+      const data = await getTeacherGuide(book.id, chapter.id) as { content?: string };
       setPreviewTitle(`Teacher Guide — ${chapter.title}`);
-      setPreviewFilename(`${book.title.replace(/\s+/g, "_")}_${chapter.num ?? chapter.id}_TeacherGuide.md`);
-      setPreviewMarkdown((data as { markdown?: string; html?: string }).markdown ?? data.html);
+      setPreviewFilename(`${book.title.replace(/\s+/g, "_")}_${chapter.num ?? chapter.id}_TeacherGuide`);
+      setPreviewContent(data.content ?? "");
       setGuideLoading("idle");
     } catch {
       setGuideLoading("error");
@@ -230,10 +230,11 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
               onClick={guideLoading === "idle" ? handleTeacherGuide : undefined}
             />
             <ActionPill
-              label="Regenerate"
+              label={isGenerating ? "Generating…" : "Regenerate"}
               icon="↺"
               secondary
               onClick={() => onRegenerate(chapter.id)}
+              disabled={isGenerating}
             />
           </div>
         )}
@@ -267,14 +268,14 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
         )}
       </div>
 
-      {previewMarkdown && (
-        <ContentPreviewModal
-          markdown={previewMarkdown}
-          title={previewTitle}
-          filename={previewFilename}
-          onClose={() => setPreviewMarkdown(null)}
-        />
-      )}
+        {previewContent && (
+          <ContentPreviewModal
+            markdown={previewContent}
+            title={previewTitle}
+            filename={previewFilename}
+            onClose={() => setPreviewContent("")}
+          />
+        )}
 
       {showEditModal && (
         <EditChapterModal
