@@ -32,26 +32,34 @@ async function generateStructuredWorkbook(meta: ChapterMeta, vocabulary: Vocabul
     system: `You create structured JSON for a Grade ${meta.grade} student workbook. Return ONLY JSON object with keys matching this schema:
 {
   "focus_question": "string",
-  "guided_tip": "string",
-  "guided_sections": [{"SECTION_NUMBER":"1","PAGE_RANGE":"p.1-2","PAUSE_QUESTIONS":"..."}],
   "basic_comprehension": [{"QUESTION":"...","ANSWER":"..."}],
   "inference_questions": [{"QUESTION":"...","ANSWER":"..."}],
   "analysis_questions": [{"QUESTION":"...","ANSWER":"..."}],
   "multiple_choice": [{"QUESTION":"...","OPTION_A":"...","OPTION_B":"...","OPTION_C":"...","OPTION_D":"...","CORRECT_ANSWER":"A"}],
   "short_answer": [{"QUESTION":"...","ANSWER":"..."}],
   "creative_response": {"PROMPT":"...","HINT_1":"...","HINT_2":"...","HINT_3":"..."},
+  "writing_rubric": [
+    {"CATEGORY":"Ideas","POINTS":"2","DESCRIPTION":"Does the response show creative thinking?"},
+    {"CATEGORY":"Details from the Chapter","POINTS":"2","DESCRIPTION":"Does it use specific details?"},
+    {"CATEGORY":"Writing Clarity","POINTS":"2","DESCRIPTION":"Is it clear and organized?"},
+    {"CATEGORY":"Spelling/Grammar","POINTS":"2","DESCRIPTION":"Are there spelling/grammar errors?"}
+  ],
   "timeline_events": ["..."],
   "character_chart": [{"CHARACTER":"...","TRAITS":"...","EVIDENCE":"..."}],
-  "reflect_stems": ["..."],
-  "bonus_challenge": "string"
+  "draw_it_prompt": "Draw what you imagine [scene/character] looks like. Use the description from the book to guide your drawing.",
+  "reflect_stems": ["My drawing shows...","I chose these colors/details because...","This part of the story is important because..."],
+  "thinking_deeper_question": "string"
 }
 Rules:
-- Use chapter evidence only.
+- Use chapter evidence only and keep the Classic Books for All section design.
 - 6 basic_comprehension, 3 inference, 3 analysis, 3 multiple_choice, 3 short_answer.
-- 4 guided sections.
-- 7 timeline events.
+- timeline_events must contain exactly 7 key chapter events in SCRAMBLED order for a reordering activity.
 - 5 character_chart rows.
-- 3 reflect_stems.
+- 3 reflect_stems exactly as shown in schema.
+- focus_question is ONE question for "Get Ready to Read" and should fit inside a shaded prompt box (no answer lines).
+- short_answer should be written for the "Evidence from the Story" section and require complete sentences with page evidence.
+- creative_response prompt must be in letter format: "Dear [character], ... Sincerely, [Student]".
+- creative_response must include exactly 3 helpful hint bullets.
 - Never include markdown fences.`,
     messages: [{
       role: "user",
