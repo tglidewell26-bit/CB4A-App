@@ -24,18 +24,18 @@ class TestLessonMarkdownFormatter(unittest.TestCase):
 
         student_sections = [
             {"title": "Get Ready to Read", "level": 2, "content": [{"type": "text", "text": "Think..."}]},
-            {"title": "Words to Know table", "level": 2, "content": [{"type": "table", "headers": ["Word", "Meaning"], "rows": [["steep", "high"]]}]},
+            {"title": "Words to Know", "level": 2, "content": [{"type": "table", "headers": ["Word", "Meaning"], "rows": [["steep", "high"]]}]},
             {"title": "Think About the Story", "level": 2, "content": [{"type": "ordered_list", "items": ["Q1", "Q2"]}]},
             {"title": "Reading Between the Lines", "level": 2, "content": [{"type": "text", "text": "Infer."}]},
             {"title": "Dig Deeper", "level": 2, "content": [{"type": "text", "text": "Analyze."}]},
-            {"title": "Multiple Choice Questions", "level": 2, "content": [{"type": "ordered_list", "items": ["A", "B"]}]},
+            {"title": "Multiple Choice", "level": 2, "content": [{"type": "ordered_list", "items": ["A", "B"]}]},
             {"title": "Evidence from the Story", "level": 2, "content": [{"type": "text", "text": "because ________________________________."}]},
             {"title": "Creative Response", "level": 2, "content": [{"type": "text", "text": "Create."}]},
             {"title": "Writing Rubric (table)", "level": 2, "content": [{"type": "table", "headers": ["Criteria", "4"], "rows": [["Evidence", "Strong"]]}]},
             {"title": "Character Chart (table)", "level": 2, "content": [{"type": "table", "headers": ["Character", "Evidence"], "rows": [["Peter", "p. 5"]]}]},
             {"title": "Draw It", "level": 2, "content": [{"type": "text", "text": "Draw."}]},
-            {"title": "Reflection", "level": 2, "content": [{"type": "text", "text": "Reflect."}]},
-            {"title": "Bonus Challenge", "level": 2, "content": [{"type": "text", "text": "Bonus."}]},
+            {"title": "Reflect on Drawing", "level": 2, "content": [{"type": "text", "text": "Reflect."}]},
+            {"title": "Bonus Challenge - Follow the Story", "level": 2, "content": [{"type": "text", "text": "Bonus."}]},
             {"title": "Thinking Deeper", "level": 2, "content": [{"type": "text", "text": "Deeper."}]},
         ]
 

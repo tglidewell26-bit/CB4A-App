@@ -102,6 +102,14 @@ def _parse_timeline(workbook: str) -> List[str]:
     return events
 
 
+def _parse_reflect_stems(workbook: str) -> List[str]:
+    block = _tag_block(workbook, "REFLECT_STEMS")
+    stems = []
+    for i in range(1, 4):
+        stems.append(_tag(block, f"STEM_{i}"))
+    return stems
+
+
 # ── Main entry point ──────────────────────────────────────────────────────────
 
 def parse_workbook_response(raw_response: str) -> Dict[str, Any]:
@@ -146,5 +154,8 @@ def parse_workbook_response(raw_response: str) -> Dict[str, Any]:
         "short_answer": _parse_question_set(workbook, "SHORT_ANSWER", "SA", 3),
         "creative_response": _parse_creative_response(workbook),
         "timeline_events": _parse_timeline(workbook),
+        "draw_it_prompt": _tag(workbook, "DRAW_IT_PROMPT"),
+        "reflect_stems": _parse_reflect_stems(workbook),
+        "thinking_deeper_question": _tag(workbook, "THINKING_DEEPER_QUESTION"),
         "prediction_setup": _tag(workbook, "PREDICTION_SETUP"),
     }
