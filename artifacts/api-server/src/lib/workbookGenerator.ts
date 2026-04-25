@@ -30,18 +30,42 @@ function serializeVocabulary(vocabulary: VocabularyWord[]): string {
     .join("\n");
 }
 
-function buildVocabCardsHtml(vocabulary: VocabularyWord[]): string {
-  return vocabulary.map((v) => `
-    <div class="vocab-item">
-      <div class="vocab-word">${v.word}</div>
-      <div class="vocab-quote">"${v.book_quote}" (p.${v.page_number})</div>
-      <div class="vocab-def">Meaning: ${v.kid_friendly_definition ?? ""}</div>
-      <div class="vocab-example">Example: ${v.example_sentence ?? ""}</div>
-    </div>`).join("\n");
+function buildWordsToKnowTableHtml(vocabulary: VocabularyWord[]): string {
+  const rows = vocabulary
+    .map(
+      (v) => `<tr>
+  <td>${v.word}</td>
+  <td>__________________________________________</td>
+  <td>"${v.book_quote}" (p.${v.page_number})</td>
+  <td>__________________________________________</td>
+</tr>`,
+    )
+    .join("\n");
+
+  return `<table class="rubric-table">
+  <thead>
+    <tr>
+      <th>Word</th>
+      <th>Definition using context clues</th>
+      <th>Sentence from book with page number</th>
+      <th>My own sentence</th>
+    </tr>
+  </thead>
+  <tbody>
+${rows}
+  </tbody>
+</table>`;
 }
 
 function answerLines(count = 3): string {
   return Array(count).fill('<div class="answer-space"></div>').join("\n");
+}
+
+function stripLeadingQuestionNumbers(html: string): string {
+  return html.replace(
+    /(<div class="question">\s*)(\d+\s*[\.\)]\s*)+/g,
+    "$1",
+  );
 }
 
 export async function generateStudentWorkbook(
@@ -52,15 +76,9 @@ export async function generateStudentWorkbook(
   const chapterText = truncateText(meta.extractedText);
   const chapterLabel = meta.chapterNum ? `Chapter ${meta.chapterNum}: ${meta.chapterTitle}` : meta.chapterTitle;
 
-  const vocabCardsHtml = buildVocabCardsHtml(vocabulary);
-  const hasEnrichment = vocabulary.some((v) => v.kid_friendly_definition);
-  const vocabNote = hasEnrichment
-    ? "The vocab card HTML (word, quote, meaning, example) is pre-built and injected — DO NOT re-generate vocabulary cards. Insert the VOCAB_CARDS_PLACEHOLDER exactly."
-    : "Generate a kid-friendly Meaning and Example sentence for each vocabulary word provided.";
+  const wordsToKnowTableHtml = buildWordsToKnowTableHtml(vocabulary);
 
   const systemPrompt = `You are a curriculum specialist creating a CB4A Student Workbook as an HTML fragment.
-
-${vocabNote}
 
 Output ONLY the inner HTML — no <!DOCTYPE>, no <html>, no <head>, no <body> tags.
 Start your output with: <div class="workbook">
@@ -70,9 +88,9 @@ Use EXACTLY these CSS class names (they are pre-styled):
   Sections:        <div class="wb-section"><h2>Section Title</h2>...</div>
   Instructions:    <p class="wb-instructions">...</p>
   Focus box:       <div class="focus-question"><div class="focus-label">FOCUS QUESTION</div><p>...</p></div>
-  Vocab grid:      <div class="vocab-grid">VOCAB_CARDS_PLACEHOLDER</div>
+  Words table:     WORDS_TO_KNOW_TABLE_PLACEHOLDER
   Questions (numbered): <ol class="question-list"><li class="question-item"><div class="question">...</div>${answerLines(2)}</li></ol>
-  MC question:     <div class="mc-item"><div class="question">N. ...</div><ul class="mc-options"><li>A. ...</li><li>B. ...</li><li>C. ...</li><li>D. ...</li></ul></div>
+  MC question:     <div class="mc-item"><div class="question">...</div><ul class="mc-options"><li>A. ...</li><li>B. ...</li><li>C. ...</li><li>D. ...</li></ul></div>
   Short answer:    <ol class="question-list"><li class="question-item"><div class="question">...</div>${answerLines(3)}</li></ol>
   Creative hints:  <ul class="hints"><li>...</li></ul>
   Writing space:   <div class="writing-space"></div>
@@ -83,15 +101,25 @@ Use EXACTLY these CSS class names (they are pre-styled):
 RULES:
 1) Use ONLY chapter text — no outside knowledge.
 2) ${guidance}
-3) Sections in this EXACT order: Before You Read · Vocabulary · Basic Comprehension · Reading Between the Lines · Analysis Questions · Multiple Choice · Short Answer · Creative Response · Writing Rubric · Character Chart · Chapter Timeline · Thinking Deeper
-4) Generate EXACTLY: 6 Basic Comprehension, 3 Reading Between the Lines, 3 Analysis, 3 Multiple Choice, 3 Short Answer questions.
+3) Sections in this EXACT order: Get Ready to Read · Words to Know · Think About the Story · Reading Between the Lines · Dig Deeper · Multiple Choice · Evidence from the Story · Creative Response · Rubric · Character Chart · Draw It · Reflection · Bonus Challenge · Prediction
+4) Generate EXACTLY: 6 Think About the Story, 3 Reading Between the Lines, 3 Dig Deeper, 3 Multiple Choice, 3 Evidence from the Story questions.
 5) All questions must cite page numbers from the chapter.
-6) Creative Response: one writing prompt (letter, journal, or narrative) with EXACTLY 3 hint bullet points, followed by a large writing space.
-7) Writing Rubric: a 4-row scoring table (scores 4, 3, 2, 1) explaining what each score means.
-8) Character Chart: exactly 5 characters in a table with columns: Character | Role | One thing they do | One word to describe them.
-9) Chapter Timeline: exactly 7 events in correct story order.
-10) Thinking Deeper: one deep reflection question requiring 3+ sentence answer, with a large writing space.
-11) Never use emojis.`;
+6) Words to Know: DO NOT generate definitions/examples. Insert WORDS_TO_KNOW_TABLE_PLACEHOLDER exactly, unchanged.
+7) Creative Response must be a LETTER prompt to Deta from Heidi with EXACTLY 3 hint bullet points, followed by a writing space.
+8) Rubric must be a checklist table with exactly these 4 criteria rows:
+   - I answered the prompt
+   - I included details from Chapter 1
+   - I wrote in Heidi's voice
+   - I checked my spelling and grammar
+9) Character Chart must have exactly 5 rows with columns:
+   - Character Name
+   - What They Look Like and How They Act
+   - What This Shows About Them
+10) Draw It must tell students to draw Heidi climbing the mountain with Peter and the goats.
+11) Reflection must include exactly 3 sentence stems to reflect on the drawing.
+12) Bonus Challenge must be "Follow the Story": provide exactly 7 scrambled events for students to number 1–7.
+13) Prediction must ask what the reader predicts will happen next.
+14) Never use emojis.`;
 
   const userPrompt = `Book: ${meta.bookTitle}
 Author: ${meta.author}
@@ -115,8 +143,8 @@ ${chapterText}`;
   const block = message.content[0];
   let html = block.type === "text" ? block.text : "";
 
-  // Inject the pre-built vocab cards HTML
-  html = html.replace("VOCAB_CARDS_PLACEHOLDER", vocabCardsHtml);
+  // Inject the pre-built Words to Know student-fillable chart.
+  html = html.replace("WORDS_TO_KNOW_TABLE_PLACEHOLDER", wordsToKnowTableHtml);
 
   // Wrap with header block
   const headerHtml = `<div class="wb-header">
@@ -125,6 +153,7 @@ ${chapterText}`;
 </div>`;
 
   html = html.replace('<div class="workbook">', `<div class="workbook">\n${headerHtml}`);
+  html = stripLeadingQuestionNumbers(html);
 
   return html;
 }
@@ -156,12 +185,13 @@ Use EXACTLY these CSS class names (they are pre-styled):
 RULES:
 1) Mirror the student workbook structure exactly — same sections, same questions.
 2) ${guidance}
-3) Sections in this EXACT order: Lesson Overview · Learning Objectives · Vocabulary Guide · Before You Read (teacher notes) · Basic Comprehension (answers) · Reading Between the Lines (answers) · Analysis Questions (answers) · Multiple Choice (answers) · Short Answer (answers) · Creative Response Guide · Character Chart Answer Key · Chapter Timeline Answer Key · Thinking Deeper (discussion guide) · Differentiation Strategies · Exit Ticket
+3) Sections in this EXACT order: Lesson Overview · Standards · Measurable Objectives · Get Ready to Read · Words to Know mini-lesson · Guided Reading with pause points · Tiered Discussion · Answers aligned to workbook pages · Struggling Readers / ELL / Advanced Students support · Common student questions · Creative Response common errors · Teacher notes
 4) For every student question: provide a model answer with page citations.
-5) Vocabulary Guide: a table with Definition, Example Sentence, Part of Speech for each word.
-6) Differentiation Strategies: a 3-column grid — Approaching, On Level, Advanced — for the main activities.
-7) Exit Ticket: one formative assessment question with a model answer.
-8) Never use emojis.`;
+5) Standards section must include this exact Grade 3 standards list when grade = 3: RL.3.1, RL.3.3, RL.3.4, L.3.4, L.3.5, SL.3.1, SL.3.3, W.3.3.
+6) Words to Know mini-lesson should explain how students infer meaning from context without giving away answers.
+7) Answers aligned to workbook pages must keep section names exactly matched to the workbook.
+8) Struggling Readers / ELL / Advanced Students support must include one actionable support for each group.
+9) Never use emojis.`;
 
   const userPrompt = `Book: ${meta.bookTitle}
 Author: ${meta.author}

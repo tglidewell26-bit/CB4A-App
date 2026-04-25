@@ -14,6 +14,47 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 },
 });
 
+const HEIDI_CH1_MANUAL_WORDS = [
+  "cozy",
+  "guided",
+  "encouraged",
+  "frustrated",
+  "inherited",
+  "nimble",
+  "attire",
+  "gruff",
+  "breathtaking",
+  "stern",
+] as const;
+
+function findSentenceForWord(text: string, word: string): string {
+  const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const found = sentences.find((s) => new RegExp(`\\b${word}\\b`, "i").test(s));
+  return (found ?? "").slice(0, 220).trim();
+}
+
+function manualHeidiChapterOneVocabulary(chapterPages: PageText[]) {
+  const fallbackPage = chapterPages[0]?.page_number ?? 1;
+
+  return HEIDI_CH1_MANUAL_WORDS.map((word) => {
+    const page = chapterPages.find((p) => new RegExp(`\\b${word}\\b`, "i").test(p.text));
+    const pageNumber = page?.page_number ?? fallbackPage;
+    const quote = page ? findSentenceForWord(page.text, word) : word;
+    return {
+      word,
+      lemma: word,
+      page_number: pageNumber,
+      book_quote: quote,
+      grade_band: "3-5",
+      score: 1,
+    };
+  });
+}
+
+function shouldUseHeidiManualVocabulary(bookTitle: string, chapterNum?: number | null): boolean {
+  return bookTitle.trim().toLowerCase() === "heidi" && (chapterNum ?? 0) === 1;
+}
+
 function chapterToResponse(c: typeof chaptersTable.$inferSelect) {
   return {
     id: c.id,
@@ -77,7 +118,9 @@ async function triggerGeneration(
       .split("\n\n---PAGE---\n\n")
       .map((text: string, index: number) => ({ page_number: index + 1, text }))
       .filter((page: PageText) => page.text.trim().length > 0);
-    const baseVocabulary = extractVocabulary(chapterPages, book.grade);
+    const baseVocabulary = shouldUseHeidiManualVocabulary(book.title, chapter.num)
+      ? manualHeidiChapterOneVocabulary(chapterPages)
+      : extractVocabulary(chapterPages, book.grade);
     const vocabulary = await enrichVocabularyForTeacherGuide(baseVocabulary, book.grade, chapter.extractedText);
     const workbookResult = await generateStudentWorkbook(meta, vocabulary);
     const teacherGuideResult = await generateTeacherGuide(
