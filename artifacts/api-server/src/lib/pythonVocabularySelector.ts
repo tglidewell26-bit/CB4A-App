@@ -7,16 +7,9 @@ import type { VocabularyWord } from "./vocabularyExtractor.js";
 
 const execFileAsync = promisify(execFile);
 
-function getPythonCommand(): string {
-  return process.env.PYTHON_BIN || "python";
 function getPythonCommands(): string[] {
   const configured = process.env.PYTHON_BIN;
-  const candidates = [
-    configured,
-    process.platform === "win32" ? "py" : undefined,
-    "python3",
-    "python",
-  ].filter(
+  const candidates = [configured, process.platform === "win32" ? "py" : undefined, "python3", "python"].filter(
     (value): value is string => Boolean(value && value.trim()),
   );
 
@@ -43,8 +36,7 @@ async function runPythonScript(args: string[]): Promise<string> {
   }
 
   const attempted = candidates.join(", ");
-  const baseMessage =
-    lastError instanceof Error ? lastError.message : "No Python interpreter found";
+  const baseMessage = lastError instanceof Error ? lastError.message : "No Python interpreter found";
   throw new Error(`Unable to run Python scripts (attempted: ${attempted}). ${baseMessage}`);
 }
 
@@ -56,24 +48,14 @@ function enricherPath(): string {
   return resolve(process.cwd(), "workbook_generator", "vocab_enricher.py");
 }
 
-export async function selectAndEnrichVocabulary(
-  extractedText: string,
-  gradeLevel: number,
-): Promise<VocabularyWord[]> {
+export async function selectAndEnrichVocabulary(extractedText: string, gradeLevel: number): Promise<VocabularyWord[]> {
   const tempDir = await mkdtemp(join(tmpdir(), "cb4a-vocab-"));
   const sourcePath = join(tempDir, "chapter.txt");
 
   try {
     await writeFile(sourcePath, extractedText, "utf8");
 
-    const selectorStdout = await runPythonScript([
-      selectorPath(),
-      "--source",
-      sourcePath,
-      "--grade",
-      String(gradeLevel),
-    ]);
-
+    const selectorStdout = await runPythonScript([selectorPath(), "--source", sourcePath, "--grade", String(gradeLevel)]);
     const selectorData = JSON.parse(selectorStdout) as { words?: string[] };
     const words = Array.isArray(selectorData.words) ? selectorData.words : [];
     if (words.length === 0) return [];
