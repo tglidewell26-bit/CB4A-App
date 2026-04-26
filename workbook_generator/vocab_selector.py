@@ -1,109 +1,107 @@
-"""Deterministic chapter vocabulary selector.
-
-Selects up to 10 words from a grade-banded vocabulary list that are present in
-chapter text. Also supports PDF text extraction for file-based flows.
-"""
-
 from __future__ import annotations
 
+import json
 import re
-from pathlib import Path
-from typing import Dict, Iterable, List, Sequence, Set
+import sys
+from collections import Counter
+from typing import Dict, List, Set
 
-import pdfplumber
-
-GRADE_VOCAB: Dict[int, Sequence[str]] = {
+GRADE_VOCAB: Dict[int, List[str]] = {
     3: [
-        "adventure", "brave", "cabin", "cheerful", "climb", "cottage", "curious", "distant", "eager", "gentle",
-        "grumble", "hollow", "lantern", "meadow", "murmur", "narrow", "pleasant", "rapid", "rustic", "sturdy",
+        "adventure", "brave", "careful", "courage", "discover", "effort", "gentle", "journey",
+        "kindness", "mystery", "notice", "patient", "respect", "sudden", "wonder", "whisper",
     ],
     4: [
-        "astonished", "careful", "content", "delightful", "drifted", "earnest", "fierce", "gloomy", "graceful", "hesitate",
-        "journey", "kindness", "lively", "mischief", "nonsense", "observe", "patient", "quarrel", "reluctant", "shelter",
+        "astonished", "compare", "consider", "curious", "decide", "delicate", "fortunate", "graceful",
+        "hesitate", "imagine", "increase", "method", "observe", "predict", "remarkable", "responsible",
     ],
     5: [
-        "abandoned", "anxious", "awkward", "bitter", "cozy", "companion", "confident", "encouraged", "frustrated", "guided",
-        "inherit", "inherited", "nimble", "breathtaking", "stern", "gruff", "attire", "tremble", "uneasy", "weary",
+        "analyze", "approach", "benefit", "challenge", "consequence", "determine", "evidence", "frustrated",
+        "guided", "inherited", "influence", "interpret", "maintain", "nimble", "persuade", "strategy",
     ],
     6: [
-        "accurate", "bewildered", "consequence", "determined", "eloquent", "forbidden", "generous", "hostile", "inquiry", "logical",
-        "melancholy", "notion", "obvious", "persuade", "questionable", "resolute", "sincere", "tension", "urgent", "vivid",
+        "abundant", "attire", "breathtaking", "complex", "contrast", "critical", "demonstrate", "evaluate",
+        "justify", "perspective", "precise", "significant", "stern", "summarize", "sustain", "transfer",
     ],
     7: [
-        "ambition", "apparent", "compelled", "dignity", "elaborate", "foreshadow", "grim", "hypothesis", "illusion", "intense",
-        "justice", "kinship", "lament", "motive", "ominous", "paradox", "reconcile", "sarcastic", "symbolic", "vulnerable",
+        "coherent", "contextual", "derive", "elaborate", "emphasize", "hypothesis", "infer", "integrate",
+        "nuance", "objective", "paradox", "plausible", "refine", "synthesize", "theoretical", "validate",
     ],
     8: [
-        "analogy", "arbitrary", "coherent", "complexity", "contradiction", "deceptive", "empathy", "fragmented", "ideology", "inevitable",
-        "manipulate", "nuance", "oppressive", "perspective", "resilience", "rhetorical", "scrutiny", "subtle", "transformation", "validate",
+        "ambiguous", "articulate", "contemporary", "criterion", "divergent", "explicit", "formulate", "implication",
+        "inference", "metaphor", "optimize", "parallel", "rhetorical", "substantiate", "transform", "variable",
     ],
 }
 
-WORD_RE = re.compile(r"[A-Za-z][A-Za-z'-]*")
+STOPWORDS: Set[str] = {
+    "about", "above", "after", "again", "against", "all", "also", "always", "among", "an", "and", "any", "are",
+    "around", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", "can",
+    "could", "did", "do", "does", "doing", "down", "during", "each", "few", "for", "from", "further", "had", "has",
+    "have", "having", "he", "her", "here", "hers", "herself", "him", "himself", "his", "how", "i", "if", "in", "into",
+    "is", "it", "its", "itself", "just", "me", "more", "most", "my", "myself", "no", "nor", "not", "now", "of", "off",
+    "on", "once", "only", "or", "other", "our", "ours", "ourselves", "out", "over", "own", "same", "she", "should", "so",
+    "some", "such", "than", "that", "the", "their", "theirs", "them", "themselves", "then", "there", "these", "they", "this",
+    "those", "through", "to", "too", "under", "until", "up", "very", "was", "we", "were", "what", "when", "where", "which",
+    "while", "who", "whom", "why", "will", "with", "would", "you", "your", "yours", "yourself", "yourselves",
+}
 
 
-def extract_pdf_text(pdf_path: str) -> str:
-    """Extract text from a PDF file."""
-    parts: List[str] = []
-    with pdfplumber.open(pdf_path) as pdf:
-        for page in pdf.pages:
-            page_text = page.extract_text() or ""
-            if page_text.strip():
-                parts.append(page_text.strip())
-    return "\n\n".join(parts)
+def _tokenize(text: str) -> List[str]:
+    return re.findall(r"[A-Za-z][A-Za-z'-]{2,}", text)
 
 
-def normalize_word(word: str) -> str:
-    """Normalize for matching and de-duplication."""
-    return re.sub(r"[^a-z]", "", word.lower())
+def _normalize(token: str) -> str:
+    return token.lower().strip("'\"-.,;:!?()[]{}")
 
 
-def tokenize_text(text: str) -> List[str]:
-    """Tokenize text into raw words."""
-    return WORD_RE.findall(text)
+def select_vocab_words(text: str, grade_level: int) -> List[str]:
+    tokens = _tokenize(text)
+    if not tokens:
+        return []
 
+    normalized_tokens = [_normalize(token) for token in tokens]
+    token_counts = Counter(normalized_tokens)
+    token_display: Dict[str, str] = {}
+    for token in tokens:
+        normalized = _normalize(token)
+        token_display.setdefault(normalized, token)
 
-def _read_text_source(source_path: str) -> str:
-    path = Path(source_path)
-    if not path.exists():
-        raise FileNotFoundError(f"Text source does not exist: {source_path}")
-    if path.suffix.lower() == ".pdf":
-        return extract_pdf_text(source_path)
-    return path.read_text(encoding="utf-8", errors="ignore")
+    grade_words = GRADE_VOCAB.get(grade_level, GRADE_VOCAB[5])
+    selected: List[str] = []
+    used: Set[str] = set()
 
+    for word in grade_words:
+        normalized = _normalize(word)
+        if normalized in token_counts and normalized not in used:
+            selected.append(token_display.get(normalized, word))
+            used.add(normalized)
+        if len(selected) == 10:
+            return selected
 
-def select_vocab_words(source_path: str, grade_level: int) -> List[str]:
-    """Return up to 10 selected vocabulary words found in the chapter text."""
-    grade = min(8, max(3, int(grade_level)))
-    chapter_text = _read_text_source(source_path)
-    tokens = tokenize_text(chapter_text)
-    chapter_vocab: Set[str] = {normalize_word(token) for token in tokens if normalize_word(token)}
+    fallback_candidates = sorted(
+        (
+            word for word, count in token_counts.items()
+            if len(word) >= 5 and word not in STOPWORDS and count >= 2 and word not in used
+        ),
+        key=lambda w: (-token_counts[w], -len(w), w),
+    )
 
-    picked: List[str] = []
-    seen: Set[str] = set()
-    for candidate in GRADE_VOCAB[grade]:
-        norm = normalize_word(candidate)
-        if norm in chapter_vocab and norm not in seen:
-            picked.append(candidate)
-            seen.add(norm)
-        if len(picked) == 10:
+    for candidate in fallback_candidates:
+        selected.append(token_display.get(candidate, candidate))
+        used.add(candidate)
+        if len(selected) == 10:
             break
-    return picked
+
+    return selected
 
 
-def _main() -> int:
-    import argparse
-    import json
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--source", required=True, help="Path to source .pdf or .txt file")
-    parser.add_argument("--grade", required=True, type=int)
-    args = parser.parse_args()
-
-    selected = select_vocab_words(args.source, args.grade)
-    print(json.dumps({"words": selected}))
-    return 0
+def _main() -> None:
+    payload = json.loads(sys.stdin.read() or "{}")
+    text = str(payload.get("text", ""))
+    grade_level = int(payload.get("grade_level", 5))
+    words = select_vocab_words(text=text, grade_level=grade_level)
+    sys.stdout.write(json.dumps({"words": words}))
 
 
 if __name__ == "__main__":
-    raise SystemExit(_main())
+    _main()
