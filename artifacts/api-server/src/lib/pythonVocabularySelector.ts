@@ -9,7 +9,12 @@ const execFileAsync = promisify(execFile);
 
 function getPythonCommands(): string[] {
   const configured = process.env.PYTHON_BIN;
-  const candidates = [configured, "python3", "python"].filter(
+  const candidates = [
+    configured,
+    process.platform === "win32" ? "py" : undefined,
+    "python3",
+    "python",
+  ].filter(
     (value): value is string => Boolean(value && value.trim()),
   );
 
