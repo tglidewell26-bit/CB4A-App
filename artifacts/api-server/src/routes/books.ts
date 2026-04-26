@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import multer from "multer";
-import { spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { db, booksTable, chaptersTable, insertBookSchema } from "@workspace/db";
@@ -10,7 +10,7 @@ import {
   parseStoredChapterPages,
   serializeChapterPages,
 } from "../lib/textExtractor.js";
-import { enrichVocabularyForTeacherGuide, extractVocabulary, type VocabularyWord } from "../lib/vocabularyExtractor.js";
+import { enrichVocabularyForTeacherGuide, type VocabularyWord } from "../lib/vocabularyExtractor.js";
 import { generateStudentWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
 import { logger } from "../lib/logger.js";
 import { selectAndEnrichVocabulary } from "../lib/pythonVocabularySelector.js";
@@ -23,6 +23,49 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
 });
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const vocabSelectorScriptPath = path.resolve(currentDir, "../../../../workbook_generator/vocab_selector.py");
+const vocabHydratorScriptPath = path.resolve(currentDir, "../../../../workbook_generator/vocab_hydrator.py");
+
+function callPythonVocabSelector(extractedText: string, grade: number): Promise<VocabularyWord[]> {
+  try {
+    const selectorOutput = execFileSync(
+      "python3",
+      [vocabSelectorScriptPath],
+      {
+        input: JSON.stringify({
+          text: extractedText,
+          grade_level: grade,
+        }),
+        encoding: "utf8",
+      },
+    );
+    const selectorParsed = JSON.parse(selectorOutput) as { words?: string[] };
+    const words = Array.isArray(selectorParsed.words)
+      ? selectorParsed.words.filter((word): word is string => typeof word === "string" && word.length > 0)
+      : [];
+    if (words.length === 0) return Promise.resolve([]);
+
+    const chapterPages = parseStoredChapterPages(extractedText);
+    const hydratorOutput = execFileSync(
+      "python3",
+      [vocabHydratorScriptPath],
+      {
+        input: JSON.stringify({
+          words,
+          chapter_pages: chapterPages,
+          grade_level: grade,
+        }),
+        encoding: "utf8",
+      },
+    );
+    const hydratorParsed = JSON.parse(hydratorOutput) as { vocabulary?: VocabularyWord[] };
+    return Promise.resolve(Array.isArray(hydratorParsed.vocabulary) ? hydratorParsed.vocabulary : []);
+  } catch (error) {
+    logger.error({ error }, "Python vocabulary selector failed");
+    return Promise.resolve([]);
+  }
+}
 
 function runPythonJsonScript(scriptPath: string, payload: unknown): unknown {
   const result = spawnSync(
@@ -135,16 +178,7 @@ async function triggerGeneration(
 
     logger.info({ chapterId, bookId }, "Starting AI generation");
 
-    const chapterPages: PageText[] = parseStoredChapterPages(chapter.extractedText);
-    const shouldUseHeidiManualVocabulary = (_book: typeof booksTable.$inferSelect, pages: PageText[]) => {
-      if ((_book.title ?? "").toLowerCase() !== "heidi") return false;
-      const chapterHasOne = (chapter.num ?? 1) === 1;
-      return chapterHasOne && pages.length > 0;
-    };
-    const manualHeidiChapterOneVocabulary = (pages: PageText[]) => extractVocabulary(pages, book.grade);
-    const baseVocabulary = shouldUseHeidiManualVocabulary(book, chapterPages)
-      ? manualHeidiChapterOneVocabulary(chapterPages)
-      : callPythonVocabSelector(chapter.extractedText, book.grade);
+    const baseVocabulary = await callPythonVocabSelector(chapter.extractedText, book.grade);
     const vocabulary = await enrichVocabularyForTeacherGuide(baseVocabulary, book.grade, chapter.extractedText);
     const workbookResult = await generateStudentWorkbook(meta, vocabulary);
     const teacherGuideResult = await generateTeacherGuide(

@@ -4,104 +4,107 @@ import json
 import re
 import sys
 from collections import Counter
-from typing import Dict, List, Set
+from typing import Dict, List
 
+# Grade-banded target vocabulary pools (grades 3-8).
 GRADE_VOCAB: Dict[int, List[str]] = {
     3: [
-        "adventure", "brave", "careful", "courage", "discover", "effort", "gentle", "journey",
-        "kindness", "mystery", "notice", "patient", "respect", "sudden", "wonder", "whisper",
+        "adventure", "curious", "discover", "journey", "mystery", "brave", "gentle", "whisper",
+        "shimmer", "meadow", "pattern", "rescue", "forest", "signal", "lesson", "fragile",
     ],
     4: [
-        "astonished", "compare", "consider", "curious", "decide", "delicate", "fortunate", "graceful",
-        "hesitate", "imagine", "increase", "method", "observe", "predict", "remarkable", "responsible",
+        "anxious", "consider", "observe", "predict", "resource", "benefit", "influence", "complex",
+        "persist", "method", "evidence", "contrast", "process", "typical", "impact", "strategy",
     ],
     5: [
-        "analyze", "approach", "benefit", "challenge", "consequence", "determine", "evidence", "frustrated",
-        "guided", "inherited", "influence", "interpret", "maintain", "nimble", "persuade", "strategy",
+        "cozy", "guided", "encouraged", "frustrated", "inherited", "nimble", "attire", "gruff",
+        "breathtaking", "stern", "analyze", "interpret", "significant", "maintain", "perspective", "evaluate",
     ],
     6: [
-        "abundant", "attire", "breathtaking", "complex", "contrast", "critical", "demonstrate", "evaluate",
-        "justify", "perspective", "precise", "significant", "stern", "summarize", "sustain", "transfer",
+        "construct", "justify", "priority", "consequence", "reliable", "emerge", "adapt", "context",
+        "dimension", "estimate", "intense", "notion", "sustain", "transform", "coherent", "variable",
     ],
     7: [
-        "coherent", "contextual", "derive", "elaborate", "emphasize", "hypothesis", "infer", "integrate",
-        "nuance", "objective", "paradox", "plausible", "refine", "synthesize", "theoretical", "validate",
+        "accumulate", "advocate", "contradict", "derive", "emphasize", "hypothesis", "implement", "interact",
+        "motive", "noteworthy", "relevant", "sequence", "sufficient", "theory", "underlying", "valid",
     ],
     8: [
-        "ambiguous", "articulate", "contemporary", "criterion", "divergent", "explicit", "formulate", "implication",
-        "inference", "metaphor", "optimize", "parallel", "rhetorical", "substantiate", "transform", "variable",
+        "ambiguous", "articulate", "comprehensive", "correlate", "deduce", "elaborate", "evaluate", "framework",
+        "inference", "innovative", "nuance", "objective", "plausible", "synthesize", "substantiate", "viable",
     ],
 }
 
-STOPWORDS: Set[str] = {
-    "about", "above", "after", "again", "against", "all", "also", "always", "among", "an", "and", "any", "are",
-    "around", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", "can",
-    "could", "did", "do", "does", "doing", "down", "during", "each", "few", "for", "from", "further", "had", "has",
-    "have", "having", "he", "her", "here", "hers", "herself", "him", "himself", "his", "how", "i", "if", "in", "into",
-    "is", "it", "its", "itself", "just", "me", "more", "most", "my", "myself", "no", "nor", "not", "now", "of", "off",
-    "on", "once", "only", "or", "other", "our", "ours", "ourselves", "out", "over", "own", "same", "she", "should", "so",
-    "some", "such", "than", "that", "the", "their", "theirs", "them", "themselves", "then", "there", "these", "they", "this",
-    "those", "through", "to", "too", "under", "until", "up", "very", "was", "we", "were", "what", "when", "where", "which",
-    "while", "who", "whom", "why", "will", "with", "would", "you", "your", "yours", "yourself", "yourselves",
-}
+
+def normalize_token(token: str) -> str:
+    return re.sub(r"[^a-z]", "", token.lower())
 
 
-def _tokenize(text: str) -> List[str]:
-    return re.findall(r"[A-Za-z][A-Za-z'-]{2,}", text)
-
-
-def _normalize(token: str) -> str:
-    return token.lower().strip("'\"-.,;:!?()[]{}")
+def lemmatize(token: str) -> str:
+    if token.endswith("ies") and len(token) > 4:
+        return f"{token[:-3]}y"
+    if token.endswith("ing") and len(token) > 5:
+        return token[:-3]
+    if token.endswith("ed") and len(token) > 4:
+        return token[:-2]
+    if token.endswith("es") and len(token) > 4:
+        return token[:-2]
+    if token.endswith("s") and len(token) > 3:
+        return token[:-1]
+    return token
 
 
 def select_vocab_words(text: str, grade_level: int) -> List[str]:
-    tokens = _tokenize(text)
-    if not tokens:
-        return []
-
-    normalized_tokens = [_normalize(token) for token in tokens]
+    tokens = re.findall(r"[A-Za-z][A-Za-z'-]{2,}", text)
+    normalized_tokens = [normalize_token(t) for t in tokens]
+    normalized_tokens = [t for t in normalized_tokens if t]
     token_counts = Counter(normalized_tokens)
-    token_display: Dict[str, str] = {}
-    for token in tokens:
-        normalized = _normalize(token)
-        token_display.setdefault(normalized, token)
+    token_set = set(normalized_tokens)
 
-    grade_words = GRADE_VOCAB.get(grade_level, GRADE_VOCAB[5])
+    grade = min(8, max(3, int(grade_level)))
     selected: List[str] = []
-    used: Set[str] = set()
+    seen = set()
 
-    for word in grade_words:
-        normalized = _normalize(word)
-        if normalized in token_counts and normalized not in used:
-            selected.append(token_display.get(normalized, word))
-            used.add(normalized)
-        if len(selected) == 10:
+    for candidate in GRADE_VOCAB.get(grade, []):
+        lemma = lemmatize(candidate)
+        if candidate in token_set:
+            choice = candidate
+        elif lemma in token_set:
+            choice = lemma
+        else:
+            continue
+
+        if choice not in seen:
+            selected.append(choice)
+            seen.add(choice)
+        if len(selected) >= 10:
             return selected
 
-    fallback_candidates = sorted(
-        (
-            word for word, count in token_counts.items()
-            if len(word) >= 5 and word not in STOPWORDS and count >= 2 and word not in used
-        ),
+    # Fallback: chapter-present words by length/frequency to fill up to 10.
+    fallback = sorted(
+        (word for word, count in token_counts.items() if len(word) >= 5 and count >= 1),
         key=lambda w: (-token_counts[w], -len(w), w),
     )
 
-    for candidate in fallback_candidates:
-        selected.append(token_display.get(candidate, candidate))
-        used.add(candidate)
-        if len(selected) == 10:
+    for word in fallback:
+        lemma = lemmatize(word)
+        candidate = lemma if lemma in token_set else word
+        if candidate in seen:
+            continue
+        selected.append(candidate)
+        seen.add(candidate)
+        if len(selected) >= 10:
             break
 
     return selected
 
 
-def _main() -> None:
-    payload = json.loads(sys.stdin.read() or "{}")
+def main() -> None:
+    payload = json.load(sys.stdin)
     text = str(payload.get("text", ""))
-    grade_level = int(payload.get("grade_level", 5))
-    words = select_vocab_words(text=text, grade_level=grade_level)
-    sys.stdout.write(json.dumps({"words": words}))
+    grade_level = int(payload.get("grade_level", 3))
+    words = select_vocab_words(text, grade_level)
+    json.dump({"words": words}, sys.stdout)
 
 
 if __name__ == "__main__":
-    _main()
+    main()

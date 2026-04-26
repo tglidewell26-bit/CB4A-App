@@ -3,12 +3,17 @@ from __future__ import annotations
 import json
 import re
 import sys
+from dataclasses import dataclass
 from typing import Dict, List, TypedDict
 
-PAGE_SEPARATOR = "\n\n---PAGE---\n\n"
+
+class PageText(TypedDict):
+    page_number: int
+    text: str
 
 
-class VocabularyWord(TypedDict):
+@dataclass
+class VocabularyWord:
     word: str
     lemma: str
     page_number: int
@@ -17,8 +22,8 @@ class VocabularyWord(TypedDict):
     score: float
 
 
-def _normalize(word: str) -> str:
-    token = word.lower().strip("'\"-.,;:!?()[]{}")
+def lemmatize(token: str) -> str:
+    token = token.lower()
     if token.endswith("ies") and len(token) > 4:
         return f"{token[:-3]}y"
     if token.endswith("ing") and len(token) > 5:
@@ -32,68 +37,72 @@ def _normalize(word: str) -> str:
     return token
 
 
-def _parse_pages(chapter_text: str) -> List[Dict[str, object]]:
-    pages: List[Dict[str, object]] = []
-    segments = [segment.strip() for segment in chapter_text.split(PAGE_SEPARATOR) if segment.strip()]
-    for index, segment in enumerate(segments):
-        marker = re.match(r"^\[PAGE\s+(\d+)\]\s*\n?", segment, flags=re.IGNORECASE)
-        page_number = int(marker.group(1)) if marker else index + 1
-        page_text = re.sub(r"^\[PAGE\s+\d+\]\s*\n?", "", segment, flags=re.IGNORECASE).strip()
-        if page_text:
-            pages.append({"page_number": page_number, "text": page_text})
-    return pages
-
-
-def _find_sentence(text: str, word: str) -> str:
-    escaped = re.escape(word)
-    sentences = [sentence.strip() for sentence in re.split(r"(?<=[.!?])\s+", text) if sentence.strip()]
+def sentence_quote(text: str, word: str) -> str:
+    pattern = re.compile(rf"\b{re.escape(word)}\b", re.IGNORECASE)
+    sentences = re.split(r"(?<=[.!?])\s+", text)
     for sentence in sentences:
-        if re.search(rf"\b{escaped}\b", sentence, flags=re.IGNORECASE):
-            return sentence[:220]
-    return text[:220].strip()
+        if pattern.search(sentence):
+            return sentence.strip()[:220]
+    return text.strip()[:220]
 
 
-def hydrate_vocab_words(chapter_text: str, words: List[str], grade_level: int) -> List[VocabularyWord]:
-    pages = _parse_pages(chapter_text)
-    grade_band = f"{grade_level}-{grade_level + 2}"
-    hydrated: List[VocabularyWord] = []
+def find_display_hit(page_text: str, target: str) -> str | None:
+    pattern = re.compile(rf"\b{re.escape(target)}\b", re.IGNORECASE)
+    match = pattern.search(page_text)
+    if not match:
+        return None
+    return page_text[match.start():match.end()]
 
-    for idx, word in enumerate(words):
-        located_page = 1
-        located_quote = ""
-        for page in pages:
-            page_text = str(page["text"])
-            if re.search(rf"\b{re.escape(word)}\b", page_text, flags=re.IGNORECASE):
-                located_page = int(page["page_number"])
-                located_quote = _find_sentence(page_text, word)
+
+def hydrate_vocabulary(words: List[str], chapter_pages: List[PageText], grade_level: int) -> List[Dict[str, object]]:
+    min_grade = min(8, max(3, int(grade_level)))
+    max_grade = min_grade + 2
+
+    frequencies: Dict[str, int] = {}
+    for page in chapter_pages:
+        tokens = re.findall(r"[A-Za-z][A-Za-z'-]{2,}", page["text"])
+        for token in tokens:
+            lower = token.lower()
+            frequencies[lower] = frequencies.get(lower, 0) + 1
+
+    hydrated: List[Dict[str, object]] = []
+    for word in words:
+        found_page = None
+        found_display = None
+        for page in chapter_pages:
+            display = find_display_hit(page["text"], word)
+            if display:
+                found_page = page
+                found_display = display
                 break
 
-        if not located_quote and pages:
-            located_page = int(pages[0]["page_number"])
-            located_quote = _find_sentence(str(pages[0]["text"]), word)
+        if not found_page or not found_display:
+            continue
 
+        freq = frequencies.get(found_display.lower(), 1)
+        score = round(min(1.0, 0.45 + 0.1 * freq + 0.02 * len(found_display)), 4)
         hydrated.append(
             {
-                "word": word,
-                "lemma": _normalize(word),
-                "page_number": located_page,
-                "book_quote": located_quote,
-                "grade_band": grade_band,
-                "score": round(max(0.1, 1.0 - idx * 0.05), 4),
+                "word": found_display,
+                "lemma": lemmatize(found_display),
+                "page_number": int(found_page["page_number"]),
+                "book_quote": sentence_quote(found_page["text"], found_display),
+                "grade_band": f"{min_grade}-{max_grade}",
+                "score": score,
             }
         )
 
     return hydrated
 
 
-def _main() -> None:
-    payload = json.loads(sys.stdin.read() or "{}")
-    chapter_text = str(payload.get("chapter_text", ""))
-    words = [str(item) for item in payload.get("words", [])]
-    grade_level = int(payload.get("grade_level", 5))
-    hydrated = hydrate_vocab_words(chapter_text=chapter_text, words=words, grade_level=grade_level)
-    sys.stdout.write(json.dumps({"vocabulary": hydrated}))
+def main() -> None:
+    payload = json.load(sys.stdin)
+    words = [str(word) for word in payload.get("words", [])]
+    chapter_pages = payload.get("chapter_pages", [])
+    grade_level = int(payload.get("grade_level", 3))
+    vocabulary = hydrate_vocabulary(words, chapter_pages, grade_level)
+    json.dump({"vocabulary": vocabulary}, sys.stdout)
 
 
 if __name__ == "__main__":
-    _main()
+    main()
