@@ -1,15 +1,6 @@
 import { anthropic } from "@workspace/integrations-anthropic-ai";
 import type { VocabularyWord } from "./vocabularyExtractor.js";
 
-const GRADE_GUIDANCE: Record<number, string> = {
-  3: "Grade 3: very simple vocabulary, short sentences, and concrete thinking.",
-  4: "Grade 4: clear language and a mix of literal + light inference.",
-  5: "Grade 5: increasingly inferential and evidence-focused.",
-  6: "Grade 6: stronger analysis and close-reading language.",
-  7: "Grade 7: literary analysis, theme, and character motivation.",
-  8: "Grade 8: nuanced analysis, author craft, and thematic depth.",
-};
-
 interface ChapterMeta {
   bookTitle: string;
   author: string;
@@ -81,7 +72,6 @@ export async function generateStudentWorkbook(
   meta: ChapterMeta,
   vocabulary: VocabularyWord[],
 ): Promise<string> {
-  const guidance = GRADE_GUIDANCE[meta.grade] ?? GRADE_GUIDANCE[5];
   const chapterText = truncateText(meta.extractedText);
   const chapterLabel = meta.chapterNum ? `Chapter ${meta.chapterNum}: ${meta.chapterTitle}` : meta.chapterTitle;
 
@@ -109,7 +99,7 @@ Use EXACTLY these CSS class names (they are pre-styled):
 
 RULES:
 1) Use ONLY chapter text — no outside knowledge.
-2) ${guidance}
+2) Use ONLY these 10 vocabulary words. Do not add, remove, or replace any words.
 3) Sections in this EXACT order: Get Ready to Read · Words to Know · Think About the Story · Reading Between the Lines · Dig Deeper · Multiple Choice · Evidence from the Story · Creative Response · Rubric · Character Chart · Draw It! · Reflect on Your Drawing · Bonus Challenge—Follow the Story · Prediction
 4) Generate EXACTLY: 6 Think About the Story, 3 Reading Between the Lines, 3 Dig Deeper, 3 Multiple Choice, 3 Evidence from the Story questions.
 5) All questions must cite page numbers from the chapter.
@@ -173,7 +163,6 @@ export async function generateTeacherGuide(
   studentWorkbookHtml: string,
   vocabulary: VocabularyWord[],
 ): Promise<string> {
-  const guidance = GRADE_GUIDANCE[meta.grade] ?? GRADE_GUIDANCE[5];
   const chapterText = truncateText(meta.extractedText);
   const chapterLabel = meta.chapterNum ? `Chapter ${meta.chapterNum}: ${meta.chapterTitle}` : meta.chapterTitle;
 
@@ -194,7 +183,7 @@ Use EXACTLY these CSS class names (they are pre-styled):
 
 RULES:
 1) Mirror the student workbook structure exactly — same sections, same questions.
-2) ${guidance}
+2) Use ONLY these 10 vocabulary words. Do not add, remove, or replace any words.
 3) Sections in this EXACT order: Lesson Overview · Standards · Measurable Objectives · Get Ready to Read · Words to Know mini-lesson · Guided Reading with pause points · Tiered Discussion · Answers aligned to workbook pages · Struggling Readers / ELL / Advanced Students support · Common student questions · Creative Response common errors · Teacher notes
 4) For every student question: provide a model answer with page citations.
 5) Standards section must include this exact Grade 3 standards list when grade = 3: RL.3.1, RL.3.3, RL.3.4, L.3.4, L.3.5, SL.3.1, SL.3.3, W.3.3.

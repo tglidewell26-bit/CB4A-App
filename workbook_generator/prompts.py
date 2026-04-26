@@ -10,7 +10,7 @@ Design notes:
   page numbers in every BOOK_QUOTE field.
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 # Per-grade guidance injected into both the system prompt and the output
 # instructions so the model calibrates complexity throughout.
@@ -148,7 +148,16 @@ XML structure.  Do not add extra commentary, summaries, or text outside the
 </WORKBOOK>"""
 
 
-def build_system_prompt(chapter_json: Dict[str, Any], grade: int) -> str:
+def _format_selected_vocab(selected_vocab_words: List[Dict[str, Any]]) -> str:
+    if not selected_vocab_words:
+        return "(No locked vocabulary provided.)"
+    return "\n".join(
+        f"- {item.get('word', '')} (p. {item.get('page_number', '?')})"
+        for item in selected_vocab_words
+    )
+
+
+def build_system_prompt(chapter_json: Dict[str, Any], grade: int, selected_vocab_words: List[Dict[str, Any]]) -> str:
     """
     Build the (cacheable) system prompt that includes the full chapter text.
 
@@ -185,7 +194,8 @@ Student Workbook content for young readers in grades 3–8.
 3. Every question answer must be grounded in — and verifiable against — the
    chapter text.
 4. All content must match the complexity of Grade {grade}: {guidance}
-5. Produce all 14 workbook sections in the exact XML format the user message specifies.
+5. Use ONLY these locked vocabulary words. Do not add, remove, or replace any words.
+6. Produce all 14 workbook sections in the exact XML format the user message specifies.
 
 ══ BOOK INFORMATION ══
 Title   : {book_title}
@@ -193,12 +203,15 @@ Author  : {author}
 Chapter : {chapter_num} — {chapter_title}
 Grade   : {grade}
 
+══ LOCKED VOCABULARY (must use exactly these words) ══
+{_format_selected_vocab(selected_vocab_words)}
+
 ══ CHAPTER TEXT (with page markers for citation) ══
 {chapter_text}
 """
 
 
-def build_user_prompt(grade: int, chapter_json: Dict[str, Any]) -> str:
+def build_user_prompt(grade: int, chapter_json: Dict[str, Any], selected_vocab_words: List[Dict[str, Any]]) -> str:
     """
     Build the user-turn prompt that contains the section instructions and
     output format spec.  This varies per grade/request so it is not cached.
@@ -217,9 +230,10 @@ Complexity target: {guidance}
 
 Requirements for each section:
 • FOCUS_QUESTION — one compelling before-reading hook question.
-• VOCABULARY — exactly 10 words; each BOOK_QUOTE must be verbatim from the
-  chapter with a (p. N) citation; leave DEFINITION blank and leave
-  EXAMPLE_SENTENCE blank (student-fillable columns).
+• VOCABULARY — use ONLY the locked vocabulary words provided in the system prompt.
+  Do not add, remove, or replace any word. If fewer than 10 are provided, use all provided.
+  Each BOOK_QUOTE must be verbatim from the chapter with a (p. N) citation; leave
+  DEFINITION blank and EXAMPLE_SENTENCE blank (student-fillable columns).
 • BASIC_COMPREHENSION — 6 questions; answers stated explicitly in the text.
 • INFERENCE_QUESTIONS — 3 questions; answers require reading between the lines.
 • ANALYSIS_QUESTIONS — 3 questions; character, theme, or author's craft.
