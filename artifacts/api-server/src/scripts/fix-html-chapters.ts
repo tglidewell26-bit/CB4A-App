@@ -56,7 +56,7 @@ async function regenerateChapter(chapterId: number, bookId: number): Promise<voi
   const baseVocabulary = extractVocabulary(chapterPages, book.grade);
   const vocabulary = await enrichVocabularyForTeacherGuide(baseVocabulary, book.grade, chapter.extractedText);
   const workbookResult = await generateStudentWorkbook(meta, vocabulary);
-  const teacherGuideResult = await generateTeacherGuide(meta, vocabulary, workbookResult.structured);
+  const teacherGuideResult = await generateTeacherGuide(meta, workbookResult, vocabulary);
 
   const today = new Date().toLocaleDateString("en-US", {
     month: "short",
@@ -69,9 +69,8 @@ async function regenerateChapter(chapterId: number, bookId: number): Promise<voi
     .set({
       status: "ready",
       date: today,
-      content: workbookResult.outputPath,
-      workbookContent: workbookResult.outputPath,
-      teacherGuideContent: teacherGuideResult.outputPath,
+      workbookContent: workbookResult,
+      teacherGuideContent: teacherGuideResult,
     })
     .where(eq(chaptersTable.id, chapterId));
 }
