@@ -9,11 +9,11 @@ import {
   extractTextFromBuffer,
   parseStoredChapterPages,
   serializeChapterPages,
-  type PageText,
 } from "../lib/textExtractor.js";
-import { enrichVocabularyForTeacherGuide, extractVocabulary } from "../lib/vocabularyExtractor.js";
+import { enrichVocabularyForTeacherGuide, extractVocabulary, type VocabularyWord } from "../lib/vocabularyExtractor.js";
 import { generateStudentWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
 import { logger } from "../lib/logger.js";
+import { selectAndEnrichVocabulary } from "../lib/pythonVocabularySelector.js";
 
 const router: IRouter = Router();
 const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
