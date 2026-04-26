@@ -7,8 +7,43 @@ import type { VocabularyWord } from "./vocabularyExtractor.js";
 
 const execFileAsync = promisify(execFile);
 
-function getPythonCommand(): string {
-  return process.env.PYTHON_BIN || "python3";
+function getPythonCommands(): string[] {
+  const configured = process.env.PYTHON_BIN;
+  const candidates = [
+    configured,
+    process.platform === "win32" ? "py" : undefined,
+    "python3",
+    "python",
+  ].filter(
+    (value): value is string => Boolean(value && value.trim()),
+  );
+
+  return [...new Set(candidates)];
+}
+
+async function runPythonScript(args: string[]): Promise<string> {
+  const candidates = getPythonCommands();
+  let lastError: unknown;
+
+  for (const command of candidates) {
+    try {
+      const { stdout } = await execFileAsync(command, args);
+      return stdout;
+    } catch (error) {
+      const maybeSpawnError = error as NodeJS.ErrnoException;
+      if (maybeSpawnError.code === "ENOENT") {
+        lastError = error;
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  const attempted = candidates.join(", ");
+  const baseMessage =
+    lastError instanceof Error ? lastError.message : "No Python interpreter found";
+  throw new Error(`Unable to run Python scripts (attempted: ${attempted}). ${baseMessage}`);
 }
 
 function selectorPath(): string {
@@ -29,7 +64,7 @@ export async function selectAndEnrichVocabulary(
   try {
     await writeFile(sourcePath, extractedText, "utf8");
 
-    const { stdout: selectorStdout } = await execFileAsync(getPythonCommand(), [
+    const selectorStdout = await runPythonScript([
       selectorPath(),
       "--source",
       sourcePath,
@@ -41,7 +76,7 @@ export async function selectAndEnrichVocabulary(
     const words = Array.isArray(selectorData.words) ? selectorData.words : [];
     if (words.length === 0) return [];
 
-    const { stdout: enricherStdout } = await execFileAsync(getPythonCommand(), [
+    const enricherStdout = await runPythonScript([
       enricherPath(),
       "--source",
       sourcePath,
