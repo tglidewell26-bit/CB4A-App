@@ -8,7 +8,7 @@ import type { VocabularyWord } from "./vocabularyExtractor.js";
 const execFileAsync = promisify(execFile);
 
 function getPythonCommand(): string {
-  return process.env.PYTHON_BIN || "python3";
+  return process.env.PYTHON_BIN || "python";
 }
 
 function selectorPath(): string {
