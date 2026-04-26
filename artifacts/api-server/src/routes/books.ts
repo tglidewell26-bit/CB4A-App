@@ -6,11 +6,11 @@ import {
   extractTextFromBuffer,
   parseStoredChapterPages,
   serializeChapterPages,
-  type PageText,
 } from "../lib/textExtractor.js";
-import { enrichVocabularyForTeacherGuide, extractVocabulary } from "../lib/vocabularyExtractor.js";
+import { enrichVocabularyForTeacherGuide, extractVocabulary, type VocabularyWord } from "../lib/vocabularyExtractor.js";
 import { generateStudentWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
 import { logger } from "../lib/logger.js";
+import { selectAndEnrichVocabulary } from "../lib/pythonVocabularySelector.js";
 
 const router: IRouter = Router();
 
@@ -78,9 +78,20 @@ async function triggerGeneration(
 
     logger.info({ chapterId, bookId }, "Starting AI generation");
 
-    const chapterPages: PageText[] = parseStoredChapterPages(chapter.extractedText);
-    const baseVocabulary = extractVocabulary(chapterPages, book.grade);
-    const vocabulary = await enrichVocabularyForTeacherGuide(baseVocabulary, book.grade, chapter.extractedText);
+    let selectedVocabWords: VocabularyWord[] = [];
+    try {
+      selectedVocabWords = await selectAndEnrichVocabulary(chapter.extractedText, book.grade);
+      logger.info({ chapterId, selectedCount: selectedVocabWords.length }, "Python vocabulary selector complete");
+    } catch (err) {
+      logger.warn({ chapterId, err }, "Python vocabulary selector failed; falling back to legacy vocabulary extraction");
+    }
+
+    if (selectedVocabWords.length === 0) {
+      const chapterPages = parseStoredChapterPages(chapter.extractedText);
+      selectedVocabWords = extractVocabulary(chapterPages, book.grade);
+    }
+
+    const vocabulary = await enrichVocabularyForTeacherGuide(selectedVocabWords, book.grade, chapter.extractedText);
     const workbookResult = await generateStudentWorkbook(meta, vocabulary);
     const teacherGuideResult = await generateTeacherGuide(
       meta,
