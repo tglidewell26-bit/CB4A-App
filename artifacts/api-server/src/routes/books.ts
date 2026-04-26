@@ -96,6 +96,7 @@ async function triggerGeneration(
       .update(chaptersTable)
       .set({
         status: "ready",
+        content: workbookResult,
         workbookContent: workbookResult,
         teacherGuideContent: teacherGuideResult,
         date: today,
