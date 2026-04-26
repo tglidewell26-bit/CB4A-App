@@ -6,6 +6,31 @@ export interface PageText {
   text: string;
 }
 
+const PAGE_SEPARATOR = "\n\n---PAGE---\n\n";
+
+export function serializeChapterPages(pages: PageText[]): string {
+  return pages
+    .map((page) => `[PAGE ${page.page_number}]\n${page.text}`)
+    .join(PAGE_SEPARATOR);
+}
+
+export function parseStoredChapterPages(extractedText: string): PageText[] {
+  return extractedText
+    .split(PAGE_SEPARATOR)
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .map((segment, index) => {
+      const markerMatch = segment.match(/^\[PAGE\s+(\d+)\]\s*\n?/i);
+      const parsedPage = markerMatch ? Number(markerMatch[1]) : index + 1;
+      const text = markerMatch ? segment.replace(/^\[PAGE\s+\d+\]\s*\n?/i, "") : segment;
+      return {
+        page_number: Number.isFinite(parsedPage) ? parsedPage : index + 1,
+        text: text.trim(),
+      };
+    })
+    .filter((page) => page.text.length > 0);
+}
+
 function splitIntoPages(rawText: string): PageText[] {
   const cleaned = rawText.replace(/\r\n/g, "\n").trim();
   if (!cleaned) return [];

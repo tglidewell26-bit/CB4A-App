@@ -2,7 +2,12 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import { db, booksTable, chaptersTable, insertBookSchema } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
-import { extractTextFromBuffer, type PageText } from "../lib/textExtractor.js";
+import {
+  extractTextFromBuffer,
+  parseStoredChapterPages,
+  serializeChapterPages,
+  type PageText,
+} from "../lib/textExtractor.js";
 import { enrichVocabularyForTeacherGuide, extractVocabulary } from "../lib/vocabularyExtractor.js";
 import { generateStudentWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
 import { logger } from "../lib/logger.js";
@@ -13,47 +18,6 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
 });
-
-const HEIDI_CH1_MANUAL_WORDS = [
-  "cozy",
-  "guided",
-  "encouraged",
-  "frustrated",
-  "inherited",
-  "nimble",
-  "attire",
-  "gruff",
-  "breathtaking",
-  "stern",
-] as const;
-
-function findSentenceForWord(text: string, word: string): string {
-  const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
-  const found = sentences.find((s) => new RegExp(`\\b${word}\\b`, "i").test(s));
-  return (found ?? "").slice(0, 220).trim();
-}
-
-function manualHeidiChapterOneVocabulary(chapterPages: PageText[]) {
-  const fallbackPage = chapterPages[0]?.page_number ?? 1;
-
-  return HEIDI_CH1_MANUAL_WORDS.map((word) => {
-    const page = chapterPages.find((p) => new RegExp(`\\b${word}\\b`, "i").test(p.text));
-    const pageNumber = page?.page_number ?? fallbackPage;
-    const quote = page ? findSentenceForWord(page.text, word) : word;
-    return {
-      word,
-      lemma: word,
-      page_number: pageNumber,
-      book_quote: quote,
-      grade_band: "3-5",
-      score: 1,
-    };
-  });
-}
-
-function shouldUseHeidiManualVocabulary(bookTitle: string, chapterNum?: number | null): boolean {
-  return bookTitle.trim().toLowerCase() === "heidi" && (chapterNum ?? 0) === 1;
-}
 
 function chapterToResponse(c: typeof chaptersTable.$inferSelect) {
   return {
@@ -114,13 +78,8 @@ async function triggerGeneration(
 
     logger.info({ chapterId, bookId }, "Starting AI generation");
 
-    const chapterPages: PageText[] = chapter.extractedText
-      .split("\n\n---PAGE---\n\n")
-      .map((text: string, index: number) => ({ page_number: index + 1, text }))
-      .filter((page: PageText) => page.text.trim().length > 0);
-    const baseVocabulary = shouldUseHeidiManualVocabulary(book.title, chapter.num)
-      ? manualHeidiChapterOneVocabulary(chapterPages)
-      : extractVocabulary(chapterPages, book.grade);
+    const chapterPages: PageText[] = parseStoredChapterPages(chapter.extractedText);
+    const baseVocabulary = extractVocabulary(chapterPages, book.grade);
     const vocabulary = await enrichVocabularyForTeacherGuide(baseVocabulary, book.grade, chapter.extractedText);
     const workbookResult = await generateStudentWorkbook(meta, vocabulary);
     const teacherGuideResult = await generateTeacherGuide(
@@ -318,7 +277,7 @@ router.post(
           file.mimetype,
           file.originalname,
         );
-        extractedText = pages.map((p) => p.text).join("\n\n---PAGE---\n\n");
+        extractedText = serializeChapterPages(pages);
       } catch (err) {
         logger.warn({ err }, "Text extraction failed, continuing without text");
       }

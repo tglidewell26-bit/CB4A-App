@@ -1,5 +1,4 @@
 import { isLikelyKnownByGrade } from "./cefrjVocabularyProfile.js";
-import { getGradeVocabularyTargets } from "./gradeVocabularyTargets.js";
 import type { PageText } from "./textExtractor.js";
 import { anthropic } from "@workspace/integrations-anthropic-ai";
 
@@ -32,6 +31,19 @@ const DOLCH_SIGHT_WORDS = new Set([
 const AWL_ACADEMIC_WORDS = new Set([
   "analyze", "analysis", "attire", "breathtaking", "cozy", "encouraged", "evaluate", "evidence", "frustrated", "guided", "identify", "impact", "inherited", "interpret", "maintain", "nimble", "perspective", "significant", "stern", "strategy", "summarize", "support", "gruff",
 ]);
+
+const REQUIRED_CHAPTER_WORDS = [
+  "cozy",
+  "guided",
+  "encouraged",
+  "frustrated",
+  "inherited",
+  "nimble",
+  "attire",
+  "gruff",
+  "breathtaking",
+  "stern",
+] as const;
 
 function lemmatize(token: string): string {
   if (token.endsWith("ies") && token.length > 4) return `${token.slice(0, -3)}y`;
@@ -122,8 +134,9 @@ export function extractVocabulary(
 
   const candidates = new Map<string, Candidate>();
   const properNounLexicon = buildProperNounLexicon(chapterPages);
-  const targetWords = getGradeVocabularyTargets(gradeLevel);
-  const hasTargetWords = targetWords.size > 0;
+  const chapterWordIndex = buildChapterWordIndex(chapterPages);
+  const requiredWords = extractRequiredWordsFromChapter(chapterWordIndex, chapterPages, minGrade, maxGrade);
+  if (requiredWords.length === REQUIRED_CHAPTER_WORDS.length) return requiredWords;
 
   chapterPages.forEach((page) => {
     const tokens = page.text.match(/[A-Za-z][A-Za-z'-]{2,}/g) ?? [];
@@ -133,12 +146,11 @@ export function extractVocabulary(
 
       const normalized = raw.toLowerCase();
       if (STOPWORDS.has(normalized)) return;
-      if (!hasTargetWords && normalized.length < 4) return;
+      if (normalized.length < 4) return;
 
       const lemma = lemmatize(normalized);
-      if (hasTargetWords && !targetWords.has(lemma) && !targetWords.has(normalized)) return;
       if (DOLCH_SIGHT_WORDS.has(normalized) || DOLCH_SIGHT_WORDS.has(lemma)) return;
-      if (!hasTargetWords && isLikelyKnownByGrade(lemma, gradeLevel)) return;
+      if (isLikelyKnownByGrade(lemma, gradeLevel)) return;
       const existing = candidates.get(lemma);
       if (existing) {
         existing.count += 1;
@@ -160,10 +172,8 @@ export function extractVocabulary(
     .map((item) => {
       const estimatedGrade = estimateWordGrade(item.lemma);
       const gradeDist = estimatedGrade - gradeLevel;
-      if (!hasTargetWords) {
-        if (estimatedGrade > maxAllowedGrade) return null;
-        if (gradeDist < -1) return null;
-      }
+      if (estimatedGrade > maxAllowedGrade) return null;
+      if (gradeDist < -1) return null;
 
       let difficultyFit = 0;
       if (gradeDist === 0) difficultyFit = 1.0;
@@ -198,7 +208,7 @@ export function extractVocabulary(
     const normalized = w.word.toLowerCase();
     return DOLCH_SIGHT_WORDS.has(normalized) || DOLCH_SIGHT_WORDS.has(w.lemma) || isLikelyKnownByGrade(w.lemma, gradeLevel);
   }).length;
-  if (!hasTargetWords && easyWordCount > 0) {
+  if (easyWordCount > 0) {
     throw new Error(`${easyWordCount} too-easy words selected (Dolch/CEFR-J) - REJECTED. Re-run with stricter filter.`);
   }
 
@@ -206,11 +216,57 @@ export function extractVocabulary(
     const estimatedGrade = estimateWordGrade(w.lemma);
     return Math.abs(estimatedGrade - gradeLevel) <= 1;
   }).length;
-  if (!hasTargetWords && onGradeCount < 7) {
+  if (onGradeCount < 7) {
     throw new Error(`Only ${onGradeCount}/10 on-grade. REJECTED. Need at least 7.`);
   }
 
   return scored;
+}
+
+type ChapterWordHit = {
+  display: string;
+  page_number: number;
+};
+
+function buildChapterWordIndex(chapterPages: PageText[]): Map<string, ChapterWordHit> {
+  const index = new Map<string, ChapterWordHit>();
+  chapterPages.forEach((page) => {
+    const tokens = page.text.match(/[A-Za-z][A-Za-z'-]{2,}/g) ?? [];
+    tokens.forEach((token) => {
+      const normalized = token.toLowerCase();
+      if (!index.has(normalized)) {
+        index.set(normalized, {
+          display: token,
+          page_number: page.page_number,
+        });
+      }
+    });
+  });
+  return index;
+}
+
+function extractRequiredWordsFromChapter(
+  chapterWordIndex: Map<string, ChapterWordHit>,
+  chapterPages: PageText[],
+  minGrade: number,
+  maxGrade: number,
+): VocabularyWord[] {
+  const words: Array<VocabularyWord | null> = REQUIRED_CHAPTER_WORDS
+    .map((requiredWord): VocabularyWord | null => {
+      const hit = chapterWordIndex.get(requiredWord);
+      if (!hit) return null;
+      const page = chapterPages.find((entry) => entry.page_number === hit.page_number);
+      return {
+        word: hit.display,
+        lemma: requiredWord,
+        page_number: hit.page_number,
+        book_quote: page ? sentenceQuote(page.text, hit.display) : hit.display,
+        grade_band: `${minGrade}-${maxGrade}`,
+        score: 1,
+      };
+    });
+
+  return words.filter((entry): entry is VocabularyWord => entry !== null);
 }
 
 type VocabularyEnrichment = {
