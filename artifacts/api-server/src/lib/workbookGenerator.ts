@@ -133,16 +133,28 @@ function countWords(text: string): number {
   return (text.match(/\b[\w'-]+\b/g) ?? []).length;
 }
 
+function extractSentenceValidatedItems(section: GeneratedSection): string[] {
+  switch (section.key) {
+    case "get_ready_to_read":
+      return [...section.bodyHtml.matchAll(/<p>([\s\S]*?)<\/p>/g)].map((m) => m[1].trim()).filter(Boolean);
+    case "thinking_deeper":
+    case "draw_it":
+      return [section.bodyHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()].filter(Boolean);
+    default:
+      return [...section.bodyHtml.matchAll(/<div class="question">([\s\S]*?)<\/div>/g)].map((m) => m[1].trim()).filter(Boolean);
+  }
+}
+
 function validateSentenceLimits(section: GeneratedSection): void {
   const maxWords = getPromptWordCountLimit(section.key);
   if (!maxWords) return;
-  const questions = [...section.bodyHtml.matchAll(/<div class="question">([\s\S]*?)<\/div>/g)].map((m) => m[1].trim());
-  for (const questionText of questions) {
-    const sentenceCount = (questionText.match(/[.!?](?=\s|$)/g) ?? []).length || 1;
+  const items = extractSentenceValidatedItems(section);
+  for (const itemText of items) {
+    const sentenceCount = (itemText.match(/[.!?](?=\s|$)/g) ?? []).length || 1;
     if (sentenceCount > 1) {
       throw new Error(`Student Workbook validation failed: "${section.key}" contains a multi-sentence item.`);
     }
-    if (countWords(questionText) > maxWords) {
+    if (countWords(itemText) > maxWords) {
       throw new Error(`Student Workbook validation failed: "${section.key}" exceeded ${maxWords} words in one item.`);
     }
   }
@@ -176,14 +188,48 @@ function validateCharacterChartEmptyCells(html: string): void {
   }
 }
 
+function validateTemplateStructure(section: GeneratedSection): void {
+  if (section.bodySource !== "template") return;
+  switch (section.key) {
+    case "creative_response":
+      if (!/Dear \[recipient\],/i.test(section.bodyHtml) || !/Sincerely,/i.test(section.bodyHtml)) {
+        throw new Error("Student Workbook validation failed: creative_response template structure is missing.");
+      }
+      break;
+    case "writing_rubric":
+      if (!/<table[^>]*class="rubric-table"/i.test(section.bodyHtml)) {
+        throw new Error("Student Workbook validation failed: writing_rubric template table is missing.");
+      }
+      break;
+    case "character_chart":
+      if (!/<table[^>]*class="character-chart"/i.test(section.bodyHtml)) {
+        throw new Error("Student Workbook validation failed: character_chart template table is missing.");
+      }
+      break;
+    case "draw_it":
+      if (!/<div[^>]*class="drawing-box"/i.test(section.bodyHtml)) {
+        throw new Error("Student Workbook validation failed: draw_it template drawing box is missing.");
+      }
+      break;
+    case "reflect_on_your_drawing":
+      if (!/<ol[^>]*class="reflect-stems"/i.test(section.bodyHtml)) {
+        throw new Error("Student Workbook validation failed: reflect_on_your_drawing template stems are missing.");
+      }
+      break;
+    case "bonus_challenge":
+      if (!/<ol[^>]*class="timeline-list"/i.test(section.bodyHtml)) {
+        throw new Error("Student Workbook validation failed: bonus_challenge template list is missing.");
+      }
+      break;
+    default:
+      break;
+  }
+}
+
 function sanitizeLlmBodyHtml(bodyHtml: string, section: SectionSchemaEntry): { cleaned: string; removed: string[] } {
   let cleaned = bodyHtml;
   const removed: string[] = [];
-  const bannedSnippets = [
-    "What do you already know?",
-    "This word means",
-    "My sentence",
-  ];
+  const bannedSnippets = ["What do you already know?", "This word means", "My sentence", "Vocabulary"];
   for (const snippet of bannedSnippets) {
     const rx = new RegExp(snippet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
     if (rx.test(cleaned)) {
@@ -197,6 +243,23 @@ function sanitizeLlmBodyHtml(bodyHtml: string, section: SectionSchemaEntry): { c
       removed.push('Removed unauthorized heading: "Vocabulary"');
       cleaned = cleaned.replace(vocabRx, "");
     }
+    const fillInRx = /<p[^>]*>[\s\S]*?(this word means|my sentence|fill in)[\s\S]*?<\/p>/gi;
+    if (fillInRx.test(cleaned)) {
+      removed.push("Removed unauthorized fill-in prompt paragraph(s)");
+      cleaned = cleaned.replace(fillInRx, "");
+    }
+  }
+
+  const introRx = /<p[^>]*>\s*(intro|introduction|summary)[:\s][\s\S]*?<\/p>/gi;
+  if (introRx.test(cleaned)) {
+    removed.push("Removed intro/summary paragraph(s)");
+    cleaned = cleaned.replace(introRx, "");
+  }
+
+  const sectionWrapperRx = /<div[^>]*class="[^"]*(wb-section|tg-section)[^"]*"[^>]*>[\s\S]*?<\/div>/gi;
+  if (sectionWrapperRx.test(cleaned)) {
+    removed.push("Removed unauthorized section wrapper(s)");
+    cleaned = cleaned.replace(sectionWrapperRx, "");
   }
   cleaned = cleaned.replace(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/gi, "");
   return { cleaned: cleaned.trim(), removed };
@@ -305,6 +368,11 @@ function validateSections(
   context: "Student Workbook" | "Teacher Guide",
   meta: ChapterMeta,
 ): void {
+  const generatedKeys = generatedSections.map((s) => s.key);
+  if (generatedKeys.length !== new Set(generatedKeys).size) {
+    throw new Error(`${context} validation failed: duplicate sections detected.`);
+  }
+
   const requiredKeys = schema.filter((s) => s.required).map((s) => s.key);
   for (const key of requiredKeys) {
     if (!generatedSections.some((s) => s.key === key)) {
@@ -329,6 +397,18 @@ function validateSections(
     }
     if (generated.bodySource === "template" && generated.key === "character_chart") {
       validateCharacterChartEmptyCells(generated.bodyHtml);
+    }
+    if (context === "Student Workbook") {
+      validateTemplateStructure(generated);
+    }
+    if (
+      generated.bodySource === "template" &&
+      !["draw_it", "bonus_challenge"].includes(generated.key) &&
+      /<div class="question">|<li class="question-item">/i.test(generated.bodyHtml)
+    ) {
+      throw new Error(
+        `${context} validation failed: template-only section "${generated.key}" contains unexpected LLM-generated question content.`,
+      );
     }
     if (generated.bodySource === "llm") {
       validateSentenceLimits(generated);
@@ -413,12 +493,16 @@ Do not include: vocabulary lists, definitions, example sentences, fill-in exerci
 }
 
 function studentLengthConstraintBySection(key: string): string {
+  if (key === "words_to_know") {
+    return "";
+  }
   const count = getExpectedItemCount(key);
   const maxWords = getPromptWordCountLimit(key);
-  if (!count || !maxWords) {
-    return "Output exactly 1 item. Each item must be ONE sentence under 25 words.";
+  if (!maxWords) {
+    return "";
   }
-  return `Output exactly ${count} items.
+  const resolvedCount = count ?? 1;
+  return `Output exactly ${resolvedCount} ${resolvedCount === 1 ? "item" : "items"}.
 Each item must:
 - be ONE sentence
 - be under ${maxWords} words
@@ -489,6 +573,12 @@ ${chapterText}`,
       ? sanitizeLlmBodyHtml(rawBodyHtml, section)
       : { cleaned: rawBodyHtml, removed: [] };
     console.info(sanitizeLogLine(section.key, sanitized.removed));
+
+    if (section.key === "words_to_know" && sanitized.cleaned.trim() !== "WORDS_TO_KNOW_TABLE_PLACEHOLDER") {
+      throw new Error(
+        'Student Workbook validation failed: words_to_know must output only "WORDS_TO_KNOW_TABLE_PLACEHOLDER".',
+      );
+    }
 
     const normalizedBody =
       section.key === "words_to_know"
