@@ -32,9 +32,7 @@ function truncateText(text: string, maxChars = 80000): string {
 }
 
 function serializeVocabulary(vocabulary: VocabularyWord[]): string {
-  return vocabulary
-    .map((v, i) => `${i + 1}. word="${v.word}" quote="${v.book_quote}" page=${v.page_number}`)
-    .join("\n");
+  return vocabulary.map((v, i) => `${i + 1}. word="${v.word}" quote="${v.book_quote}" page=${v.page_number}`).join("\n");
 }
 
 function buildWordsToKnowTableHtml(vocabulary: VocabularyWord[]): string {
