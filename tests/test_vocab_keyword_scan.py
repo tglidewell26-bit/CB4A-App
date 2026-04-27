@@ -77,3 +77,18 @@ The class absorb new ideas quickly! Their ambition grows every day.
             "score": 1.0,
         },
     ]
+
+
+def test_enrich_selected_vocab_words_parses_multiple_page_markers_without_separator():
+    extracted_text = """
+[PAGE 11]
+This paragraph has avoid and another sentence.
+[PAGE 12]
+You should consider the evidence.
+[PAGE 13]
+They explore the cave together.
+""".strip()
+
+    vocab = enrich_selected_vocab_words(["avoid", "consider", "explore"], extracted_text, 5)
+
+    assert [entry["page_number"] for entry in vocab] == [11, 12, 13]
