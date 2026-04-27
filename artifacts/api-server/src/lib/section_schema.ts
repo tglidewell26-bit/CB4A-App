@@ -1,4 +1,4 @@
-export type BodySource = "llm" | "manual";
+export type BodySource = "llm" | "manual" | "template";
 
 export interface SectionSchemaEntry {
   key: string;
@@ -74,42 +74,42 @@ export const STUDENT_WORKBOOK_SECTIONS: SectionSchemaEntry[] = [
     key: "creative_response",
     display_title: "Creative Response",
     standing_subheader: null,
-    body_source: "manual",
+    body_source: "template",
     required: true,
   },
   {
     key: "writing_rubric",
     display_title: "Writing Rubric",
     standing_subheader: "Use the rubric below to score your [creative response noun].",
-    body_source: "llm",
+    body_source: "template",
     required: true,
   },
   {
     key: "character_chart",
     display_title: "Character Chart",
     standing_subheader: "Fill in the chart below for the main characters in Chapter [N].",
-    body_source: "llm",
+    body_source: "template",
     required: true,
   },
   {
     key: "draw_it",
     display_title: "Draw It!",
     standing_subheader: null,
-    body_source: "llm",
+    body_source: "template",
     required: true,
   },
   {
     key: "reflect_on_your_drawing",
     display_title: "Reflect on Your Drawing",
     standing_subheader: "Complete these sentence stems based on your drawing and what you learned.",
-    body_source: "llm",
+    body_source: "template",
     required: true,
   },
   {
     key: "bonus_challenge",
     display_title: "Bonus Challenge—Follow the Story",
     standing_subheader: "Put these events from Chapter [N] in the correct order.",
-    body_source: "llm",
+    body_source: "template",
     required: true,
   },
   {
