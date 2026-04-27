@@ -35,6 +35,21 @@ def _sentence_quote(text: str, word: str) -> str:
 
 
 def _parse_chapter_pages(extracted_text: str) -> List[Dict[str, object]]:
+    marker_pattern = re.compile(r"^\[PAGE\s+(\d+)\]\s*\n?", flags=re.IGNORECASE | re.MULTILINE)
+    marker_matches = list(marker_pattern.finditer(extracted_text))
+
+    if marker_matches:
+        pages_from_markers: List[Dict[str, object]] = []
+        for index, marker in enumerate(marker_matches):
+            page_number = int(marker.group(1))
+            content_start = marker.end()
+            content_end = marker_matches[index + 1].start() if index + 1 < len(marker_matches) else len(extracted_text)
+            page_text = extracted_text[content_start:content_end].strip()
+            if page_text:
+                pages_from_markers.append({"page_number": page_number, "text": page_text})
+        if pages_from_markers:
+            return pages_from_markers
+
     pages: List[Dict[str, object]] = []
     segments = [segment.strip() for segment in extracted_text.split(PAGE_SEPARATOR) if segment.strip()]
     for index, segment in enumerate(segments, start=1):

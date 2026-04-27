@@ -47,10 +47,54 @@ function splitIntoPages(rawText: string): PageText[] {
         .map((part) => part.trim())
         .filter(Boolean);
 
-  return segments.map((text, index) => ({
-    page_number: index + 1,
-    text,
-  }));
+  let fallbackPage = 1;
+
+  return segments.map((text) => {
+    const detectedPage = detectFooterPageNumber(text);
+
+    if (typeof detectedPage === "number") {
+      fallbackPage = detectedPage + 1;
+      return {
+        page_number: detectedPage,
+        text,
+      };
+    }
+
+    const inferredPage = fallbackPage;
+    fallbackPage = inferredPage + 1;
+
+    return {
+      page_number: inferredPage,
+      text,
+    };
+  });
+}
+
+function detectFooterPageNumber(pageText: string): number | null {
+  const lines = pageText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) return null;
+
+  // Check the bottom lines first: footer page numbers are usually here.
+  const footerCandidates = lines.slice(-8).reverse();
+  for (const line of footerCandidates) {
+    // Matches "23", "- 23 -", "(23)", "[23]", "Page 23", or "23 24" (book spread).
+    const spreadMatch = line.match(/^(\d{1,4})\s+(\d{1,4})$/);
+    if (spreadMatch) {
+      // For spreads, use the higher page number (right-hand page) as the anchor.
+      return Math.max(Number(spreadMatch[1]), Number(spreadMatch[2]));
+    }
+
+    const singleNumberMatch = line.match(/^[-–—(\[]?\s*(?:page\s*)?(\d{1,4})\s*[-–—)\]]?$/i);
+    if (singleNumberMatch) {
+      return Number(singleNumberMatch[1]);
+    }
+  }
+
+  return null;
 }
 
 export async function extractTextFromBuffer(
