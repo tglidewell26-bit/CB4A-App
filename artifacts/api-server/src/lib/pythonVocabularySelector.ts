@@ -1,9 +1,12 @@
 import { execFile } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import type { VocabularyWord } from "./vocabularyExtractor.js";
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 const execFileAsync = promisify(execFile);
 
@@ -41,11 +44,11 @@ async function runPythonScript(args: string[]): Promise<string> {
 }
 
 function selectorPath(): string {
-  return resolve(process.cwd(), "workbook_generator", "vocab_selector.py");
+  return join(REPO_ROOT, "workbook_generator", "vocab_selector.py");
 }
 
 function enricherPath(): string {
-  return resolve(process.cwd(), "workbook_generator", "vocab_enricher.py");
+  return join(REPO_ROOT, "workbook_generator", "vocab_enricher.py");
 }
 
 export async function selectAndEnrichVocabulary(extractedText: string, gradeLevel: number): Promise<VocabularyWord[]> {
@@ -55,7 +58,17 @@ export async function selectAndEnrichVocabulary(extractedText: string, gradeLeve
   try {
     await writeFile(sourcePath, extractedText, "utf8");
 
-    const selectorStdout = await runPythonScript([selectorPath(), "--source", sourcePath, "--grade", String(gradeLevel)]);
+    let selectorStdout: string;
+    try {
+      selectorStdout = await runPythonScript([selectorPath(), "--source", sourcePath, "--grade", String(gradeLevel)]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("No Python interpreter found") || msg.includes("ENOENT")) {
+        console.warn("[pythonVocabularySelector] Python not available, skipping vocab selection:", msg);
+        return [];
+      }
+      throw err;
+    }
     const selectorData = JSON.parse(selectorStdout) as { words?: string[] };
     const words = Array.isArray(selectorData.words) ? selectorData.words : [];
     if (words.length === 0) return [];
