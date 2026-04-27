@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-import sys
-from collections import Counter
 from typing import Dict, List
 
 # Grade-banded target vocabulary pools (grades 3-8).
@@ -157,6 +155,9 @@ GRADE_VOCAB: Dict[int, List[str]] = {
     ],
 }
 
+TARGET_WORD_COUNT = 10
+BATCH_SIZE = 10
+
 
 def normalize_token(token: str) -> str:
     return re.sub(r"[^a-z]", "", token.lower())
@@ -178,44 +179,35 @@ def lemmatize(token: str) -> str:
 
 def select_vocab_words(text: str, grade_level: int) -> List[str]:
     tokens = re.findall(r"[A-Za-z][A-Za-z'-]{2,}", text)
-    normalized_tokens = [normalize_token(t) for t in tokens]
-    normalized_tokens = [t for t in normalized_tokens if t]
-    token_counts = Counter(normalized_tokens)
-    token_set = set(normalized_tokens)
+    token_set = {normalize_token(t) for t in tokens if normalize_token(t)}
 
     grade = min(8, max(3, int(grade_level)))
     selected: List[str] = []
     seen = set()
 
-    for candidate in GRADE_VOCAB.get(grade, []):
-        lemma = lemmatize(candidate)
-        if candidate in token_set:
-            choice = candidate
-        elif lemma in token_set:
-            choice = lemma
-        else:
-            continue
+    vocab_pool = GRADE_VOCAB.get(grade, [])
+    for start in range(0, len(vocab_pool), BATCH_SIZE):
+        batch = vocab_pool[start:start + BATCH_SIZE]
+        for candidate in batch:
+            normalized_candidate = normalize_token(candidate)
+            lemma = normalize_token(lemmatize(candidate))
 
-        if choice not in seen:
+            if normalized_candidate in token_set:
+                choice = normalized_candidate
+            elif lemma in token_set:
+                choice = lemma
+            else:
+                continue
+
+            if choice in seen:
+                continue
+
             selected.append(choice)
             seen.add(choice)
-        if len(selected) >= 10:
-            return selected
+            if len(selected) >= TARGET_WORD_COUNT:
+                return selected
 
-    # Fallback: chapter-present words by length/frequency to fill up to 10.
-    fallback = sorted(
-        (word for word, count in token_counts.items() if len(word) >= 5 and count >= 1),
-        key=lambda w: (-token_counts[w], -len(w), w),
-    )
-
-    for word in fallback:
-        lemma = lemmatize(word)
-        candidate = lemma if lemma in token_set else word
-        if candidate in seen:
-            continue
-        selected.append(candidate)
-        seen.add(candidate)
-        if len(selected) >= 10:
+        if len(selected) >= TARGET_WORD_COUNT:
             break
 
     return selected
