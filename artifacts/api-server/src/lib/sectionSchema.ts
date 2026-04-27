@@ -2,7 +2,7 @@ export interface StudentWorkbookSectionSchema {
   id: string;
   displayTitle: string;
   standingSubheader: string | null;
-  bodySource: "llm" | "manual";
+  bodySource: "llm" | "manual" | "template";
 }
 
 export interface TeacherGuideSectionSchema {
@@ -38,33 +38,33 @@ export const STUDENT_WORKBOOK_SECTIONS: StudentWorkbookSectionSchema[] = [
   {
     id: "creative_response",
     displayTitle: "Creative Response",
-    standingSubheader: "Use the sentence stems below to write your response.",
-    bodySource: "llm",
+    standingSubheader: null,
+    bodySource: "template",
   },
-  { id: "writing_rubric", displayTitle: "Writing Rubric", standingSubheader: null, bodySource: "llm" },
+  { id: "writing_rubric", displayTitle: "Writing Rubric", standingSubheader: null, bodySource: "template" },
   {
     id: "character_chart",
     displayTitle: "Character Chart",
     standingSubheader: "Fill in the chart using evidence from the text.",
-    bodySource: "llm",
+    bodySource: "template",
   },
   {
     id: "draw_it",
     displayTitle: "Draw It",
     standingSubheader: "Draw a scene from the chapter below.",
-    bodySource: "llm",
+    bodySource: "template",
   },
   {
     id: "reflect_on_your_drawing",
     displayTitle: "Reflect on Your Drawing",
     standingSubheader: "Use these sentence stems based on your drawing and the chapter.",
-    bodySource: "llm",
+    bodySource: "template",
   },
   {
     id: "bonus_challenge",
     displayTitle: "Bonus Challenge-Follow the Story",
     standingSubheader: "Put these events from Chapter [N] in the correct order by numbering them 1-[count].",
-    bodySource: "llm",
+    bodySource: "template",
   },
   {
     id: "thinking_deeper",
