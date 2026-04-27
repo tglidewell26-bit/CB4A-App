@@ -1,0 +1,51 @@
+# Student Workbook
+
+## Before You Read
+{{ sections.before_you_read.focus_question }}
+
+## Vocabulary
+{% for item in sections.vocabulary -%}
+- **{{ item.id }}** {{ item.term }}: {{ item.definition }}
+{% endfor %}
+
+## Comprehension Questions
+{% for q in sections.comprehension_questions -%}
+- **{{ q.id }}** {{ q.prompt }}
+{% endfor %}
+
+## Inference Questions
+{% for q in sections.inference_questions -%}
+- **{{ q.id }}** {{ q.prompt }}
+{% endfor %}
+
+## Analysis Questions
+{% for q in sections.analysis_questions -%}
+- **{{ q.id }}** {{ q.prompt }}
+{% endfor %}
+
+## Multiple Choice
+{% for q in sections.multiple_choice -%}
+- **{{ q.id }}** {{ q.prompt }}
+{% for opt in q.options -%}
+  - {{ loop.index0 }}. {{ opt }}
+{% endfor %}
+{% endfor %}
+
+## Short Answer
+{% for q in sections.short_answer -%}
+- **{{ q.id }}** {{ q.prompt }}
+{% endfor %}
+
+## Creative Response
+- **{{ sections.creative_response.id }}** {{ sections.creative_response.prompt }}
+{% for hint in sections.creative_response.hints -%}
+  - {{ hint }}
+{% endfor %}
+
+## Timeline
+{% for e in sections.timeline -%}
+- **{{ e.id }}** ({{ e.order_index }}) {{ e.event_text }}
+{% endfor %}
+
+## Prediction
+- **{{ sections.prediction.id }}** {{ sections.prediction.prompt }}

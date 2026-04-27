@@ -99,11 +99,17 @@ def select_vocab_words(text: str, grade_level: int) -> List[str]:
 
 
 def main() -> None:
-    payload = json.load(sys.stdin)
-    text = str(payload.get("text", ""))
-    grade_level = int(payload.get("grade_level", 3))
-    words = select_vocab_words(text, grade_level)
-    json.dump({"words": words}, sys.stdout)
+    import argparse
+    from pathlib import Path
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--source", required=True, help="Path to extracted chapter text")
+    parser.add_argument("--grade", required=True, type=int)
+    args = parser.parse_args()
+
+    text = Path(args.source).read_text(encoding="utf-8", errors="ignore")
+    words = select_vocab_words(text, args.grade)
+    print(json.dumps({"words": words}))
 
 
 if __name__ == "__main__":
