@@ -482,7 +482,7 @@ function studentSectionRequirementByKey(key: string): string {
   switch (key) {
     case "get_ready_to_read":
       return `<div class="focus-question"><div class="focus-label">FOCUS QUESTION</div><p>...</p></div>.
-Use exactly 1 short sentence in the <p>.
+Use no more then 2 sentences in the <p>.
 Do not use semicolons, compound sentences, or "and then"/"because" chains.`;
     case "words_to_know":
       return `Output NOTHING except the placeholder:
