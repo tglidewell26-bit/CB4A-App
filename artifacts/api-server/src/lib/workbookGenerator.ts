@@ -171,7 +171,12 @@ function validateItemCount(section: GeneratedSection): void {
     }
     return;
   }
-  if (liCount !== expectedCount) {
+  const itemCount =
+    section.key === "multiple_choice_questions"
+      ? (section.bodyHtml.match(/<div[^>]*class="[^"]*\bmc-item\b[^"]*"[^>]*>/g) ?? []).length
+      : liCount;
+
+  if (itemCount !== expectedCount) {
     throw new Error(`Student Workbook validation failed: "${section.key}" must contain exactly ${expectedCount} items.`);
   }
 }
