@@ -277,6 +277,22 @@ function sanitizeLogLine(sectionKey: string, removed: string[]): string {
   return `[sanitize] section=${sectionKey} removed=${removed.length} details=${removed.join(" | ")}`;
 }
 
+function keepFirstSentence(text: string): string {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (!cleaned) return cleaned;
+  const match = cleaned.match(/^(.+?[.!?])(?:\s|$)/);
+  return match ? match[1].trim() : cleaned;
+}
+
+function enforceSingleSentenceItems(sectionKey: string, bodyHtml: string): string {
+  if (sectionKey !== "get_ready_to_read") return bodyHtml;
+  return bodyHtml
+    .replace(/<p>([\s\S]*?)<\/p>/g, (_full, text: string) => `<p>${keepFirstSentence(text)}</p>`)
+    .replace(/<div class="question">([\s\S]*?)<\/div>/g, (_full, text: string) => {
+      return `<div class="question">${keepFirstSentence(text)}</div>`;
+    });
+}
+
 function shuffleArray<T>(arr: T[]): T[] {
   const out = [...arr];
   for (let i = out.length - 1; i > 0; i -= 1) {
@@ -465,7 +481,9 @@ async function generateLlmSectionBody(systemPrompt: string, userPrompt: string):
 function studentSectionRequirementByKey(key: string): string {
   switch (key) {
     case "get_ready_to_read":
-      return '<div class="focus-question"><div class="focus-label">FOCUS QUESTION</div><p>...</p></div>';
+      return `<div class="focus-question"><div class="focus-label">FOCUS QUESTION</div><p>...</p></div>.
+Use exactly 1 short sentence in the <p>.
+Do not use semicolons, compound sentences, or "and then"/"because" chains.`;
     case "words_to_know":
       return `Output NOTHING except the placeholder:
 WORDS_TO_KNOW_TABLE_PLACEHOLDER
@@ -589,14 +607,15 @@ ${chapterText}`,
       section.key === "words_to_know"
         ? sanitized.cleaned.replace("WORDS_TO_KNOW_TABLE_PLACEHOLDER", wordsToKnowTableHtml)
         : sanitized.cleaned;
+    const sentenceSafeBody = enforceSingleSentenceItems(section.key, normalizedBody);
 
     const bodyHtml =
       section.body_source === "template"
         ? buildTemplateSectionBody(
             section.key,
-            section.key === "draw_it" || section.key === "bonus_challenge" ? normalizedBody : "",
+            section.key === "draw_it" || section.key === "bonus_challenge" ? sentenceSafeBody : "",
           )
-        : normalizedBody;
+        : sentenceSafeBody;
 
     generatedSections.push({
       key: section.key,
@@ -620,6 +639,8 @@ ${chapterText}`,
 
 function teacherSectionRequirementByKey(key: string): string {
   switch (key) {
+    case "get_ready_to_read":
+      return "Provide short warm-up prompts with exactly one simple sentence per item. No semicolons, no compound sentences, no chained clauses.";
     case "guided_reading":
       return `Provide pause-point questions. Every question must include [question-type: ...] where ... is one of: ${QUESTION_TYPE_TAGS.join(", ")}.`;
     case "tiered_discussion":
@@ -676,12 +697,14 @@ Chapter text:
 ${chapterText}`,
           );
 
+    const sentenceSafeBody = enforceSingleSentenceItems(section.key, bodyHtml);
+
     const generated: GeneratedSection = {
       key: section.key,
       displayTitle: section.display_title,
       standingSubheader,
       bodySource: section.body_source,
-      bodyHtml,
+      bodyHtml: sentenceSafeBody,
       tipSlots: section.tip_slots,
     };
 
