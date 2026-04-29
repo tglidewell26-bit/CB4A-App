@@ -514,8 +514,41 @@ function validateQuestionTypeTags(section: GeneratedSection): void {
 type CoreQuestionType = "literal" | "inference" | "analysis";
 function classifyQuestion(question: string): CoreQuestionType {
   const q = question.toLowerCase();
-  if (q.includes("compare") || q.includes("how does this show") || q.includes("what might happen if")) return "analysis";
-  if (q.includes("why do you think") || q.includes("how do you know") || q.includes("what can you infer")) return "inference";
+  if (
+    q.includes("compare") ||
+    q.includes("how does this show") ||
+    q.includes("what might happen if") ||
+    q.includes("what is the theme") ||
+    q.includes("what does this tell us about") ||
+    q.includes("what does this reveal about") ||
+    q.includes("what message") ||
+    q.includes("author's purpose") ||
+    q.includes("how does the author")
+  ) return "analysis";
+  if (
+    q.includes("why do you think") ||
+    q.includes("how do you know") ||
+    q.includes("what can you infer") ||
+    q.includes("why did") ||
+    q.includes("why might") ||
+    q.includes("why would") ||
+    q.includes("why does") ||
+    q.includes("how might") ||
+    q.includes("how does") ||
+    q.includes("how did") ||
+    q.includes("how would") ||
+    q.includes("what do you think") ||
+    q.includes("what clues") ||
+    q.includes("what does this suggest") ||
+    q.includes("what made") ||
+    q.includes("what could") ||
+    q.includes("what might") ||
+    q.includes("feel") ||
+    q.includes("motivat") ||
+    q.includes("reaction") ||
+    q.includes("emotion") ||
+    q.includes("infer")
+  ) return "inference";
   return "literal";
 }
 
