@@ -66,7 +66,7 @@ export const STUDENT_WORKBOOK_SECTIONS: SectionSchemaEntry[] = [
   {
     key: "evidence_from_the_story",
     display_title: "Evidence from the Story",
-    standing_subheader: "Use complete sentences and include evidence from the text.",
+    standing_subheader: "Use complete sentences and include evidence from the text with page numbers.",
     body_source: "llm",
     required: true,
   },
@@ -108,15 +108,15 @@ export const STUDENT_WORKBOOK_SECTIONS: SectionSchemaEntry[] = [
   {
     key: "bonus_challenge",
     display_title: "Bonus Challenge—Follow the Story",
-    standing_subheader: "Put these events from Chapter [N] in the correct order.",
+    standing_subheader: "Put these events from Chapter [N] in the correct order by numbering them 1-7.",
     body_source: "template",
     required: true,
   },
   {
     key: "thinking_deeper",
     display_title: "Thinking Deeper",
-    standing_subheader: "What do you think will happen in the next chapter? Make a prediction.",
-    body_source: "llm",
+    standing_subheader: "What do you think will happen in the next chapter? Make a prediction based on what you learned in Chapter [N].",
+    body_source: "template",
     required: true,
   },
 ];
