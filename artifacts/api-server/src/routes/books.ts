@@ -23,6 +23,15 @@ function emptyCharacterDatabase(title: string, author: string, grade: number): B
   };
 }
 
+type BookRecordWithCharacters = {
+  id: number;
+  title: string;
+  author: string;
+  grade: number;
+  createdAt: Date;
+  characterData: BookCharacterDatabase | null;
+};
+
 function normalizeCharacterDatabase(raw: unknown, title: string, author: string, grade: number): BookCharacterDatabase {
   const fallback = emptyCharacterDatabase(title, author, grade);
   if (!raw || typeof raw !== "object") return fallback;
@@ -128,10 +137,10 @@ async function triggerGeneration(
       return;
     }
 
-    const [book] = await db
+    const [book] = (await db
       .select()
       .from(booksTable)
-      .where(eq(booksTable.id, bookId));
+      .where(eq(booksTable.id, bookId))) as BookRecordWithCharacters[];
 
     if (!book) {
       await db
@@ -214,7 +223,7 @@ router.post("/books", async (req, res) => {
     return;
   }
   const characterData = await buildCharacterDatabase(parsed.data.title, parsed.data.author, parsed.data.grade);
-  const [book] = await db.insert(booksTable).values({ ...parsed.data, characterData }).returning();
+  const [book] = (await db.insert(booksTable).values({ ...parsed.data, characterData }).returning()) as BookRecordWithCharacters[];
   res.status(201).json({ ...book, chapterCount: 0 });
 });
 
