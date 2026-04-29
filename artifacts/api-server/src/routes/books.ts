@@ -7,11 +7,35 @@ import {
   serializeChapterPages,
 } from "../lib/textExtractor.js";
 import { enrichVocabularyForTeacherGuide } from "../lib/vocabularyExtractor.js";
-import { generateStudentWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
+import { generateStudentWorkbook, generateTeacherGuide, type BookCharacterDatabase } from "../lib/workbookGenerator.js";
 import { logger } from "../lib/logger.js";
 import { selectAndEnrichVocabulary } from "../lib/pythonVocabularySelector.js";
 
 const router: IRouter = Router();
+
+function buildCharacterDatabase(title: string, author: string, grade: number): BookCharacterDatabase {
+  const key = title.trim().toLowerCase();
+  if (key === "heidi") {
+    return {
+      book_title: title.trim(),
+      author: author.trim(),
+      grade_level: grade,
+      characters: [
+        { canonical_name: "Heidi", aliases: ["Heidi"] },
+        { canonical_name: "Deta", aliases: ["Deta", "Dete"] },
+        { canonical_name: "Alm-Uncle", aliases: ["Alm-Uncle", "Grandfather", "Uncle"] },
+        { canonical_name: "Peter", aliases: ["Peter"] },
+        { canonical_name: "Barbara", aliases: ["Barbara", "Barbel"] },
+      ],
+    };
+  }
+  return {
+    book_title: title.trim(),
+    author: author.trim(),
+    grade_level: grade,
+    characters: [],
+  };
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -73,6 +97,7 @@ async function triggerGeneration(
       pages: chapter.pages,
       grade: book.grade,
       extractedText: chapter.extractedText,
+      characterDatabase: book.characterData ?? undefined,
     };
 
     logger.info({ chapterId, bookId }, "Starting AI generation");
@@ -136,7 +161,8 @@ router.post("/books", async (req, res) => {
     res.status(400).json({ error: parsed.error.issues });
     return;
   }
-  const [book] = await db.insert(booksTable).values(parsed.data).returning();
+  const characterData = buildCharacterDatabase(parsed.data.title, parsed.data.author, parsed.data.grade);
+  const [book] = await db.insert(booksTable).values({ ...parsed.data, characterData }).returning();
   res.status(201).json({ ...book, chapterCount: 0 });
 });
 

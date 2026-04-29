@@ -8,6 +8,13 @@ import {
 } from "./section_schema.js";
 import type { VocabularyWord } from "./vocabularyExtractor.js";
 
+export interface BookCharacterDatabase {
+  book_title: string;
+  author: string;
+  grade_level: number;
+  characters: { canonical_name: string; aliases: string[] }[];
+}
+
 interface ChapterMeta {
   bookTitle: string;
   author: string;
@@ -16,6 +23,7 @@ interface ChapterMeta {
   pages: string;
   grade: number;
   extractedText: string;
+  characterDatabase?: BookCharacterDatabase;
 }
 
 interface GeneratedSection {
@@ -96,7 +104,7 @@ function buildManualSlot(sectionName: string): string {
 function getPromptWordCountLimit(sectionKey: string): number | null {
   switch (sectionKey) {
     case "get_ready_to_read":
-      return 20;
+      return 25;
     case "think_about_the_story":
     case "reading_between_the_lines":
     case "dig_deeper":
@@ -182,15 +190,35 @@ function validateItemCount(section: GeneratedSection): void {
 }
 
 function validateCharacterChartEmptyCells(html: string): void {
-  const tdMatches = [...html.matchAll(/<td>([\s\S]*?)<\/td>/g)];
-  if (tdMatches.length === 0) {
+  const rowMatches = [...html.matchAll(/<tr>\s*<td>([\s\S]*?)<\/td>\s*<td>([\s\S]*?)<\/td>\s*<td>([\s\S]*?)<\/td>\s*<\/tr>/g)];
+  if (rowMatches.length === 0) {
     throw new Error('Student Workbook validation failed: character_chart template is missing table cells.');
   }
-  for (const match of tdMatches) {
-    if (match[1].trim().length > 0) {
-      throw new Error('Student Workbook validation failed: character_chart must use empty <td></td> cells only.');
+  for (const match of rowMatches) {
+    if (!match[1].trim()) {
+      throw new Error('Student Workbook validation failed: character_chart column 1 must contain character names.');
+    }
+    if (match[2].trim().length > 0 || match[3].trim().length > 0) {
+      throw new Error('Student Workbook validation failed: character_chart columns 2 and 3 must be blank.');
     }
   }
+}
+
+function getChapterCharacterNames(meta: ChapterMeta): string[] {
+  const db = meta.characterDatabase;
+  if (!db?.characters?.length) return [];
+  const text = meta.extractedText.toLowerCase();
+  return db.characters
+    .map((character) => {
+      const aliases = [character.canonical_name, ...character.aliases];
+      const mentionCount = aliases.reduce((sum, alias) => {
+        const rx = new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&").toLowerCase()}\\b`, "g");
+        return sum + (text.match(rx)?.length ?? 0);
+      }, 0);
+      return { name: character.canonical_name, mentionCount };
+    })
+    .filter((c) => c.mentionCount > 2)
+    .map((c) => c.name);
 }
 
 function validateTemplateStructure(section: GeneratedSection): void {
@@ -302,7 +330,7 @@ function shuffleArray<T>(arr: T[]): T[] {
   return out;
 }
 
-function buildTemplateSectionBody(sectionKey: string, llmBodyHtml: string): string {
+function buildTemplateSectionBody(sectionKey: string, llmBodyHtml: string, meta: ChapterMeta): string {
   switch (sectionKey) {
     case "creative_response":
       return `<div class="creative-template">
@@ -313,16 +341,14 @@ function buildTemplateSectionBody(sectionKey: string, llmBodyHtml: string): stri
 </div>`;
     case "writing_rubric":
       return `<table class="rubric-table">
-  <thead><tr><th>Criteria</th><th>Yes</th><th>Not Yet</th></tr></thead>
+  <thead><tr><th>Category</th><th>4 Points</th><th>3 Points</th><th>2 Points</th><th>1 Point</th><th>My Score</th></tr></thead>
   <tbody>
-    <tr><td>I answered the prompt.</td><td></td><td></td></tr>
-    <tr><td>I included details from Chapter 1.</td><td></td><td></td></tr>
-    <tr><td>I wrote in the character's voice.</td><td></td><td></td></tr>
-    <tr><td>I checked spelling and grammar.</td><td></td><td></td></tr>
+    ${Array(6).fill("<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>").join("\n    ")}
   </tbody>
 </table>`;
     case "character_chart": {
-      const rows = Array(5).fill("<tr><td></td><td></td><td></td></tr>").join("\n");
+      const names = getChapterCharacterNames(meta);
+      const rows = names.map((name) => `<tr><td>${name}</td><td></td><td></td></tr>`).join("\n");
       return `<table class="character-chart">
   <thead>
     <tr><th>Character Name</th><th>What They Look Like and How They Act</th><th>What This Shows About Them</th></tr>
@@ -343,6 +369,9 @@ function buildTemplateSectionBody(sectionKey: string, llmBodyHtml: string): stri
   <li>One detail I included is ___.</li>
   <li>I would add ___ because ___.</li>
 </ol>`;
+    case "thinking_deeper":
+      return `<p>I predict that ________________________________________________</p>
+<p>because _____________________________________________________.</p>`;
     case "bonus_challenge": {
       const events = [...llmBodyHtml.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1].trim()).slice(0, 7);
       const shuffled = shuffleArray(events);
@@ -350,7 +379,7 @@ function buildTemplateSectionBody(sectionKey: string, llmBodyHtml: string): stri
         throw new Error("Student Workbook validation failed: bonus_challenge requires exactly 7 events from LLM.");
       }
       return `<ol class="timeline-list">
-  ${shuffled.map((event) => `<li>${event} _____</li>`).join("\n  ")}
+  ${shuffled.map((event) => `<li>_____ ${event}</li>`).join("\n  ")}
 </ol>`;
     }
     default:
@@ -442,6 +471,19 @@ function validateSections(
       if (/what do you already know\?/i.test(generated.bodyHtml)) {
         throw new Error(`Student Workbook validation failed: unauthorized intro prompt in section "${generated.key}".`);
       }
+      if (generated.key === "get_ready_to_read" && /what happens when/i.test(generated.bodyHtml)) {
+        throw new Error('Student Workbook validation failed: get_ready_to_read contains plot-summary phrasing.');
+      }
+      if (generated.key === "writing_rubric") {
+        if (!/Category<\/th><th>4 Points<\/th><th>3 Points<\/th><th>2 Points<\/th><th>1 Point<\/th><th>My Score<\/th>/.test(generated.bodyHtml)) {
+          throw new Error("Student Workbook validation failed: writing_rubric headers do not match required structure.");
+        }
+        const blankRows = (generated.bodyHtml.match(/<tr><td><\/td><td><\/td><td><\/td><td><\/td><td><\/td><td><\/td><\/tr>/g) ?? []).length;
+        if (blankRows !== 6) throw new Error("Student Workbook validation failed: writing_rubric must contain 6 blank rows.");
+      }
+      if (generated.key === "bonus_challenge" && /<\/li>\s*_____/.test(generated.bodyHtml)) {
+        throw new Error("Student Workbook validation failed: bonus_challenge blanks must appear before events.");
+      }
     }
 
     if (expectedSubheader !== generated.standingSubheader) {
@@ -482,22 +524,21 @@ function studentSectionRequirementByKey(key: string): string {
   switch (key) {
     case "get_ready_to_read":
       return `<div class="focus-question"><div class="focus-label">FOCUS QUESTION</div><p>...</p></div>.
-Use no more then 2 sentences in the <p>.
-Do not use semicolons, compound sentences, or "and then"/"because" chains.`;
+Output exactly one short open-ended personal pre-reading question in a single <p> under 25 words. No plot recap. No chapter event summary.`;
     case "words_to_know":
       return `Output NOTHING except the placeholder:
 WORDS_TO_KNOW_TABLE_PLACEHOLDER
 Do not include: vocabulary lists, definitions, example sentences, fill-in exercises, duplicate tables.`;
     case "think_about_the_story":
-      return `<ol class="question-list"><li class="question-item"><div class="question">...</div>${answerLines(2)}</li></ol> with exactly 6 questions.`;
+      return "Do not force vocabulary words into the questions. Write natural story-based questions that match the section purpose.\n" + `<ol class="question-list"><li class="question-item"><div class="question">...</div>${answerLines(2)}</li></ol> with exactly 6 questions.`;
     case "reading_between_the_lines":
-      return `<ol class="question-list"><li class="question-item"><div class="question">...</div>${answerLines(2)}</li></ol> with exactly 3 questions.`;
+      return "Do not force vocabulary words into the questions. Write natural story-based questions that match the section purpose.\n" + `<ol class="question-list"><li class="question-item"><div class="question">...</div>${answerLines(2)}</li></ol> with exactly 3 questions.`;
     case "dig_deeper":
-      return `<ol class="question-list"><li class="question-item"><div class="question">...</div>${answerLines(2)}</li></ol> with exactly 3 questions.`;
+      return "Do not force vocabulary words into the questions. Write natural story-based questions that match the section purpose.\n" + `<ol class="question-list"><li class="question-item"><div class="question">...</div>${answerLines(2)}</li></ol> with exactly 3 questions.`;
     case "multiple_choice_questions":
-      return '<div class="mc-item"><div class="question">...</div><ul class="mc-options"><li>A. ...</li><li>B. ...</li><li>C. ...</li><li>D. ...</li></ul></div> with exactly 3 questions.';
+      return "Do not force vocabulary words into the questions. Write natural story-based questions that match the section purpose.\n" + '<div class="mc-item"><div class="question">...</div><ul class="mc-options"><li>A. ...</li><li>B. ...</li><li>C. ...</li><li>D. ...</li></ul></div> with exactly 3 questions.';
     case "evidence_from_the_story":
-      return `<ol class="question-list"><li class="question-item"><div class="question">...</div>${answerLines(3)}</li></ol> with exactly 3 questions.`;
+      return "Do not force vocabulary words into the questions. Write natural story-based questions that match the section purpose.\n" + `<ol class="question-list"><li class="question-item"><div class="question">...</div>${answerLines(3)}</li></ol> with exactly 3 questions.`;
     case "writing_rubric":
       return "Checklist table with exactly 4 criteria rows: I answered the prompt; I included details from Chapter 1; I wrote in Heidi's voice; I checked my spelling and grammar.";
     case "character_chart":
@@ -509,7 +550,7 @@ Do not include: vocabulary lists, definitions, example sentences, fill-in exerci
     case "bonus_challenge":
       return '<ol class="timeline-list"><li>...</li></ol> with exactly 7 scrambled events.';
     case "thinking_deeper":
-      return "Prediction question asking what will happen next.";
+      return "Output exactly two lines with the prediction frame and no additional prompt text.";
     default:
       return "Generate only body HTML for this section.";
   }
@@ -614,6 +655,7 @@ ${chapterText}`,
         ? buildTemplateSectionBody(
             section.key,
             section.key === "draw_it" || section.key === "bonus_challenge" ? sentenceSafeBody : "",
+            meta,
           )
         : sentenceSafeBody;
 
