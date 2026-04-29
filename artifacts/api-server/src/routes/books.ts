@@ -229,8 +229,8 @@ router.post("/books", async (req, res) => {
     return;
   }
   const characterData = await buildCharacterDatabase(parsed.data.title, parsed.data.author, parsed.data.grade);
-  const [book] = (await db.insert(booksTable).values({ ...parsed.data, characterData: characterData as unknown }).returning()) as BookRecordWithCharacters[];
-  res.status(201).json({ ...book, chapterCount: 0 });
+  const [book] = (await db.insert(booksTable).values({ ...parsed.data }).returning()) as BookRecordWithCharacters[];
+  res.status(201).json({ ...book, characterData, chapterCount: 0 });
 });
 
 router.patch("/books/:bookId", async (req, res) => {
