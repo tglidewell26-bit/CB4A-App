@@ -111,6 +111,7 @@ function getPromptWordCountLimit(sectionKey: string): number | null {
     case "thinking_deeper":
       return 22;
     case "dig_deeper":
+      return 50;
     case "evidence_from_the_story":
       return 35;
     case "draw_it":
