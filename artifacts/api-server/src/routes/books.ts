@@ -7,11 +7,87 @@ import {
   serializeChapterPages,
 } from "../lib/textExtractor.js";
 import { enrichVocabularyForTeacherGuide } from "../lib/vocabularyExtractor.js";
-import { generateStudentWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
+import { generateStudentWorkbook, generateTeacherGuide, type BookCharacterDatabase } from "../lib/workbookGenerator.js";
 import { logger } from "../lib/logger.js";
 import { selectAndEnrichVocabulary } from "../lib/pythonVocabularySelector.js";
+import { anthropic } from "@workspace/integrations-anthropic-ai";
 
 const router: IRouter = Router();
+
+function emptyCharacterDatabase(title: string, author: string, grade: number): BookCharacterDatabase {
+  return {
+    book_title: title.trim(),
+    author: author.trim(),
+    grade_level: grade,
+    characters: [],
+  };
+}
+
+function normalizeCharacterDatabase(raw: unknown, title: string, author: string, grade: number): BookCharacterDatabase {
+  const fallback = emptyCharacterDatabase(title, author, grade);
+  if (!raw || typeof raw !== "object") return fallback;
+  const candidate = raw as { characters?: unknown };
+  if (!Array.isArray(candidate.characters)) return fallback;
+
+  const characters = candidate.characters
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const parsed = item as { canonical_name?: unknown; aliases?: unknown };
+      if (typeof parsed.canonical_name !== "string") return null;
+      if (!Array.isArray(parsed.aliases) || !parsed.aliases.every((a) => typeof a === "string")) return null;
+      const canonical_name = parsed.canonical_name.trim();
+      const aliases = [...new Set(parsed.aliases.map((a) => a.trim()).filter(Boolean))];
+      if (!canonical_name || aliases.length === 0) return null;
+      return { canonical_name, aliases };
+    })
+    .filter((c): c is { canonical_name: string; aliases: string[] } => c !== null);
+
+  return {
+    book_title: title.trim(),
+    author: author.trim(),
+    grade_level: grade,
+    characters,
+  };
+}
+
+async function buildCharacterDatabase(title: string, author: string, grade: number): Promise<BookCharacterDatabase> {
+  const fallback = emptyCharacterDatabase(title, author, grade);
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 4000,
+      system:
+        "You return only strict JSON. No markdown. Build a book-level character database for a classic book. Include canonical names and common aliases/spellings only.",
+      messages: [
+        {
+          role: "user",
+          content: `Return JSON with shape:
+{
+  "book_title": "${title.trim()}",
+  "author": "${author.trim()}",
+  "grade_level": ${grade},
+  "characters": [
+    { "canonical_name": "Name", "aliases": ["Alias 1", "Alias 2"] }
+  ]
+}
+Rules:
+- Include major and recurring characters for the full book, not just chapter 1.
+- aliases must include canonical name as one alias.
+- No extra keys.
+- If unsure, return best-known list for this title.
+- Output valid JSON only.`,
+        },
+      ],
+    });
+    const text = response.content[0]?.type === "text" ? response.content[0].text : "";
+    if (!text) return fallback;
+    const parsed = JSON.parse(text) as unknown;
+    return normalizeCharacterDatabase(parsed, title, author, grade);
+  } catch (err) {
+    logger.warn({ err, title, author }, "Character database lookup failed; using empty list fallback.");
+    return fallback;
+  }
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -73,6 +149,7 @@ async function triggerGeneration(
       pages: chapter.pages,
       grade: book.grade,
       extractedText: chapter.extractedText,
+      characterDatabase: book.characterData ?? undefined,
     };
 
     logger.info({ chapterId, bookId }, "Starting AI generation");
@@ -136,7 +213,8 @@ router.post("/books", async (req, res) => {
     res.status(400).json({ error: parsed.error.issues });
     return;
   }
-  const [book] = await db.insert(booksTable).values(parsed.data).returning();
+  const characterData = await buildCharacterDatabase(parsed.data.title, parsed.data.author, parsed.data.grade);
+  const [book] = await db.insert(booksTable).values({ ...parsed.data, characterData }).returning();
   res.status(201).json({ ...book, chapterCount: 0 });
 });
 
