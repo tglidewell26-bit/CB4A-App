@@ -59,6 +59,12 @@ function normalizeCharacterDatabase(raw: unknown, title: string, author: string,
   };
 }
 
+function parseJsonText(text: string): unknown {
+  const trimmed = text.trim();
+  const withoutFence = trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  return JSON.parse(withoutFence);
+}
+
 async function buildCharacterDatabase(title: string, author: string, grade: number): Promise<BookCharacterDatabase> {
   const fallback = emptyCharacterDatabase(title, author, grade);
   try {
@@ -90,7 +96,7 @@ Rules:
     });
     const text = response.content[0]?.type === "text" ? response.content[0].text : "";
     if (!text) return fallback;
-    const parsed = JSON.parse(text) as unknown;
+    const parsed = parseJsonText(text);
     return normalizeCharacterDatabase(parsed, title, author, grade);
   } catch (err) {
     logger.warn({ err, title, author }, "Character database lookup failed; using empty list fallback.");
@@ -223,7 +229,7 @@ router.post("/books", async (req, res) => {
     return;
   }
   const characterData = await buildCharacterDatabase(parsed.data.title, parsed.data.author, parsed.data.grade);
-  const [book] = (await db.insert(booksTable).values({ ...parsed.data, characterData }).returning()) as BookRecordWithCharacters[];
+  const [book] = (await db.insert(booksTable).values({ ...parsed.data, characterData: characterData as unknown }).returning()) as BookRecordWithCharacters[];
   res.status(201).json({ ...book, chapterCount: 0 });
 });
 
