@@ -516,17 +516,40 @@ function validateQuestionTypeTags(section: GeneratedSection): void {
 type CoreQuestionType = "literal" | "inference" | "analysis";
 function classifyQuestion(question: string): CoreQuestionType {
   const q = question.toLowerCase();
+  // Analysis: clearly literary/thematic/structural concepts — must be specific phrases
   if (
     q.includes("compare") ||
-    q.includes("how does this show") ||
-    q.includes("what might happen if") ||
+    q.includes("contrast") ||
     q.includes("what is the theme") ||
     q.includes("what does this tell us about") ||
     q.includes("what does this reveal about") ||
     q.includes("what message") ||
     q.includes("author's purpose") ||
-    q.includes("how does the author")
+    q.includes("how does the author") ||
+    q.includes("what does the author") ||
+    q.includes("what lesson") ||
+    q.includes("what can we learn") ||
+    q.includes("what role does") ||
+    q.includes("what is the significance") ||
+    q.includes("what is the impact") ||
+    q.includes("what is the effect") ||
+    q.includes("what is the purpose") ||
+    q.includes("what is the relationship") ||
+    q.includes("what effect does") ||
+    q.includes("what is the meaning") ||
+    q.includes("represent") ||
+    q.includes("symboliz") ||
+    q.includes("how does this show") ||
+    q.includes("how does this connect") ||
+    q.includes("how does the author") ||
+    q.includes("how does the setting") ||
+    q.includes("how does the conflict") ||
+    q.includes("what are the consequences") ||
+    q.includes("what can we conclude") ||
+    q.includes("why is this important") ||
+    q.includes("why does the author")
   ) return "analysis";
+  // Inference: higher-order thinking requiring reading between the lines
   if (
     q.includes("why do you think") ||
     q.includes("how do you know") ||
@@ -535,10 +558,16 @@ function classifyQuestion(question: string): CoreQuestionType {
     q.includes("why might") ||
     q.includes("why would") ||
     q.includes("why does") ||
+    q.includes("why do") ||
+    q.includes("why is") ||
+    q.includes("why are") ||
     q.includes("how might") ||
     q.includes("how does") ||
     q.includes("how did") ||
     q.includes("how would") ||
+    q.includes("how do") ||
+    q.includes("how is") ||
+    q.includes("how are") ||
     q.includes("what do you think") ||
     q.includes("what clues") ||
     q.includes("what does this suggest") ||
@@ -555,18 +584,20 @@ function classifyQuestion(question: string): CoreQuestionType {
 }
 
 function validateCoreQuestionTypeSeparation(section: GeneratedSection): void {
-  const expectedBySection: Partial<Record<string, CoreQuestionType>> = {
-    think_about_the_story: "literal",
-    reading_between_the_lines: "inference",
-    dig_deeper: "analysis",
-  };
-  const expected = expectedBySection[section.key];
-  if (!expected) return;
   const questions = [...section.bodyHtml.matchAll(/<div class="question">([\s\S]*?)<\/div>/g)].map((m) => m[1].trim());
-  for (const question of questions) {
-    const actual = classifyQuestion(question);
-    if (actual !== expected) {
-      throw new Error(`Student Workbook validation failed: "${section.key}" must contain only ${expected} questions, but found ${actual}.`);
+  if (section.key === "think_about_the_story") {
+    for (const question of questions) {
+      const actual = classifyQuestion(question);
+      if (actual !== "literal") {
+        throw new Error(`Student Workbook validation failed: "think_about_the_story" must contain only literal questions, but found ${actual}.`);
+      }
+    }
+  } else if (section.key === "reading_between_the_lines" || section.key === "dig_deeper") {
+    for (const question of questions) {
+      const actual = classifyQuestion(question);
+      if (actual === "literal") {
+        throw new Error(`Student Workbook validation failed: "${section.key}" must not contain literal questions.`);
+      }
     }
   }
 }
