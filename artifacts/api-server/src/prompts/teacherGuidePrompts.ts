@@ -1,8 +1,10 @@
 import { QUESTION_TYPE_TAGS } from "../generation/sectionSchema.js";
 import { gradeGuidanceFor } from "./gradeGuidance.js";
 import type { VocabularyWord } from "../vocabulary/types.js";
+import { formatStandardsForPrompt } from "../standards/index.js";
+import type { GradeLevel } from "../standards/types.js";
 
-export function teacherSectionRequirementByKey(key: string): string {
+export function teacherSectionRequirementByKey(key: string, grade?: GradeLevel): string {
   switch (key) {
     case "get_ready_to_read":
       return "Provide short warm-up prompts with exactly one simple sentence per item. No semicolons, no compound sentences, no chained clauses.";
@@ -20,8 +22,16 @@ export function teacherSectionRequirementByKey(key: string): string {
 - analysis
 - evaluation
 - vocabulary and inference`;
-    case "standards":
-      return "If grade is 3, include RL.3.1, RL.3.3, RL.3.4, L.3.4, L.3.5, SL.3.1, SL.3.3, W.3.3.";
+    case "standards": {
+      const gradeLevel = (grade ?? 4) as GradeLevel;
+      const standardsBlock = formatStandardsForPrompt(gradeLevel);
+      return `List ONLY the standards from the block below that this chapter's workbook directly addresses.
+For each standard include: the code, the official text, and which workbook section(s) it maps to.
+Format as an HTML table with columns: Standard | Description | Workbook Section(s).
+Do NOT invent standards or codes. Use only what is listed below.
+
+${standardsBlock}`;
+    }
     default:
       return "Generate body HTML for this teacher section using chapter text and workbook as source of truth.";
   }
@@ -57,7 +67,7 @@ Never use emojis.
 Grade calibration: ${gradeGuidanceFor(input.grade)}
 
 Required section key: ${input.sectionKey}
-${teacherSectionRequirementByKey(input.sectionKey)}`;
+${teacherSectionRequirementByKey(input.sectionKey, input.grade as GradeLevel)}`;
 }
 
 export function buildTeacherSectionUserPrompt(input: TeacherGuidePromptInputs): string {
