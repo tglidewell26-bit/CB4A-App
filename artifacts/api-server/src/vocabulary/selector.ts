@@ -3,11 +3,11 @@ import { GRADE_VOCAB } from "./gradeWordPools.js";
 const TARGET_WORD_COUNT = 10;
 const BATCH_SIZE = 10;
 
-function normalizeToken(token: string): string {
+export function normalizeToken(token: string): string {
   return token.toLowerCase().replace(/[^a-z]/g, "");
 }
 
-function lemmatize(token: string): string {
+export function lemmatize(token: string): string {
   if (token.endsWith("ies") && token.length > 4) {
     return `${token.slice(0, -3)}y`;
   }
