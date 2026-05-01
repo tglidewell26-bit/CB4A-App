@@ -1,16 +1,15 @@
 // Higher-order question detection used by the workbook validators.
 //
-// Replaces the previous brittle "classify into literal/inference/analysis"
-// model. Earlier code threw whenever the inverse classifier disagreed with
-// the section's expected type, which produced false positives for valid
-// questions phrased outside its keyword list. The validator now uses a
-// POSITIVE pattern set: a question is "higher order" when it explicitly
-// requests inference, analysis, comparison, or interpretive reasoning.
-// Sections that should be literal (think_about_the_story) warn when a
-// higher-order pattern is present; sections that should be non-literal
-// (dig_deeper, reading_between_the_lines) warn when the question reads as
-// clearly literal. Nothing is rejected — every signal is downgraded to
-// console.warn with the offending question preserved.
+// Uses a POSITIVE pattern set: a question is "higher order" when it
+// explicitly requests inference, analysis, comparison, or interpretive
+// reasoning; a question is "clearly literal" when it only asks for
+// recalled facts.
+//
+// Validation policy:
+//   think_about_the_story  — throws (hard error) if a higher-order pattern
+//                            is detected; offending question text included.
+//   reading_between_the_lines / dig_deeper — warns only when a question
+//                            reads as clearly literal.
 
 const HIGHER_ORDER_PATTERNS: RegExp[] = [
   /\bwhy do you think\b/i,
