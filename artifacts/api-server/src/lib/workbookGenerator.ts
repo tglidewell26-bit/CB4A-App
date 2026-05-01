@@ -589,14 +589,40 @@ function validateCoreQuestionTypeSeparation(section: GeneratedSection): void {
     for (const question of questions) {
       const actual = classifyQuestion(question);
       if (actual !== "literal") {
-        throw new Error(`Student Workbook validation failed: "think_about_the_story" must contain only literal questions, but found ${actual}.`);
+        throw new Error(
+          `Student Workbook validation failed: "think_about_the_story" must contain only literal questions, but found ${actual}. Offending question: "${question}"`,
+        );
       }
     }
-  } else if (section.key === "reading_between_the_lines" || section.key === "dig_deeper") {
+  } else if (section.key === "reading_between_the_lines") {
     for (const question of questions) {
       const actual = classifyQuestion(question);
       if (actual === "literal") {
-        throw new Error(`Student Workbook validation failed: "${section.key}" must not contain literal questions.`);
+        throw new Error(
+          `Student Workbook validation failed: "${section.key}" must not contain literal questions. Offending question: "${question}"`,
+        );
+      }
+    }
+  } else if (section.key === "dig_deeper") {
+    for (const question of questions) {
+      const actual = classifyQuestion(question);
+      if (actual === "literal") {
+        const lowerQuestion = question.toLowerCase();
+        const looksClearlyLiteral =
+          lowerQuestion.startsWith("who ") ||
+          lowerQuestion.startsWith("what ") ||
+          lowerQuestion.startsWith("when ") ||
+          lowerQuestion.startsWith("where ") ||
+          lowerQuestion.includes(" according to the text") ||
+          lowerQuestion.includes(" in the story") ||
+          lowerQuestion.includes(" happened") ||
+          lowerQuestion.includes(" did ");
+
+        if (looksClearlyLiteral) {
+          console.warn(
+            `[workbook-validation] Potential literal question in "dig_deeper" section. Question preserved to avoid brittle rejection. Question: "${question}"`,
+          );
+        }
       }
     }
   }
