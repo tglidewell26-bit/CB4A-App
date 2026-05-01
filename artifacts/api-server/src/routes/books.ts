@@ -2,6 +2,8 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import { insertBookSchema } from "@workspace/db";
 import { buildCharacterDatabase } from "../ai/characterDatabase.js";
+import { createStandardsProfileForFolder } from "../standards/index.js";
+import type { GradeLevel } from "../standards/types.js";
 import { generateStudentWorkbook } from "../generation/studentWorkbook.js";
 import { generateTeacherGuide } from "../generation/teacherGuide.js";
 import { extractTextFromBuffer, serializeChapterPages } from "../pdf/textExtractor.js";
@@ -102,7 +104,8 @@ router.post("/books", async (req, res) => {
   }
   const characterData = await buildCharacterDatabase(parsed.data.title, parsed.data.author, parsed.data.grade);
   const book = await insertBook({ ...parsed.data, characterData });
-  res.status(201).json({ ...book, chapterCount: 0 });
+  const standardsProfile = createStandardsProfileForFolder(parsed.data.grade as GradeLevel);
+  res.status(201).json({ ...book, chapterCount: 0, standardsProfile });
 });
 
 router.patch("/books/:bookId", async (req, res) => {
