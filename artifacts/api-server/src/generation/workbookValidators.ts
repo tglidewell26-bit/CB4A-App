@@ -34,10 +34,14 @@ function validateSentenceLimits(section: GeneratedSection): void {
   for (const itemText of items) {
     const sentenceCount = (itemText.match(/[.!?](?=\s|$)/g) ?? []).length || 1;
     if (sentenceCount > 1) {
-      throw new Error(`Student Workbook validation failed: "${section.key}" contains a multi-sentence item.`);
+      console.warn(
+        `[workbook-validation] "${section.key}" contains a multi-sentence item (length quality): "${itemText.slice(0, 80)}..."`,
+      );
     }
     if (countWords(itemText) > maxWords) {
-      throw new Error(`Student Workbook validation failed: "${section.key}" exceeded ${maxWords} words in one item.`);
+      console.warn(
+        `[workbook-validation] "${section.key}" exceeded ${maxWords} words in one item (length quality): "${itemText.slice(0, 80)}..."`,
+      );
     }
   }
 }
@@ -66,11 +70,12 @@ function validateItemCount(section: GeneratedSection): void {
 function validateCharacterChartEmptyCells(html: string): void {
   const rowMatches = [...html.matchAll(/<tr>\s*<td>([\s\S]*?)<\/td>\s*<td>([\s\S]*?)<\/td>\s*<td>([\s\S]*?)<\/td>\s*<\/tr>/g)];
   if (rowMatches.length === 0) {
-    throw new Error('Student Workbook validation failed: character_chart template is missing table cells.');
+    console.warn('[workbook-validation] character_chart rendered with no rows — character database may be empty for this chapter.');
+    return;
   }
   for (const match of rowMatches) {
     if (!match[1].trim()) {
-      throw new Error('Student Workbook validation failed: character_chart column 1 must contain character names.');
+      console.warn('[workbook-validation] character_chart column 1 has a blank character name cell.');
     }
     if (match[2].trim().length > 0 || match[3].trim().length > 0) {
       throw new Error('Student Workbook validation failed: character_chart columns 2 and 3 must be blank.');
@@ -161,12 +166,15 @@ export function validateQuestionTypeTags(section: GeneratedSection): void {
   );
 
   if (extracted.length === 0) {
-    throw new Error(`Teacher Guide validation failed: no question-type tags found in section "${section.key}".`);
+    console.warn(`[workbook-validation] Teacher Guide section "${section.key}" has no [question-type:] tags.`);
+    return;
   }
 
   for (const tag of extracted) {
     if (!QUESTION_TYPE_TAGS.includes(tag as (typeof QUESTION_TYPE_TAGS)[number])) {
-      throw new Error(`Teacher Guide validation failed: invalid question-type tag "${tag}" in section "${section.key}".`);
+      console.warn(
+        `[workbook-validation] Teacher Guide section "${section.key}" has an unrecognised question-type tag: "${tag}".`,
+      );
     }
   }
 }

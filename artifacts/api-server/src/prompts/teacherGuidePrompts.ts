@@ -7,9 +7,19 @@ export function teacherSectionRequirementByKey(key: string): string {
     case "get_ready_to_read":
       return "Provide short warm-up prompts with exactly one simple sentence per item. No semicolons, no compound sentences, no chained clauses.";
     case "guided_reading":
-      return `Provide pause-point questions. Every question must include [question-type: ...] where ... is one of: ${QUESTION_TYPE_TAGS.join(", ")}.`;
+      return `Provide pause-point questions. Every question must include a [question-type: LABEL] tag where LABEL is exactly one of these fixed labels (do not combine or modify them):
+- comprehension
+- inference
+- analysis
+- evaluation
+- vocabulary and inference`;
     case "tiered_discussion":
-      return `Provide tiered discussion prompts. Every prompt must include [question-type: ...] where ... is one of: ${QUESTION_TYPE_TAGS.join(", ")}.`;
+      return `Provide tiered discussion prompts. Every prompt must include a [question-type: LABEL] tag where LABEL is exactly one of these fixed labels (do not combine or modify them):
+- comprehension
+- inference
+- analysis
+- evaluation
+- vocabulary and inference`;
     case "standards":
       return "If grade is 3, include RL.3.1, RL.3.3, RL.3.4, L.3.4, L.3.5, SL.3.1, SL.3.3, W.3.3.";
     default:

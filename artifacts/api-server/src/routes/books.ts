@@ -50,6 +50,9 @@ async function triggerGeneration(chapterId: number, bookId: number): Promise<voi
       return;
     }
 
+    const characterDatabase =
+      book.characterData ?? (await buildCharacterDatabase(book.title, book.author, book.grade));
+
     const meta = {
       bookTitle: book.title,
       author: book.author,
@@ -58,7 +61,7 @@ async function triggerGeneration(chapterId: number, bookId: number): Promise<voi
       pages: chapter.pages,
       grade: book.grade,
       extractedText: chapter.extractedText,
-      characterDatabase: book.characterData ?? undefined,
+      characterDatabase,
     };
 
     logger.info({ chapterId, bookId }, "Starting AI generation");
@@ -98,7 +101,7 @@ router.post("/books", async (req, res) => {
     return;
   }
   const characterData = await buildCharacterDatabase(parsed.data.title, parsed.data.author, parsed.data.grade);
-  const book = await insertBook({ ...parsed.data });
+  const book = await insertBook({ ...parsed.data, characterData });
   res.status(201).json({ ...book, characterData, chapterCount: 0 });
 });
 

@@ -17,7 +17,6 @@ export const STUDENT_SECTION_WORD_LIMITS: WordCountLimitsBySection = {
   reading_between_the_lines: 22,
   multiple_choice_questions: 22,
   thinking_deeper: 22,
-  dig_deeper: 50,
   evidence_from_the_story: 35,
   draw_it: 25,
 };

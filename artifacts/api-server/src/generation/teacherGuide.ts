@@ -7,6 +7,8 @@ import type { VocabularyWord } from "../vocabulary/types.js";
 import {
   applyStandingSubstitutions,
   enforceSingleSentenceItems,
+  sanitizeLlmBodyHtml,
+  sanitizeLogLine,
 } from "./htmlSanitizer.js";
 import { TEACHER_GUIDE_SECTIONS } from "./sectionSchema.js";
 import {
@@ -63,10 +65,13 @@ export async function generateTeacherGuide(
         studentWorkbookHtml,
         chapterText,
       };
-      bodyHtml = await generateLlmSectionBody(
+      const rawBodyHtml = await generateLlmSectionBody(
         buildTeacherSectionSystemPrompt(promptInputs),
         buildTeacherSectionUserPrompt(promptInputs),
       );
+      const sanitized = sanitizeLlmBodyHtml(rawBodyHtml, section);
+      console.info(sanitizeLogLine(`tg:${section.key}`, sanitized.removed));
+      bodyHtml = sanitized.cleaned;
     }
 
     const sentenceSafeBody = enforceSingleSentenceItems(section.key, bodyHtml);
