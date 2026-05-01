@@ -126,18 +126,15 @@ function questionsIn(section: GeneratedSection): string[] {
 }
 
 /**
- * All three "core question type separation" checks now warn rather than
- * throw. The previous implementation rejected entire workbook generations
- * because of a false positive in the keyword classifier; we now record
- * the offending question text so editors can review it without losing the
- * generation.
+ * think_about_the_story: throws if a higher-order question is detected (hard check).
+ * reading_between_the_lines and dig_deeper: warn only (quality hints, not blockers).
  */
 function validateCoreQuestionTypeSeparation(section: GeneratedSection): void {
   if (section.key === "think_about_the_story") {
     for (const question of questionsIn(section)) {
       if (isHigherOrderQuestion(question)) {
-        console.warn(
-          `[workbook-validation] Possible higher-order question in "think_about_the_story" (expected literal-only). Question: "${question}"`,
+        throw new Error(
+          `Student Workbook validation failed: "think_about_the_story" contains a higher-order question (expected literal/comprehension only). Offending question: "${question.slice(0, 120)}"`,
         );
       }
     }
