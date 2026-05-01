@@ -74,17 +74,24 @@ export function getChapterCharacterNames(meta: ChapterMeta): string[] {
   const db = meta.characterDatabase;
   if (!db?.characters?.length) return [];
   const text = meta.extractedText.toLowerCase();
-  return db.characters
-    .map((character) => {
-      const aliases = [character.canonical_name, ...character.aliases];
-      const mentionCount = aliases.reduce((sum, alias) => {
-        const rx = new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&").toLowerCase()}\\b`, "g");
-        return sum + (text.match(rx)?.length ?? 0);
-      }, 0);
-      return { name: character.canonical_name, mentionCount };
-    })
-    .filter((c) => c.mentionCount > 2)
+  const scored = db.characters.map((character) => {
+    const aliases = [character.canonical_name, ...character.aliases];
+    const mentionCount = aliases.reduce((sum, alias) => {
+      const rx = new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&").toLowerCase()}\\b`, "g");
+      return sum + (text.match(rx)?.length ?? 0);
+    }, 0);
+    return { name: character.canonical_name, mentionCount };
+  });
+
+  const aboveThreshold = scored.filter((c) => c.mentionCount > 2).map((c) => c.name);
+  if (aboveThreshold.length > 0) return aboveThreshold;
+
+  const fallback = scored
+    .filter((c) => c.mentionCount > 0)
+    .sort((a, b) => b.mentionCount - a.mentionCount)
+    .slice(0, 5)
     .map((c) => c.name);
+  return fallback;
 }
 
 function shuffleArray<T>(arr: T[]): T[] {
@@ -118,7 +125,9 @@ export function buildTemplateSectionBody(
 </table>`;
     case "character_chart": {
       const names = getChapterCharacterNames(meta);
-      const rows = names.map((name) => `<tr><td>${name}</td><td></td><td></td></tr>`).join("\n");
+      const rows = names.length > 0
+        ? names.map((name) => `<tr><td>${name}</td><td></td><td></td></tr>`).join("\n")
+        : `<tr><td>No major characters appear in this chapter</td><td></td><td></td></tr>`;
       return `<table class="character-chart">
   <thead>
     <tr><th>Character Name</th><th>What They Look Like and How They Act</th><th>What This Shows About Them</th></tr>

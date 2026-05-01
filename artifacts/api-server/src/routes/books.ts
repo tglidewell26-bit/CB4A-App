@@ -102,7 +102,7 @@ router.post("/books", async (req, res) => {
   }
   const characterData = await buildCharacterDatabase(parsed.data.title, parsed.data.author, parsed.data.grade);
   const book = await insertBook({ ...parsed.data, characterData });
-  res.status(201).json({ ...book, characterData, chapterCount: 0 });
+  res.status(201).json({ ...book, chapterCount: 0 });
 });
 
 router.patch("/books/:bookId", async (req, res) => {
