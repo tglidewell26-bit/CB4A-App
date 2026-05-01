@@ -1,158 +1,52 @@
 import { Router, type IRouter } from "express";
 import multer from "multer";
-import { db, booksTable, chaptersTable, insertBookSchema } from "@workspace/db";
-import { and, eq, sql } from "drizzle-orm";
+import { insertBookSchema } from "@workspace/db";
+import { buildCharacterDatabase } from "../ai/characterDatabase.js";
+import { generateStudentWorkbook } from "../generation/studentWorkbook.js";
+import { generateTeacherGuide } from "../generation/teacherGuide.js";
+import { extractTextFromBuffer, serializeChapterPages } from "../pdf/textExtractor.js";
 import {
-  extractTextFromBuffer,
-  serializeChapterPages,
-} from "../lib/textExtractor.js";
-import { enrichVocabularyForTeacherGuide } from "../lib/vocabularyExtractor.js";
-import { generateStudentWorkbook, generateTeacherGuide, type BookCharacterDatabase } from "../lib/workbookGenerator.js";
+  enrichVocabularyForTeacherGuide,
+  selectAndEnrichVocabulary,
+} from "../vocabulary/index.js";
 import { logger } from "../lib/logger.js";
-import { selectAndEnrichVocabulary } from "../lib/pythonVocabularySelector.js";
-import { anthropic } from "@workspace/integrations-anthropic-ai";
+import {
+  countChapters,
+  deleteBook,
+  getBookById,
+  insertBook,
+  listBooks,
+  updateBook,
+} from "../storage/books.js";
+import {
+  chapterToResponse,
+  deleteChapter,
+  getChapterById,
+  insertChapter,
+  listChaptersForBook,
+  saveGeneratedContent,
+  setChapterStatus,
+  updateChapterFields,
+} from "../storage/chapters.js";
 
 const router: IRouter = Router();
-
-function emptyCharacterDatabase(title: string, author: string, grade: number): BookCharacterDatabase {
-  return {
-    book_title: title.trim(),
-    author: author.trim(),
-    grade_level: grade,
-    characters: [],
-  };
-}
-
-type BookRecordWithCharacters = {
-  id: number;
-  title: string;
-  author: string;
-  grade: number;
-  createdAt: Date;
-  characterData: BookCharacterDatabase | null;
-};
-
-function normalizeCharacterDatabase(raw: unknown, title: string, author: string, grade: number): BookCharacterDatabase {
-  const fallback = emptyCharacterDatabase(title, author, grade);
-  if (!raw || typeof raw !== "object") return fallback;
-  const candidate = raw as { characters?: unknown };
-  if (!Array.isArray(candidate.characters)) return fallback;
-
-  const characters = candidate.characters
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const parsed = item as { canonical_name?: unknown; aliases?: unknown };
-      if (typeof parsed.canonical_name !== "string") return null;
-      if (!Array.isArray(parsed.aliases) || !parsed.aliases.every((a) => typeof a === "string")) return null;
-      const canonical_name = parsed.canonical_name.trim();
-      const aliases = [...new Set(parsed.aliases.map((a) => a.trim()).filter(Boolean))];
-      if (!canonical_name || aliases.length === 0) return null;
-      return { canonical_name, aliases };
-    })
-    .filter((c): c is { canonical_name: string; aliases: string[] } => c !== null);
-
-  return {
-    book_title: title.trim(),
-    author: author.trim(),
-    grade_level: grade,
-    characters,
-  };
-}
-
-function parseJsonText(text: string): unknown {
-  const trimmed = text.trim();
-  const withoutFence = trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-  return JSON.parse(withoutFence);
-}
-
-async function buildCharacterDatabase(title: string, author: string, grade: number): Promise<BookCharacterDatabase> {
-  const fallback = emptyCharacterDatabase(title, author, grade);
-  try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4000,
-      system:
-        "You return only strict JSON. No markdown. Build a book-level character database for a classic book. Include canonical names and common aliases/spellings only.",
-      messages: [
-        {
-          role: "user",
-          content: `Return JSON with shape:
-{
-  "book_title": "${title.trim()}",
-  "author": "${author.trim()}",
-  "grade_level": ${grade},
-  "characters": [
-    { "canonical_name": "Name", "aliases": ["Alias 1", "Alias 2"] }
-  ]
-}
-Rules:
-- Include major and recurring characters for the full book, not just chapter 1.
-- aliases must include canonical name as one alias.
-- No extra keys.
-- If unsure, return best-known list for this title.
-- Output valid JSON only.`,
-        },
-      ],
-    });
-    const text = response.content[0]?.type === "text" ? response.content[0].text : "";
-    if (!text) return fallback;
-    const parsed = parseJsonText(text);
-    return normalizeCharacterDatabase(parsed, title, author, grade);
-  } catch (err) {
-    logger.warn({ err, title, author }, "Character database lookup failed; using empty list fallback.");
-    return fallback;
-  }
-}
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
 });
 
-function chapterToResponse(c: typeof chaptersTable.$inferSelect) {
-  return {
-    id: c.id,
-    bookId: c.bookId,
-    num: c.num,
-    title: c.title,
-    pages: c.pages,
-    status: c.status,
-    date: c.date,
-    file: c.file,
-    hasWorkbook: !!c.workbookContent,
-    hasTeacherGuide: !!c.teacherGuideContent,
-    createdAt: c.createdAt,
-  };
-}
-
-async function triggerGeneration(
-  chapterId: number,
-  bookId: number,
-): Promise<void> {
+async function triggerGeneration(chapterId: number, bookId: number): Promise<void> {
   try {
-    const [chapter] = await db
-      .select()
-      .from(chaptersTable)
-      .where(eq(chaptersTable.id, chapterId));
-
+    const chapter = await getChapterById(chapterId);
     if (!chapter || !chapter.extractedText) {
-      await db
-        .update(chaptersTable)
-        .set({ status: "ready" })
-        .where(eq(chaptersTable.id, chapterId));
+      await setChapterStatus(chapterId, "ready");
       return;
     }
 
-    const [book] = (await db
-      .select()
-      .from(booksTable)
-      .where(eq(booksTable.id, bookId))) as BookRecordWithCharacters[];
-
+    const book = await getBookById(bookId);
     if (!book) {
-      await db
-        .update(chaptersTable)
-        .set({ status: "ready" })
-        .where(eq(chaptersTable.id, chapterId));
+      await setChapterStatus(chapterId, "ready");
       return;
     }
 
@@ -169,14 +63,14 @@ async function triggerGeneration(
 
     logger.info({ chapterId, bookId }, "Starting AI generation");
 
-    const baseVocabulary = await selectAndEnrichVocabulary(chapter.extractedText, book.grade);
-    const vocabulary = await enrichVocabularyForTeacherGuide(baseVocabulary, book.grade, chapter.extractedText);
-    const workbookResult = await generateStudentWorkbook(meta, vocabulary);
-    const teacherGuideResult = await generateTeacherGuide(
-      meta,
-      workbookResult,
-      vocabulary,
+    const baseVocabulary = selectAndEnrichVocabulary(chapter.extractedText, book.grade);
+    const vocabulary = await enrichVocabularyForTeacherGuide(
+      baseVocabulary,
+      book.grade,
+      chapter.extractedText,
     );
+    const workbookHtml = await generateStudentWorkbook(meta, vocabulary);
+    const teacherGuideHtml = await generateTeacherGuide(meta, workbookHtml, vocabulary);
 
     const today = new Date().toLocaleDateString("en-US", {
       month: "short",
@@ -184,42 +78,17 @@ async function triggerGeneration(
       year: "numeric",
     });
 
-    await db
-      .update(chaptersTable)
-      .set({
-        status: "ready",
-        content: workbookResult,
-        workbookContent: workbookResult,
-        teacherGuideContent: teacherGuideResult,
-        date: today,
-      })
-      .where(eq(chaptersTable.id, chapterId));
+    await saveGeneratedContent(chapterId, { workbookHtml, teacherGuideHtml, date: today });
 
     logger.info({ chapterId }, "AI generation complete");
   } catch (err) {
     logger.error({ chapterId, err }, "AI generation failed");
-    await db
-      .update(chaptersTable)
-      .set({ status: "error" })
-      .where(eq(chaptersTable.id, chapterId));
+    await setChapterStatus(chapterId, "error");
   }
 }
 
 router.get("/books", async (_req, res) => {
-  const books = await db
-    .select({
-      id: booksTable.id,
-      title: booksTable.title,
-      author: booksTable.author,
-      grade: booksTable.grade,
-      createdAt: booksTable.createdAt,
-      chapterCount: sql<number>`cast(count(${chaptersTable.id}) as int)`,
-    })
-    .from(booksTable)
-    .leftJoin(chaptersTable, eq(chaptersTable.bookId, booksTable.id))
-    .groupBy(booksTable.id)
-    .orderBy(booksTable.createdAt);
-  res.json(books);
+  res.json(await listBooks());
 });
 
 router.post("/books", async (req, res) => {
@@ -229,7 +98,7 @@ router.post("/books", async (req, res) => {
     return;
   }
   const characterData = await buildCharacterDatabase(parsed.data.title, parsed.data.author, parsed.data.grade);
-  const [book] = (await db.insert(booksTable).values({ ...parsed.data }).returning()) as BookRecordWithCharacters[];
+  const book = await insertBook({ ...parsed.data });
   res.status(201).json({ ...book, characterData, chapterCount: 0 });
 });
 
@@ -255,15 +124,12 @@ router.patch("/books/:bookId", async (req, res) => {
     res.status(400).json({ error: "No valid fields to update" });
     return;
   }
-  const [book] = await db.update(booksTable).set(updates).where(eq(booksTable.id, bookId)).returning();
+  const book = await updateBook(bookId, updates);
   if (!book) {
     res.status(404).json({ error: "Book not found" });
     return;
   }
-  const [{ chapterCount }] = await db
-    .select({ chapterCount: sql<number>`cast(count(${chaptersTable.id}) as int)` })
-    .from(chaptersTable)
-    .where(eq(chaptersTable.bookId, bookId));
+  const chapterCount = await countChapters(bookId);
   res.json({ ...book, chapterCount });
 });
 
@@ -273,7 +139,7 @@ router.delete("/books/:bookId", async (req, res) => {
     res.status(400).json({ error: "Invalid bookId" });
     return;
   }
-  await db.delete(booksTable).where(eq(booksTable.id, bookId));
+  await deleteBook(bookId);
   res.status(204).send();
 });
 
@@ -304,11 +170,7 @@ router.patch("/books/:bookId/chapters/:chapterId", async (req, res) => {
     res.status(400).json({ error: "No valid fields to update" });
     return;
   }
-  const [chapter] = await db
-    .update(chaptersTable)
-    .set(updates)
-    .where(and(eq(chaptersTable.id, chapterId), eq(chaptersTable.bookId, bookId)))
-    .returning();
+  const chapter = await updateChapterFields(bookId, chapterId, updates);
   if (!chapter) {
     res.status(404).json({ error: "Chapter not found" });
     return;
@@ -323,9 +185,7 @@ router.delete("/books/:bookId/chapters/:chapterId", async (req, res) => {
     res.status(400).json({ error: "Invalid bookId or chapterId" });
     return;
   }
-  await db.delete(chaptersTable).where(
-    and(eq(chaptersTable.id, chapterId), eq(chaptersTable.bookId, bookId))
-  );
+  await deleteChapter(bookId, chapterId);
   res.status(204).send();
 });
 
@@ -335,158 +195,113 @@ router.get("/books/:bookId/chapters", async (req, res) => {
     res.status(400).json({ error: "Invalid bookId" });
     return;
   }
-  const chapters = await db
-    .select()
-    .from(chaptersTable)
-    .where(eq(chaptersTable.bookId, bookId))
-    .orderBy(chaptersTable.createdAt);
+  const chapters = await listChaptersForBook(bookId);
   res.json(chapters.map(chapterToResponse));
 });
 
-router.post(
-  "/books/:bookId/chapters",
-  upload.single("file"),
-  async (req, res) => {
-    const bookId = Number(req.params.bookId);
-    if (isNaN(bookId)) {
-      res.status(400).json({ error: "Invalid bookId" });
-      return;
+router.post("/books/:bookId/chapters", upload.single("file"), async (req, res) => {
+  const bookId = Number(req.params.bookId);
+  if (isNaN(bookId)) {
+    res.status(400).json({ error: "Invalid bookId" });
+    return;
+  }
+
+  const { title, pages, num, date } = req.body;
+  if (!title || !pages) {
+    res.status(400).json({ error: "title and pages are required" });
+    return;
+  }
+
+  const file = req.file;
+  let extractedText: string | null = null;
+  if (file) {
+    try {
+      const extractedPages = await extractTextFromBuffer(file.buffer, file.mimetype, file.originalname);
+      extractedText = serializeChapterPages(extractedPages);
+    } catch (err) {
+      logger.warn({ err }, "Text extraction failed, continuing without text");
     }
+  }
 
-    const { title, pages, num, date } = req.body;
-    if (!title || !pages) {
-      res.status(400).json({ error: "title and pages are required" });
-      return;
-    }
+  const hasText = !!extractedText && extractedText.length > 50;
+  const initialStatus = hasText ? "generating" : "ready";
 
-    const file = req.file;
-    let extractedText: string | null = null;
-    if (file) {
-      try {
-        const pages = await extractTextFromBuffer(
-          file.buffer,
-          file.mimetype,
-          file.originalname,
-        );
-        extractedText = serializeChapterPages(pages);
-      } catch (err) {
-        logger.warn({ err }, "Text extraction failed, continuing without text");
-      }
-    }
+  const chapter = await insertChapter({
+    bookId,
+    title: String(title).trim(),
+    pages: String(pages),
+    num: num ? Number(num) : null,
+    date: date ? String(date) : null,
+    file: file ? file.originalname : null,
+    extractedText,
+    status: initialStatus,
+  });
 
-    const hasText = !!extractedText && extractedText.length > 50;
-    const initialStatus = hasText ? "generating" : "ready";
+  res.status(201).json(chapterToResponse(chapter));
 
-    const [chapter] = await db
-      .insert(chaptersTable)
-      .values({
-        bookId,
-        title: String(title).trim(),
-        pages: String(pages),
-        num: num ? Number(num) : null,
-        date: date ? String(date) : null,
-        file: file ? file.originalname : null,
-        extractedText,
-        status: initialStatus,
-      })
-      .returning();
+  if (hasText) {
+    setImmediate(() => triggerGeneration(chapter.id, bookId));
+  }
+});
 
-    res.status(201).json(chapterToResponse(chapter));
+router.get("/books/:bookId/chapters/:chapterId/workbook", async (req, res) => {
+  const chapterId = Number(req.params.chapterId);
+  if (isNaN(chapterId)) {
+    res.status(400).json({ error: "Invalid chapterId" });
+    return;
+  }
+  const chapter = await getChapterById(chapterId);
+  if (!chapter || !chapter.workbookContent) {
+    res.status(404).json({ error: "Workbook not yet generated" });
+    return;
+  }
+  res.json({ content: chapter.workbookContent, chapterId, type: "workbook" });
+});
 
-    if (hasText) {
-      setImmediate(() => triggerGeneration(chapter.id, bookId));
-    }
-  },
-);
+router.get("/books/:bookId/chapters/:chapterId/teacher-guide", async (req, res) => {
+  const chapterId = Number(req.params.chapterId);
+  if (isNaN(chapterId)) {
+    res.status(400).json({ error: "Invalid chapterId" });
+    return;
+  }
+  const chapter = await getChapterById(chapterId);
+  if (!chapter || !chapter.teacherGuideContent) {
+    res.status(404).json({ error: "Teacher guide not yet generated" });
+    return;
+  }
+  res.json({ content: chapter.teacherGuideContent, chapterId, type: "teacher-guide" });
+});
 
-router.get(
-  "/books/:bookId/chapters/:chapterId/workbook",
-  async (req, res) => {
-    const chapterId = Number(req.params.chapterId);
-    if (isNaN(chapterId)) {
-      res.status(400).json({ error: "Invalid chapterId" });
-      return;
-    }
-    const [chapter] = await db
-      .select()
-      .from(chaptersTable)
-      .where(eq(chaptersTable.id, chapterId));
-    if (!chapter || !chapter.workbookContent) {
-      res.status(404).json({ error: "Workbook not yet generated" });
-      return;
-    }
-    res.json({
-      content: chapter.workbookContent,
-      chapterId,
-      type: "workbook",
-    });
-  },
-);
+router.post("/books/:bookId/chapters/:chapterId/regenerate", async (req, res) => {
+  const bookId = Number(req.params.bookId);
+  const chapterId = Number(req.params.chapterId);
+  if (isNaN(bookId) || isNaN(chapterId)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
 
-router.get(
-  "/books/:bookId/chapters/:chapterId/teacher-guide",
-  async (req, res) => {
-    const chapterId = Number(req.params.chapterId);
-    if (isNaN(chapterId)) {
-      res.status(400).json({ error: "Invalid chapterId" });
-      return;
-    }
-    const [chapter] = await db
-      .select()
-      .from(chaptersTable)
-      .where(eq(chaptersTable.id, chapterId));
-    if (!chapter || !chapter.teacherGuideContent) {
-      res.status(404).json({ error: "Teacher guide not yet generated" });
-      return;
-    }
-    res.json({
-      content: chapter.teacherGuideContent,
-      chapterId,
-      type: "teacher-guide",
-    });
-  },
-);
+  const chapter = await getChapterById(chapterId);
+  if (!chapter) {
+    res.status(404).json({ error: "Chapter not found" });
+    return;
+  }
 
-router.post(
-  "/books/:bookId/chapters/:chapterId/regenerate",
-  async (req, res) => {
-    const bookId = Number(req.params.bookId);
-    const chapterId = Number(req.params.chapterId);
-    if (isNaN(bookId) || isNaN(chapterId)) {
-      res.status(400).json({ error: "Invalid id" });
-      return;
-    }
+  if (chapter.status === "generating") {
+    res.status(409).json({ error: "Chapter is already generating" });
+    return;
+  }
 
-    const [chapter] = await db
-      .select()
-      .from(chaptersTable)
-      .where(eq(chaptersTable.id, chapterId));
+  if (!chapter.extractedText || chapter.extractedText.length < 50) {
+    res.status(422).json({ error: "No chapter text available for regeneration. Please re-upload the file." });
+    return;
+  }
 
-    if (!chapter) {
-      res.status(404).json({ error: "Chapter not found" });
-      return;
-    }
+  await setChapterStatus(chapterId, "generating");
 
-    if (chapter.status === "generating") {
-      res.status(409).json({ error: "Chapter is already generating" });
-      return;
-    }
+  const updated = { ...chapter, status: "generating" };
+  res.status(202).json(chapterToResponse(updated));
 
-    if (!chapter.extractedText || chapter.extractedText.length < 50) {
-      res.status(422).json({ error: "No chapter text available for regeneration. Please re-upload the file." });
-      return;
-    }
-
-    await db
-      .update(chaptersTable)
-      .set({ status: "generating" })
-      .where(eq(chaptersTable.id, chapterId));
-
-    const updated = { ...chapter, status: "generating" };
-    res.status(202).json(chapterToResponse(updated));
-
-    setImmediate(() => triggerGeneration(chapterId, bookId));
-  },
-);
+  setImmediate(() => triggerGeneration(chapterId, bookId));
+});
 
 export default router;

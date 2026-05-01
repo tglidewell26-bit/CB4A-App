@@ -64,9 +64,14 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
   - `GET /api/books/:bookId/chapters/:chapterId/teacher-guide` — get generated teacher guide HTML
   - `POST /api/books/:bookId/chapters/:chapterId/regenerate` — trigger re-generation with existing extracted text
 - **Key files**:
-  - `src/routes/books.ts` — all book/chapter routes including file upload + AI trigger
-  - `src/lib/textExtractor.ts` — PDF and DOCX text extraction
-  - `src/lib/workbookGenerator.ts` — Claude API calls for workbook and teacher guide generation
+  - `src/routes/books.ts` — thin HTTP handlers (validation + delegation to storage/, ai/, generation/, vocabulary/)
+  - `src/storage/` — Drizzle queries (`books.ts`, `chapters.ts`)
+  - `src/ai/` — Claude SDK re-export (`anthropic.ts`) and book-level character database orchestrator (`characterDatabase.ts`)
+  - `src/generation/` — workbook + teacher guide pipeline: `sectionSchema.ts`, `templateRenderers.ts`, `htmlSanitizer.ts`, `questionClassifier.ts` (positive higher-order patterns), `workbookValidators.ts` (warn-only question-type checks), `studentWorkbook.ts`, `teacherGuide.ts`
+  - `src/prompts/` — every Claude prompt: `workbookSectionPrompts.ts`, `teacherGuidePrompts.ts`, `characterDatabasePrompt.ts`, `vocabularyEnrichmentPrompt.ts`, `gradeGuidance.ts`
+  - `src/vocabulary/` — TypeScript port of the former Python pipeline: `gradeWordPools.ts` (per-grade target lists), `selector.ts` + `enricher.ts` (token intersection + first-page sentence quote), `teacherGuideEnrichment.ts` (Claude kid-friendly definitions), `cefrjVocabularyProfile.ts`, `index.ts`
+  - `src/pdf/textExtractor.ts` — PDF and DOCX text extraction (PyMuPDF footer-page extractor still shells out to `workbook_generator/pdf_footer_page_extractor.py`, the only remaining Python file)
+  - `src/lib/logger.ts` — Pino logger
 
 ## Database Schema (`lib/db`)
 
