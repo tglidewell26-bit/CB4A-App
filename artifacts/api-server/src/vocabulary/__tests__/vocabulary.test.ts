@@ -11,6 +11,8 @@ import {
   enrichSelectedVocabWords,
 } from "../enricher.js";
 
+import { GRADE_VOCAB } from "../gradeWordPools.js";
+
 // ---------------------------------------------------------------------------
 // Section 1 — normalizeToken and lemmatize unit tests
 // ---------------------------------------------------------------------------
@@ -483,5 +485,63 @@ describe("enrichSelectedVocabWords", () => {
     const text = "[PAGE 1]\nThe ancient ruins were discovered.\n";
     const results = enrichSelectedVocabWords(["anci"], text, 3);
     expect(results).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Section 10 — GRADE_VOCAB data-integrity checks
+// ---------------------------------------------------------------------------
+
+const KNOWN_MULTI_TOKEN_ENTRIES = new Set(["vice versa"]);
+
+const uniqueGradePools: Array<{ grade: number; words: string[] }> = [];
+const seenArrays = new Set<string[]>();
+for (const [gradeStr, words] of Object.entries(GRADE_VOCAB)) {
+  if (!seenArrays.has(words)) {
+    seenArrays.add(words);
+    uniqueGradePools.push({ grade: Number(gradeStr), words });
+  }
+}
+
+describe("GRADE_VOCAB data integrity — lowercase", () => {
+  for (const { grade, words } of uniqueGradePools) {
+    it(`every entry in grade ${grade} pool is already lowercase`, () => {
+      const violations = words.filter((w) => w !== w.toLowerCase());
+      expect(violations).toEqual([]);
+    });
+  }
+});
+
+describe("GRADE_VOCAB data integrity — no duplicates within a grade", () => {
+  for (const { grade, words } of uniqueGradePools) {
+    it(`grade ${grade} pool has no duplicate entries`, () => {
+      const seen = new Set<string>();
+      const duplicates: string[] = [];
+      for (const word of words) {
+        if (seen.has(word)) {
+          duplicates.push(word);
+        }
+        seen.add(word);
+      }
+      expect(duplicates).toEqual([]);
+    });
+  }
+});
+
+describe("GRADE_VOCAB data integrity — multi-token entries are all known", () => {
+  for (const { grade, words } of uniqueGradePools) {
+    it(`grade ${grade} pool has no unexpected multi-token entries (spaces)`, () => {
+      const unexpected = words.filter(
+        (w) => w.includes(" ") && !KNOWN_MULTI_TOKEN_ENTRIES.has(w)
+      );
+      expect(unexpected).toEqual([]);
+    });
+  }
+
+  it("all known multi-token entries are still present in at least one grade pool", () => {
+    const allWords = Object.values(GRADE_VOCAB).flat();
+    for (const entry of KNOWN_MULTI_TOKEN_ENTRIES) {
+      expect(allWords).toContain(entry);
+    }
   });
 });
