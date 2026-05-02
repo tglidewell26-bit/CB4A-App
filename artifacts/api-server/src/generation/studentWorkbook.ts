@@ -1,7 +1,13 @@
 import { anthropic, CLAUDE_MODEL } from "../ai/anthropic.js";
 import {
+  buildCoreQuestionsCombinedSystemPrompt,
+  buildCoreQuestionsCombinedUserPrompt,
   buildStudentSectionSystemPrompt,
   buildStudentSectionUserPrompt,
+  CORE_QUESTION_SECTION_KEYS,
+  parseCoreQuestionsResponse,
+  type CoreQuestionSectionKey,
+  type ParsedCoreQuestions,
 } from "../prompts/workbookSectionPrompts.js";
 import type { VocabularyWord } from "../vocabulary/types.js";
 import {
@@ -26,6 +32,8 @@ import { validateSections } from "./workbookValidators.js";
 
 export type { BookCharacterDatabase, ChapterMeta } from "./templateRenderers.js";
 
+const CORE_QUESTION_KEY_SET: ReadonlySet<string> = new Set(CORE_QUESTION_SECTION_KEYS);
+
 async function generateLlmSectionBody(systemPrompt: string, userPrompt: string): Promise<string> {
   const message = await anthropic.messages.create({
     model: CLAUDE_MODEL,
@@ -38,6 +46,28 @@ async function generateLlmSectionBody(systemPrompt: string, userPrompt: string):
   return block.type === "text" ? block.text.trim() : "";
 }
 
+async function generateCoreQuestionsCombined(
+  meta: ChapterMeta,
+  vocabulary: VocabularyWord[],
+  chapterLabel: string,
+  chapterText: string,
+): Promise<ParsedCoreQuestions> {
+  const promptInputs = {
+    bookTitle: meta.bookTitle,
+    author: meta.author,
+    chapterLabel,
+    pages: meta.pages,
+    grade: meta.grade,
+    vocabulary,
+    chapterText,
+  };
+  const raw = await generateLlmSectionBody(
+    buildCoreQuestionsCombinedSystemPrompt(promptInputs),
+    buildCoreQuestionsCombinedUserPrompt(promptInputs),
+  );
+  return parseCoreQuestionsResponse(raw);
+}
+
 export async function generateStudentWorkbook(
   meta: ChapterMeta,
   vocabulary: VocabularyWord[],
@@ -46,6 +76,13 @@ export async function generateStudentWorkbook(
   const chapterLabel = getChapterLabel(meta);
   const wordsToKnowTableHtml = buildWordsToKnowTableHtml(vocabulary);
 
+  const coreQuestions = await generateCoreQuestionsCombined(
+    meta,
+    vocabulary,
+    chapterLabel,
+    chapterText,
+  );
+
   const generatedSections: GeneratedSection[] = [];
 
   for (const section of STUDENT_WORKBOOK_SECTIONS) {
@@ -53,12 +90,16 @@ export async function generateStudentWorkbook(
       ? applyStandingSubstitutions(section.standing_subheader, meta.chapterNum)
       : null;
 
+    const isCoreQuestionSection = CORE_QUESTION_KEY_SET.has(section.key);
     const shouldCallLlm =
-      section.body_source === "llm" ||
-      (section.body_source === "template" && ["draw_it", "bonus_challenge"].includes(section.key));
+      !isCoreQuestionSection &&
+      (section.body_source === "llm" ||
+        (section.body_source === "template" && ["draw_it", "bonus_challenge"].includes(section.key)));
 
     let rawBodyHtml: string;
-    if (!shouldCallLlm) {
+    if (isCoreQuestionSection) {
+      rawBodyHtml = coreQuestions[section.key as CoreQuestionSectionKey];
+    } else if (!shouldCallLlm) {
       rawBodyHtml = section.body_source === "manual" ? buildManualSlot(section.display_title) : "";
     } else {
       const promptInputs = {
@@ -79,7 +120,8 @@ export async function generateStudentWorkbook(
       );
     }
 
-    const sanitized = shouldCallLlm
+    const runSanitizer = shouldCallLlm || isCoreQuestionSection;
+    const sanitized = runSanitizer
       ? sanitizeLlmBodyHtml(rawBodyHtml, section)
       : { cleaned: rawBodyHtml, removed: [] };
     console.info(sanitizeLogLine(section.key, sanitized.removed));
