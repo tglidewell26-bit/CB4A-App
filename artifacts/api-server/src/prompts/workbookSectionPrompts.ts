@@ -76,21 +76,9 @@ export const CORE_QUESTION_EXAMPLES = {
     "How does the setting of this chapter create both a feeling of challenge and a feeling of possibility?",
   ],
   wordingGuide: {
-    think_about_the_story: ["Who", "What", "When", "Where", "How many", "What did"],
-    reading_between_the_lines: [
-      "Why might",
-      "What clues show",
-      "What does this suggest",
-      "Why does the character",
-    ],
-    dig_deeper: [
-      "How does",
-      "Compare",
-      "What lesson",
-      "What theme",
-      "What does this reveal",
-      "Why is this important",
-    ],
+    think_about_the_story: ["Who", "What", "When", "Where"],
+    reading_between_the_lines: ["Why might", "What clues show", "What does this suggest"],
+    dig_deeper: ["How does", "Compare", "What does this reveal", "What lesson"],
   },
 } as const;
 
@@ -292,7 +280,7 @@ What is NOT allowed: the same question repeated at the same cognitive level, or 
 Wording guide (use these as starter phrases, mix and match — do not use any single starter twice in one section):
 ${formatWordingGuideBlock()}
 
-Question style examples — IMPORTANT: these are STRUCTURAL PATTERNS from a DIFFERENT book. They illustrate the expected depth, wording style, and cognitive level only. Do NOT copy them. Do NOT adapt them. Replace every character, event, setting, and detail with content from the chapter text provided in the user message. If your output contains the words "main character" you have failed — you must use the actual character names from this chapter.
+Question style examples — IMPORTANT: these are STRUCTURAL PATTERNS from a DIFFERENT book. They illustrate the expected depth, wording style, and cognitive level only. Do NOT copy them. Do NOT adapt them. Replace every character, event, setting, and detail with content from the chapter text provided in the user message. Use the actual names, places, and events from this chapter — fall back to a descriptive role only when the chapter itself never names a character.
 
 ${formatExampleBlock("THINK ABOUT THE STORY (style examples)", CORE_QUESTION_EXAMPLES.think_about_the_story)}
 
