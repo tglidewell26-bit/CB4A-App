@@ -59,26 +59,40 @@ describe("validateTeacherGuideSectionStructure", () => {
     ).toThrow(/RL\.3\.1/);
   });
 
-  it("standards requires the table class and exact headers", () => {
-    const good = `<table class="tg-standards-table"><thead><tr><th>Standard</th><th>Description</th><th>Workbook Section(s)</th></tr></thead><tbody><tr><td>RL.4.1</td><td>x</td><td>y</td></tr><tr><td>W.4.1</td><td>x</td><td>y</td></tr><tr><td>L.4.4</td><td>x</td><td>y</td></tr></tbody></table>`;
+  it("standards requires the table class, headers, and one row per required strand", () => {
+    const good = `<table class="tg-standards-table"><thead><tr><th>Standard</th><th>Description</th><th>Workbook Section(s)</th></tr></thead><tbody><tr><td>RL.4.1</td><td>x</td><td>y</td></tr><tr><td>W.4.1</td><td>x</td><td>y</td></tr><tr><td>L.4.4</td><td>x</td><td>y</td></tr><tr><td>SL.4.1</td><td>x</td><td>y</td></tr></tbody></table>`;
     expect(() => validateTeacherGuideSectionStructure(section("standards", good), meta)).not.toThrow();
     expect(() =>
       validateTeacherGuideSectionStructure(section("standards", "<p>nope</p>"), meta),
     ).toThrow(/tg-standards-table/);
+    const noLanguage = good.replace(/<tr><td>L\.4\.4<\/td>[\s\S]*?<\/tr>/, "");
+    expect(() =>
+      validateTeacherGuideSectionStructure(section("standards", noLanguage), meta),
+    ).toThrow(/Language/);
+    const wrongGrade = good.replace("RL.4.1", "RL.3.1");
+    expect(() =>
+      validateTeacherGuideSectionStructure(section("standards", wrongGrade), meta),
+    ).toThrow(/grade 4/);
   });
 
-  it("words_to_know_mini_lesson enforces three sub-blocks in order", () => {
+  it("words_to_know_mini_lesson enforces three sub-blocks in order plus an inline tip callout", () => {
     const good = `
       <div class="tg-subblock"><h3>Activities</h3><p>x</p></div>
       <div class="tg-subblock"><h3>Partner Practice</h3><p>x</p></div>
-      <div class="tg-subblock"><h3>Quick Check</h3><p>x</p></div>`;
+      <div class="tg-subblock"><h3>Quick Check</h3><p>x</p></div>
+      <div class="tg-tip"><strong>Vocabulary tip:</strong> y</div>`;
     expect(() =>
       validateTeacherGuideSectionStructure(section("words_to_know_mini_lesson", good), meta),
     ).not.toThrow();
+    const noTip = good.replace(/<div class="tg-tip">[\s\S]*?<\/div>/, "");
+    expect(() =>
+      validateTeacherGuideSectionStructure(section("words_to_know_mini_lesson", noTip), meta),
+    ).toThrow(/tg-tip/);
     const reordered = `
       <div class="tg-subblock"><h3>Quick Check</h3></div>
       <div class="tg-subblock"><h3>Activities</h3></div>
-      <div class="tg-subblock"><h3>Partner Practice</h3></div>`;
+      <div class="tg-subblock"><h3>Partner Practice</h3></div>
+      <div class="tg-tip">x</div>`;
     expect(() =>
       validateTeacherGuideSectionStructure(section("words_to_know_mini_lesson", reordered), meta),
     ).toThrow(/out-of-order|missing/);
@@ -119,7 +133,7 @@ describe("validateTeacherGuideSectionStructure", () => {
     ).toThrow(/at least 3/);
   });
 
-  it("exit_ticket requires Prompt, Success Criteria, Example Responses sub-blocks", () => {
+  it("exit_ticket requires Prompt, Success Criteria (>=3), Example Responses (>=1) sub-blocks", () => {
     const good = `
       <div class="tg-subblock"><h3>Prompt</h3><p>p</p></div>
       <div class="tg-subblock"><h3>Success Criteria</h3><ul><li>a</li><li>b</li><li>c</li></ul></div>
@@ -133,6 +147,14 @@ describe("validateTeacherGuideSectionStructure", () => {
         meta,
       ),
     ).toThrow(/success criteria|example responses/i);
+    const tooFewCriteria = good.replace("<li>a</li><li>b</li><li>c</li>", "<li>a</li><li>b</li>");
+    expect(() =>
+      validateTeacherGuideSectionStructure(section("exit_ticket", tooFewCriteria), meta),
+    ).toThrow(/Success Criteria.*at least 3/);
+    const noExamples = good.replace(/<div class="tg-subblock"><h3>Example Responses<\/h3><ol><li>x<\/li><\/ol><\/div>/, '<div class="tg-subblock"><h3>Example Responses</h3><p>none</p></div>');
+    expect(() =>
+      validateTeacherGuideSectionStructure(section("exit_ticket", noExamples), meta),
+    ).toThrow(/Example Responses.*at least 1/);
   });
 
   it("differentiated_supports requires all 3 learner groups and Before/During/After phases", () => {
@@ -164,11 +186,13 @@ describe("sanitize → validate integration for Teacher Guide sections", () => {
     const raw = `
       <div class="tg-subblock"><h3>Activities</h3><p>x</p></div>
       <div class="tg-subblock"><h3>Partner Practice</h3><p>x</p></div>
-      <div class="tg-subblock"><h3>Quick Check</h3><p>x</p></div>`;
+      <div class="tg-subblock"><h3>Quick Check</h3><p>x</p></div>
+      <div class="tg-tip"><strong>Vocabulary tip:</strong> y</div>`;
     const { cleaned } = sanitizeLlmBodyHtml(raw, fakeSchema);
     expect(cleaned).toContain("<h3>Activities</h3>");
     expect(cleaned).toContain("<h3>Partner Practice</h3>");
     expect(cleaned).toContain("<h3>Quick Check</h3>");
+    expect(cleaned).toContain("Vocabulary tip");
     expect(() =>
       validateTeacherGuideSectionStructure(section("words_to_know_mini_lesson", cleaned), meta),
     ).not.toThrow();

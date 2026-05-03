@@ -15,15 +15,21 @@ export function sanitizeLlmBodyHtml(bodyHtml: string, section: SectionSchemaEntr
   let cleaned = bodyHtml;
   const removed: string[] = [];
 
+  const isVocabSection =
+    section.key === "words_to_know" || section.key === "words_to_know_mini_lesson";
+
   for (const snippet of BANNED_SNIPPETS) {
+    // The literal word "Vocabulary" is legitimate teacher-facing terminology
+    // inside the Words to Know mini-lesson; only strip it elsewhere.
+    if (isVocabSection && snippet === "Vocabulary") continue;
     const rx = new RegExp(escapeRegExp(snippet), "gi");
     if (rx.test(cleaned)) {
       removed.push(`Removed banned snippet: "${snippet}"`);
       cleaned = cleaned.replace(rx, "");
     }
   }
-
-  if (section.key !== "words_to_know") {
+  if (!isVocabSection) {
+    // (isVocabSection already declared above.)
     const vocabRx = /<h[1-6][^>]*>\s*Vocabulary\s*<\/h[1-6]>/gi;
     if (vocabRx.test(cleaned)) {
       removed.push('Removed unauthorized heading: "Vocabulary"');

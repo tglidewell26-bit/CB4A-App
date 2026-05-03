@@ -224,6 +224,17 @@ export function validateTeacherGuideSectionStructure(
       if (rowCount < 4) {
         fail(`standards table must have at least one header row plus a few standards rows; got ${rowCount} <tr>.`);
       }
+      const codes = html.match(/\b(?:RL|RI|W|L|SL)\.\d\.[0-9a-z]+/g) ?? [];
+      const strandsPresent = new Set(codes.map((c) => c.split(".")[0]));
+      const readingPresent = strandsPresent.has("RL") || strandsPresent.has("RI");
+      if (!readingPresent) fail("standards table must include at least one Reading Literature (RL) or Reading Informational (RI) standard.");
+      if (!strandsPresent.has("W")) fail("standards table must include at least one Writing (W) standard.");
+      if (!strandsPresent.has("L")) fail("standards table must include at least one Language (L) standard.");
+      if (!strandsPresent.has("SL")) fail("standards table must include at least one Speaking and Listening (SL) standard.");
+      const wrongGrade = codes.find((c) => !c.includes(`.${meta.grade}.`));
+      if (wrongGrade) {
+        fail(`standards table contains code ${wrongGrade}, which is not for grade ${meta.grade}.`);
+      }
       break;
     }
     case "materials_needed": {
@@ -263,6 +274,9 @@ export function validateTeacherGuideSectionStructure(
       }
       if (!/<div[^>]*class="[^"]*\btg-subblock\b[^"]*"/i.test(html)) {
         fail('missing <div class="tg-subblock"> wrappers.');
+      }
+      if (!/<div[^>]*class="[^"]*\btg-tip\b[^"]*"/i.test(html)) {
+        fail('missing inline <div class="tg-tip"> vocabulary-extension callout.');
       }
       break;
     }
@@ -376,13 +390,27 @@ export function validateTeacherGuideSectionStructure(
       break;
     }
     case "exit_ticket": {
-      const headings = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gi)].map((m) =>
-        m[1].trim().toLowerCase(),
-      );
+      const headingMatches = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gi)];
+      const headings = headingMatches.map((m) => m[1].trim().toLowerCase());
       for (const label of ["prompt", "success criteria", "example responses"]) {
         if (!headings.some((h) => h.includes(label))) {
           fail(`missing exit-ticket sub-block "${label}".`);
         }
+      }
+      // Slice the HTML by sub-block heading to count items per sub-block.
+      const sliceLis = (heading: string): number => {
+        const headingRx = new RegExp(`<h3[^>]*>\\s*${heading}\\s*<\\/h3>([\\s\\S]*?)(?=<h3[^>]*>|$)`, "i");
+        const m = html.match(headingRx);
+        if (!m) return 0;
+        return (m[1].match(/<li[\s>]/g) ?? []).length;
+      };
+      const criteriaCount = sliceLis("success criteria");
+      if (criteriaCount < 3) {
+        fail(`exit-ticket "Success Criteria" sub-block must contain at least 3 <li> items, got ${criteriaCount}.`);
+      }
+      const exampleCount = sliceLis("example responses");
+      if (exampleCount < 1) {
+        fail(`exit-ticket "Example Responses" sub-block must contain at least 1 <li>, got ${exampleCount}.`);
       }
       break;
     }

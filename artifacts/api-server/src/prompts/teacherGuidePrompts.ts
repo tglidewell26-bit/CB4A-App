@@ -88,7 +88,11 @@ ${standardsBlock}`;
   </ol>
 </div>
 
-Replace {{vocab_word}} with one real word from the vocabulary list provided. Use a real quote from the chapter text. Do NOT add other top-level headings; ONLY emit the three subblocks above.`;
+After the three sub-blocks, append one inline tip callout:
+<div class="tg-tip"><strong>Vocabulary tip:</strong> ...</div>
+The tip should give a short pedagogical extension idea (e.g. word-relationship work, morphology, figurative-language tie-in) that scales the vocabulary lesson for stronger or weaker readers.
+
+Replace {{vocab_word}} with one real word from the vocabulary list provided. Use a real quote from the chapter text. Do NOT add other top-level headings; ONLY emit the three sub-blocks above plus the tip callout.`;
 
     case "guided_reading":
       return `Split the chapter into 3–4 numbered Guided Reading sections that cover the chapter's full page range in order. Use this exact pattern for each section:
