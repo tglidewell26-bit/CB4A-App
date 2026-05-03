@@ -82,6 +82,160 @@ export const CORE_QUESTION_EXAMPLES = {
   },
 } as const;
 
+/**
+ * Grade-specific example questions for the three core question sections.
+ *
+ * These give Claude concrete models of how each section should sound at each
+ * grade level (vocabulary, sentence length, cognitive depth). Like the generic
+ * CORE_QUESTION_EXAMPLES bank, these are STYLE references only — Claude is
+ * told to write fresh questions from the actual chapter, never copy these.
+ *
+ * Source: hand-tuned by curriculum editors using a Heidi (chapter 1) excerpt
+ * as the shared subject across grades, so the only variable across rows is
+ * difficulty calibration.
+ */
+type CoreSectionKey = "think_about_the_story" | "reading_between_the_lines" | "dig_deeper";
+
+export const GRADE_QUESTION_EXAMPLES: Record<3 | 4 | 5 | 6 | 7 | 8, Record<CoreSectionKey, readonly string[]>> = {
+  3: {
+    think_about_the_story: [
+      "What does Heidi take off while climbing?",
+      "Who helps Deta carry the pack?",
+      "Where does Grandfather live?",
+      "What animals does Peter take up the mountain?",
+    ],
+    reading_between_the_lines: [
+      "Why might Heidi feel better after taking off her heavy clothes?",
+      "What clues show that Peter knows the mountain well?",
+      "Why might Barbara worry about Heidi living with Grandfather?",
+      "What shows that Heidi is curious when she meets Grandfather?",
+    ],
+    dig_deeper: [
+      "How does the mountain help Heidi feel happy?",
+      "What does Heidi's greeting show about her?",
+      "How does Peter help Heidi on the mountain?",
+      "What can readers learn from the way people talk about Grandfather?",
+    ],
+  },
+  4: {
+    think_about_the_story: [
+      "Why does Heidi take off her extra clothes?",
+      "What does Deta offer Peter for fetching the clothes?",
+      "What does Heidi say when she first greets Grandfather?",
+      "Where is Grandfather sitting when Heidi arrives?",
+    ],
+    reading_between_the_lines: [
+      "What clues show that Heidi enjoys being on the mountain?",
+      "Why might Peter smile when he sees Heidi in simple clothes?",
+      "Why does Barbara think Grandfather may not welcome Heidi?",
+      "What suggests that Grandfather is interested in Heidi?",
+    ],
+    dig_deeper: [
+      "How does the mountain change Heidi's mood?",
+      "What does Deta's choice show about her situation?",
+      "How are Barbara and Deta different in the way they talk about Grandfather?",
+      "What does Grandfather's first reaction tell readers about him?",
+    ],
+  },
+  5: {
+    think_about_the_story: [
+      "What does Heidi do to make the climb easier?",
+      "What does Deta offer Peter for fetching the clothes?",
+      "What happened to Heidi's parents?",
+      "What does Grandfather ask when Deta brings Heidi to him?",
+    ],
+    reading_between_the_lines: [
+      "Why does Heidi seem more confident after removing the extra layers?",
+      "What does Peter's reaction to the coin suggest about his life?",
+      "Why does Heidi seem unafraid when she meets Grandfather?",
+      "What clues suggest that Deta feels she has done her part for Heidi?",
+    ],
+    dig_deeper: [
+      "How does the mountain setting help show Heidi's personality?",
+      "How do Barbara's words affect the way readers first see Alm-Uncle?",
+      "How does Heidi's arrival begin to change the mood around Grandfather's hut?",
+      "What does the chapter suggest about judging someone before knowing them?",
+    ],
+  },
+  6: {
+    think_about_the_story: [
+      "What problem does Heidi solve by removing her heavy clothes?",
+      "What details describe the area around Grandfather's hut?",
+      "What does Deta explain about Tobias and Adelheid?",
+      "How does Peter earn the five-penny coin?",
+    ],
+    reading_between_the_lines: [
+      "What does Heidi's reaction to the mountain suggest about her personality?",
+      "Why might Grandfather worry about caring for Heidi?",
+      "What clues show that Peter is used to being independent?",
+      "Why might Deta speak firmly when she talks about Grandfather's responsibility?",
+    ],
+    dig_deeper: [
+      "How does the setting affect Heidi's sense of freedom?",
+      "How does Grandfather's first response complicate what the village believes about him?",
+      "How does Deta's conversation with Barbara develop the conflict of the chapter?",
+      "What does Heidi's behavior suggest about adapting to a new life?",
+    ],
+  },
+  7: {
+    think_about_the_story: [
+      "Which details show that Heidi becomes more comfortable on the mountain?",
+      "What does Deta say about why Heidi must stay with Grandfather?",
+      "What information does Deta share about Alm-Uncle's past?",
+      "What does Heidi notice when she looks at Grandfather?",
+    ],
+    reading_between_the_lines: [
+      "How does Heidi's behavior suggest that she is beginning to feel free?",
+      "What clues suggest that Grandfather may be kinder than people expect?",
+      "Why might Peter prefer spending time with the goats on the mountain?",
+      "What does Deta's explanation reveal about the pressure she feels?",
+    ],
+    dig_deeper: [
+      "How does the author use the mountain setting to reveal Heidi's character?",
+      "What does the contrast between Barbara's fear and Heidi's cheerfulness reveal?",
+      "How does Grandfather's reputation create tension before Heidi meets him?",
+      "How does the chapter explore responsibility through Deta and Grandfather?",
+    ],
+  },
+  8: {
+    think_about_the_story: [
+      "What details describe Alm-Uncle's hut and its surroundings?",
+      "What reason does Deta give for leaving Heidi with Grandfather?",
+      "What does the chapter reveal about Tobias and Adelheid?",
+      "How does Grandfather respond when Heidi first greets him?",
+    ],
+    reading_between_the_lines: [
+      "What does Heidi's response to the mountain suggest about her independence?",
+      "What clues suggest that Grandfather may be different from his reputation?",
+      "How does Peter's reaction to the coin reveal something about his circumstances?",
+      "What does Deta's tone suggest about how she views her duty to Heidi?",
+    ],
+    dig_deeper: [
+      "How does the contrast between village gossip and Grandfather's smile shape the reader's view of him?",
+      "How does Heidi's climb develop the chapter's theme of freedom and belonging?",
+      "How does the author use setting to contrast isolation with possibility?",
+      "What does the chapter suggest about the difference between reputation and reality?",
+    ],
+  },
+} as const;
+
+/**
+ * Returns grade-level example questions for one of the three core sections.
+ *
+ * Selection rules:
+ * - Grades 3-8: returns the exact-grade examples.
+ * - Anything outside 3-8 is clamped to the nearest supported grade (3 or 8),
+ *   matching how the rest of the pipeline (vocab pools, grade calibration)
+ *   already treats out-of-range grades.
+ */
+export function getGradeQuestionExamples(
+  grade: number,
+  sectionKey: CoreSectionKey,
+): readonly string[] {
+  const clamped = Math.min(8, Math.max(3, Math.trunc(grade))) as 3 | 4 | 5 | 6 | 7 | 8;
+  return GRADE_QUESTION_EXAMPLES[clamped][sectionKey];
+}
+
 export function studentSectionRequirementByKey(key: string): string {
   switch (key) {
     case "get_ready_to_read":
@@ -287,6 +441,14 @@ ${formatExampleBlock("THINK ABOUT THE STORY (style examples)", CORE_QUESTION_EXA
 ${formatExampleBlock("READING BETWEEN THE LINES (style examples)", CORE_QUESTION_EXAMPLES.reading_between_the_lines)}
 
 ${formatExampleBlock("DIG DEEPER (style examples)", CORE_QUESTION_EXAMPLES.dig_deeper)}
+
+Use these examples as grade-level and section-style models. Match their clarity, difficulty, sentence length, and question style. Write fresh questions using only the provided chapter.
+
+${formatExampleBlock(`Grade ${input.grade} examples — Think About the Story`, getGradeQuestionExamples(input.grade, "think_about_the_story"))}
+
+${formatExampleBlock(`Grade ${input.grade} examples — Reading Between the Lines`, getGradeQuestionExamples(input.grade, "reading_between_the_lines"))}
+
+${formatExampleBlock(`Grade ${input.grade} examples — Dig Deeper`, getGradeQuestionExamples(input.grade, "dig_deeper"))}
 
 Per-item rules:
 - Use only chapter text and the provided vocabulary words.

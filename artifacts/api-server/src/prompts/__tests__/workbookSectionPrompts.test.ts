@@ -5,6 +5,8 @@ import {
   buildCoreQuestionsCombinedUserPrompt,
   parseCoreQuestionsResponse,
   CORE_QUESTION_EXAMPLES,
+  GRADE_QUESTION_EXAMPLES,
+  getGradeQuestionExamples,
   type CoreQuestionsPromptInputs,
 } from "../workbookSectionPrompts.js";
 
@@ -62,6 +64,74 @@ describe("buildCoreQuestionsCombinedSystemPrompt", () => {
     for (const starter of CORE_QUESTION_EXAMPLES.wordingGuide.dig_deeper) {
       expect(prompt).toContain(starter);
     }
+  });
+});
+
+describe("getGradeQuestionExamples", () => {
+  it.each([3, 4, 5, 6, 7, 8] as const)("returns the exact-grade examples for grade %i", (grade) => {
+    for (const sectionKey of [
+      "think_about_the_story",
+      "reading_between_the_lines",
+      "dig_deeper",
+    ] as const) {
+      expect(getGradeQuestionExamples(grade, sectionKey)).toBe(
+        GRADE_QUESTION_EXAMPLES[grade][sectionKey],
+      );
+    }
+  });
+
+  it("clamps below-range grades up to grade 3", () => {
+    expect(getGradeQuestionExamples(1, "think_about_the_story")).toBe(
+      GRADE_QUESTION_EXAMPLES[3].think_about_the_story,
+    );
+  });
+
+  it("clamps above-range grades down to grade 8", () => {
+    expect(getGradeQuestionExamples(12, "dig_deeper")).toBe(
+      GRADE_QUESTION_EXAMPLES[8].dig_deeper,
+    );
+  });
+});
+
+describe("buildCoreQuestionsCombinedSystemPrompt — grade-specific examples", () => {
+  it.each([3, 5, 8] as const)("embeds Grade %i examples for all three core sections", (grade) => {
+    const prompt = buildCoreQuestionsCombinedSystemPrompt({ ...baseInputs, grade });
+    for (const sectionKey of [
+      "think_about_the_story",
+      "reading_between_the_lines",
+      "dig_deeper",
+    ] as const) {
+      for (const example of GRADE_QUESTION_EXAMPLES[grade][sectionKey]) {
+        expect(prompt).toContain(example);
+      }
+    }
+    expect(prompt).toContain(`Grade ${grade} examples — Think About the Story`);
+    expect(prompt).toContain(`Grade ${grade} examples — Reading Between the Lines`);
+    expect(prompt).toContain(`Grade ${grade} examples — Dig Deeper`);
+  });
+
+  it("does not leak other grades' examples into the prompt for grade 5", () => {
+    const prompt = buildCoreQuestionsCombinedSystemPrompt({ ...baseInputs, grade: 5 });
+    expect(prompt).toContain(GRADE_QUESTION_EXAMPLES[5].think_about_the_story[0]);
+    // A grade-3-only example phrasing should NOT appear in the grade-5 prompt
+    expect(prompt).not.toContain("What does Heidi take off while climbing?");
+    // A grade-8-only example phrasing should NOT appear in the grade-5 prompt
+    expect(prompt).not.toContain("What details describe Alm-Uncle's hut and its surroundings?");
+  });
+
+  it("includes the grade-level modeling instruction", () => {
+    const prompt = buildCoreQuestionsCombinedSystemPrompt(baseInputs);
+    expect(prompt).toContain(
+      "Use these examples as grade-level and section-style models. Match their clarity, difficulty, sentence length, and question style. Write fresh questions using only the provided chapter.",
+    );
+  });
+
+  it("still includes the existing per-section format/length rules", () => {
+    const prompt = buildCoreQuestionsCombinedSystemPrompt(baseInputs);
+    expect(prompt).toContain("Think About the Story (LITERAL recall) — exactly 6 questions");
+    expect(prompt).toContain("Reading Between the Lines (INFERENCE) — exactly 3 questions");
+    expect(prompt).toContain("Dig Deeper (ANALYSIS) — exactly 3 questions");
+    expect(prompt).toContain("ONE sentence under 22 words");
   });
 });
 
