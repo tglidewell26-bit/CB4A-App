@@ -9,6 +9,7 @@ import {
   getExpectedItemCount,
   getPromptWordCountLimit,
 } from "../prompts/workbookSectionPrompts.js";
+import { ALL_STANDARDS } from "../standards/elaStandards.js";
 import type { ChapterMeta, GeneratedSection } from "./templateRenderers.js";
 
 function countWords(text: string): number {
@@ -225,6 +226,11 @@ export function validateTeacherGuideSectionStructure(
         fail(`standards table must have at least one header row plus a few standards rows; got ${rowCount} <tr>.`);
       }
       const codes = html.match(/\b(?:RL|RI|W|L|SL)\.\d\.[0-9a-z]+/g) ?? [];
+      const knownCodes = new Set(ALL_STANDARDS.map((s) => s.code));
+      const fabricated = codes.find((c) => !knownCodes.has(c));
+      if (fabricated) {
+        fail(`standards table contains unknown standard code "${fabricated}". Standards must come from the supplied profile; never invent codes.`);
+      }
       const strandsPresent = new Set(codes.map((c) => c.split(".")[0]));
       const readingPresent = strandsPresent.has("RL") || strandsPresent.has("RI");
       if (!readingPresent) fail("standards table must include at least one Reading Literature (RL) or Reading Informational (RI) standard.");

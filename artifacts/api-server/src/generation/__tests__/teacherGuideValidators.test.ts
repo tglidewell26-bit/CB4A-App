@@ -73,6 +73,10 @@ describe("validateTeacherGuideSectionStructure", () => {
     expect(() =>
       validateTeacherGuideSectionStructure(section("standards", wrongGrade), meta),
     ).toThrow(/grade 4/);
+    const fabricated = good.replace("RL.4.1", "RL.4.99");
+    expect(() =>
+      validateTeacherGuideSectionStructure(section("standards", fabricated), meta),
+    ).toThrow(/unknown standard code/);
   });
 
   it("words_to_know_mini_lesson enforces three sub-blocks in order plus an inline tip callout", () => {
