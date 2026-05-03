@@ -345,6 +345,9 @@ components:
           type: boolean
         hasTeacherGuide:
           type: boolean
+        errorMessage:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time

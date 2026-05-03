@@ -239,13 +239,37 @@ export function ChapterCard({ chapter, book, onDelete, onRegenerate, onEdit }: C
           </div>
         )}
         {isError && (
-          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-            <ActionPill
-              label="Retry generation"
-              icon="↺"
-              secondary
-              onClick={() => onRegenerate(chapter.id)}
-            />
+          <div style={{ marginTop: 14 }}>
+            <div
+              role="alert"
+              style={{
+                background: "#FEF2F2",
+                border: "1px solid #FECACA",
+                borderRadius: 6,
+                padding: "10px 12px",
+                fontFamily: "'Source Sans 3', sans-serif",
+                fontSize: 12,
+                color: "#991B1B",
+                lineHeight: 1.5,
+                marginBottom: 10,
+              }}
+            >
+              <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                Generation failed for {chapter.num != null ? `Chapter ${chapter.num}` : "this chapter"}
+              </div>
+              <div>
+                {chapter.errorMessage ??
+                  "Something went wrong while generating this chapter. Try again, or report this if it keeps happening."}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <ActionPill
+                label="Try again"
+                icon="↺"
+                secondary
+                onClick={() => onRegenerate(chapter.id)}
+              />
+            </div>
           </div>
         )}
         {isGenerating && (

@@ -99,6 +99,7 @@ export default function App() {
     file: c.file ?? undefined,
     hasWorkbook: c.hasWorkbook,
     hasTeacherGuide: c.hasTeacherGuide,
+    errorMessage: c.errorMessage,
   }));
 
   const selectedBook: Book | null = selectedApiBook

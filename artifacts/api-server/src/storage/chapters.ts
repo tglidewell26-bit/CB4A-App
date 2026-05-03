@@ -15,6 +15,7 @@ export function chapterToResponse(c: ChapterRow) {
     file: c.file,
     hasWorkbook: !!c.workbookContent,
     hasTeacherGuide: !!c.teacherGuideContent,
+    errorMessage: c.errorMessage,
     createdAt: c.createdAt,
   };
 }
@@ -69,6 +70,20 @@ export async function setChapterStatus(chapterId: number, status: string): Promi
   await db.update(chaptersTable).set({ status }).where(eq(chaptersTable.id, chapterId));
 }
 
+export async function setChapterGenerating(chapterId: number): Promise<void> {
+  await db
+    .update(chaptersTable)
+    .set({ status: "generating", errorMessage: null })
+    .where(eq(chaptersTable.id, chapterId));
+}
+
+export async function setChapterError(chapterId: number, errorMessage: string): Promise<void> {
+  await db
+    .update(chaptersTable)
+    .set({ status: "error", errorMessage })
+    .where(eq(chaptersTable.id, chapterId));
+}
+
 export async function saveGeneratedContent(
   chapterId: number,
   content: { workbookHtml: string; teacherGuideHtml: string; date: string },
@@ -81,6 +96,7 @@ export async function saveGeneratedContent(
       workbookContent: content.workbookHtml,
       teacherGuideContent: content.teacherGuideHtml,
       date: content.date,
+      errorMessage: null,
     })
     .where(eq(chaptersTable.id, chapterId));
 }

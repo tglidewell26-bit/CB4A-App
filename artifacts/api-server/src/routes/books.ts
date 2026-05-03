@@ -27,9 +27,12 @@ import {
   insertChapter,
   listChaptersForBook,
   saveGeneratedContent,
+  setChapterError,
+  setChapterGenerating,
   setChapterStatus,
   updateChapterFields,
 } from "../storage/chapters.js";
+import { friendlyGenerationError } from "../generation/errorMessages.js";
 
 const router: IRouter = Router();
 
@@ -39,18 +42,25 @@ const upload = multer({
 });
 
 async function triggerGeneration(chapterId: number, bookId: number): Promise<void> {
+  let chapterLogContext: { chapterNum: number | null; chapterTitle: string | null } = {
+    chapterNum: null,
+    chapterTitle: null,
+  };
+  let bookLogContext: { bookTitle: string | null } = { bookTitle: null };
   try {
     const chapter = await getChapterById(chapterId);
     if (!chapter || !chapter.extractedText) {
       await setChapterStatus(chapterId, "ready");
       return;
     }
+    chapterLogContext = { chapterNum: chapter.num, chapterTitle: chapter.title };
 
     const book = await getBookById(bookId);
     if (!book) {
       await setChapterStatus(chapterId, "ready");
       return;
     }
+    bookLogContext = { bookTitle: book.title };
 
     const characterDatabase =
       book.characterData ?? (await buildCharacterDatabase(book.title, book.author, book.grade));
@@ -87,8 +97,19 @@ async function triggerGeneration(chapterId: number, bookId: number): Promise<voi
 
     logger.info({ chapterId }, "AI generation complete");
   } catch (err) {
-    logger.error({ chapterId, err }, "AI generation failed");
-    await setChapterStatus(chapterId, "error");
+    const friendlyMessage = friendlyGenerationError(err);
+    logger.error(
+      {
+        chapterId,
+        bookId,
+        chapterNum: chapterLogContext.chapterNum,
+        chapterTitle: chapterLogContext.chapterTitle,
+        bookTitle: bookLogContext.bookTitle,
+        err,
+      },
+      "AI generation failed",
+    );
+    await setChapterError(chapterId, friendlyMessage);
   }
 }
 
@@ -302,9 +323,9 @@ router.post("/books/:bookId/chapters/:chapterId/regenerate", async (req, res) =>
     return;
   }
 
-  await setChapterStatus(chapterId, "generating");
+  await setChapterGenerating(chapterId);
 
-  const updated = { ...chapter, status: "generating" };
+  const updated = { ...chapter, status: "generating", errorMessage: null };
   res.status(202).json(chapterToResponse(updated));
 
   setImmediate(() => triggerGeneration(chapterId, bookId));

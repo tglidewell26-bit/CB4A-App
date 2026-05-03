@@ -797,7 +797,7 @@ export const useDeleteChapter = <
 };
 
 /**
- * @summary Get the generated student workbook HTML for a chapter
+ * @summary Get the generated student workbook Markdown for a chapter
  */
 export const getGetWorkbookUrl = (bookId: number, chapterId: number) => {
   return `/api/books/${bookId}/chapters/${chapterId}/workbook`;
@@ -860,7 +860,7 @@ export type GetWorkbookQueryResult = NonNullable<
 export type GetWorkbookQueryError = ErrorType<void>;
 
 /**
- * @summary Get the generated student workbook HTML for a chapter
+ * @summary Get the generated student workbook Markdown for a chapter
  */
 
 export function useGetWorkbook<
@@ -888,7 +888,7 @@ export function useGetWorkbook<
 }
 
 /**
- * @summary Get the generated teacher guide HTML for a chapter
+ * @summary Get the generated teacher guide Markdown for a chapter
  */
 export const getGetTeacherGuideUrl = (bookId: number, chapterId: number) => {
   return `/api/books/${bookId}/chapters/${chapterId}/teacher-guide`;
@@ -957,7 +957,7 @@ export type GetTeacherGuideQueryResult = NonNullable<
 export type GetTeacherGuideQueryError = ErrorType<void>;
 
 /**
- * @summary Get the generated teacher guide HTML for a chapter
+ * @summary Get the generated teacher guide Markdown for a chapter
  */
 
 export function useGetTeacherGuide<
