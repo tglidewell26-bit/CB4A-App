@@ -176,6 +176,221 @@ export function validateQuestionTypeTags(section: GeneratedSection): void {
   }
 }
 
+/**
+ * Hard structural validators for the redesigned Teacher Guide sections.
+ * These check shape only (presence of headers, sub-blocks, page ranges, weak/fix
+ * pairs, etc.) — never check for specific book/chapter/grade content. Throws
+ * with a descriptive error so the caller knows exactly which section failed.
+ */
+export function validateTeacherGuideSectionStructure(
+  section: GeneratedSection,
+  meta: ChapterMeta,
+): void {
+  const html = section.bodyHtml;
+  const fail = (msg: string): never => {
+    throw new Error(`Teacher Guide validation failed: section "${section.key}" — ${msg}`);
+  };
+
+  switch (section.key) {
+    case "lesson_overview": {
+      if (!/<div[^>]*class="[^"]*\btg-tip\b[^"]*"/i.test(html)) {
+        fail('missing inline <div class="tg-tip"> pacing/connection callout.');
+      }
+      break;
+    }
+    case "measurable_objectives": {
+      const liCount = (html.match(/<li[\s>]/g) ?? []).length;
+      if (liCount < 5 || liCount > 6) {
+        fail(`expected 5–6 SWBAT bullets, got ${liCount}.`);
+      }
+      const codeMatches = html.match(/\((?:RL|RI|W|L|SL)\.\d\.[0-9a-z]+\)/g) ?? [];
+      if (codeMatches.length < 5) {
+        fail(`expected at least 5 standard codes in parentheses, got ${codeMatches.length}.`);
+      }
+      const wrongGrade = codeMatches.find((c) => !c.includes(`.${meta.grade}.`));
+      if (wrongGrade) {
+        fail(`standard code ${wrongGrade} is not for grade ${meta.grade}.`);
+      }
+      break;
+    }
+    case "standards": {
+      if (!/<table[^>]*class="[^"]*\btg-standards-table\b[^"]*"/i.test(html)) {
+        fail('missing <table class="tg-standards-table">.');
+      }
+      if (!/<th>\s*Standard\s*<\/th>\s*<th>\s*Description\s*<\/th>\s*<th>\s*Workbook Section\(s\)\s*<\/th>/i.test(html)) {
+        fail("standards table headers must be Standard | Description | Workbook Section(s).");
+      }
+      const rowCount = (html.match(/<tr>/gi) ?? []).length;
+      if (rowCount < 4) {
+        fail(`standards table must have at least one header row plus a few standards rows; got ${rowCount} <tr>.`);
+      }
+      break;
+    }
+    case "materials_needed": {
+      if (!/<ul[\s>]|<ol[\s>]/i.test(html)) {
+        fail("must contain a <ul> or <ol> list of materials.");
+      }
+      const liCount = (html.match(/<li[\s>]/g) ?? []).length;
+      if (liCount < 4) {
+        fail(`expected at least 4 material items, got ${liCount}.`);
+      }
+      break;
+    }
+    case "get_ready_to_read": {
+      if (!/Quick-write prompt/i.test(html)) {
+        fail('missing "Quick-write prompt" label.');
+      }
+      if (!/<ol[^>]*class="[^"]*\btg-impl-steps\b[^"]*"/i.test(html)) {
+        fail('missing <ol class="tg-impl-steps"> implementation list.');
+      }
+      if (!/<div[^>]*class="[^"]*\btg-tip\b[^"]*"/i.test(html)) {
+        fail('missing inline <div class="tg-tip"> connection callout.');
+      }
+      break;
+    }
+    case "words_to_know_mini_lesson": {
+      const subblocks = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gi)].map((m) =>
+        m[1].trim().toLowerCase(),
+      );
+      const required = ["activities", "partner practice", "quick check"];
+      let cursor = -1;
+      for (const label of required) {
+        const idx = subblocks.findIndex((s, i) => i > cursor && s.includes(label));
+        if (idx === -1) {
+          fail(`missing or out-of-order sub-block heading "${label}". Expected order: Activities → Partner Practice → Quick Check.`);
+        }
+        cursor = idx;
+      }
+      if (!/<div[^>]*class="[^"]*\btg-subblock\b[^"]*"/i.test(html)) {
+        fail('missing <div class="tg-subblock"> wrappers.');
+      }
+      break;
+    }
+    case "guided_reading": {
+      const sectionCount = (html.match(/<div[^>]*class="[^"]*\btg-gr-section\b/gi) ?? []).length;
+      if (sectionCount < 3) {
+        fail(`expected at least 3 numbered Guided Reading sections, got ${sectionCount}.`);
+      }
+      // Each section must have a page range like "pages 4–7" / "pages 4-7" / "p. 4 to 7" / "pp. 4–7"
+      const rangeRegex = /(?:pages?|pp?\.)\s*(\d+)\s*(?:[–\-—]|to)\s*(\d+)/gi;
+      const ranges = [...html.matchAll(rangeRegex)].map((m) => ({
+        start: parseInt(m[1], 10),
+        end: parseInt(m[2], 10),
+      }));
+      if (ranges.length < sectionCount) {
+        fail(`each Guided Reading section must include a page range; found ${ranges.length} for ${sectionCount} sections.`);
+      }
+      // Cross-check coverage against the chapter's actual page span when parseable.
+      const metaSpan = meta.pages.match(/(\d+)\s*[–\-—]\s*(\d+)/);
+      if (metaSpan) {
+        const chapterStart = parseInt(metaSpan[1], 10);
+        const chapterEnd = parseInt(metaSpan[2], 10);
+        for (const r of ranges) {
+          if (r.start < chapterStart || r.end > chapterEnd || r.end < r.start) {
+            fail(`Guided Reading page range ${r.start}–${r.end} falls outside the chapter span ${chapterStart}–${chapterEnd}.`);
+          }
+        }
+        const minStart = Math.min(...ranges.map((r) => r.start));
+        const maxEnd = Math.max(...ranges.map((r) => r.end));
+        if (minStart > chapterStart || maxEnd < chapterEnd) {
+          fail(`Guided Reading sections (covering ${minStart}–${maxEnd}) do not span the full chapter ${chapterStart}–${chapterEnd}.`);
+        }
+      }
+      const tagCount = (html.match(/\[question-type:/gi) ?? []).length;
+      if (tagCount < sectionCount * 2) {
+        fail(`expected at least ${sectionCount * 2} tagged pause-point questions, got ${tagCount}.`);
+      }
+      if (!/<div[^>]*class="[^"]*\btg-tip\b[^"]*"/i.test(html)) {
+        fail('missing inline <div class="tg-tip"> read-aloud callout.');
+      }
+      break;
+    }
+    case "think_about_the_story_answers": {
+      const answerCount = (html.match(/<div[^>]*class="[^"]*\btg-answer\b[^"]*"/gi) ?? []).length;
+      if (answerCount < 1) {
+        fail('expected at least one <div class="tg-answer"> Q/A block.');
+      }
+      if (!/<div[^>]*class="[^"]*\btg-inferential\b[^"]*"/i.test(html)) {
+        fail('missing inline Inferential Thinking sub-block (<div class="tg-subblock tg-inferential">).');
+      }
+      break;
+    }
+    case "answer_key": {
+      const required = [
+        "reading between the lines",
+        "dig deeper",
+        "multiple choice",
+        "evidence from the story",
+        "character chart",
+        "draw it",
+      ];
+      const headings = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gi)].map((m) =>
+        m[1].trim().toLowerCase(),
+      );
+      for (const label of required) {
+        if (!headings.some((h) => h.includes(label))) {
+          fail(`missing answer-key sub-block with heading containing "${label}".`);
+        }
+      }
+      if (!/<table[^>]*class="[^"]*\btg-character-key\b[^"]*"/i.test(html)) {
+        fail('missing <table class="tg-character-key"> character chart answer table.');
+      }
+      break;
+    }
+    case "differentiated_supports": {
+      const required = ["struggling readers", "english language learners", "advanced students"];
+      const headings = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gi)].map((m) =>
+        m[1].trim().toLowerCase(),
+      );
+      for (const label of required) {
+        if (!headings.some((h) => h.includes(label))) {
+          fail(`missing learner-group sub-block "${label}".`);
+        }
+      }
+      const phaseCount = (html.match(/before reading|during reading|after reading/gi) ?? []).length;
+      if (phaseCount < 9) {
+        fail(`expected each of 3 groups to have Before/During/After reading labels (≥9 total); got ${phaseCount}.`);
+      }
+      break;
+    }
+    case "common_student_questions": {
+      if (!/<ol[^>]*class="[^"]*\btg-csq\b[^"]*"/i.test(html)) {
+        fail('missing <ol class="tg-csq"> question list.');
+      }
+      const liCount = (html.match(/<li[\s>]/g) ?? []).length;
+      if (liCount < 5 || liCount > 8) {
+        fail(`expected 5–8 Q/A pairs, got ${liCount}.`);
+      }
+      break;
+    }
+    case "creative_response_common_errors": {
+      const pairCount = (html.match(/<div[^>]*class="[^"]*\btg-weak-fix\b[^"]*"/gi) ?? []).length;
+      if (pairCount < 3) {
+        fail(`expected at least 3 weak/fix pairs (<div class="tg-weak-fix">), got ${pairCount}.`);
+      }
+      const weakCount = (html.match(/Weak example/gi) ?? []).length;
+      const fixCount = (html.match(/How to fix/gi) ?? []).length;
+      if (weakCount < pairCount || fixCount < pairCount) {
+        fail(`each weak/fix pair must have both "Weak example:" and "How to fix:" labels (${weakCount}/${fixCount}/${pairCount}).`);
+      }
+      break;
+    }
+    case "exit_ticket": {
+      const headings = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gi)].map((m) =>
+        m[1].trim().toLowerCase(),
+      );
+      for (const label of ["prompt", "success criteria", "example responses"]) {
+        if (!headings.some((h) => h.includes(label))) {
+          fail(`missing exit-ticket sub-block "${label}".`);
+        }
+      }
+      break;
+    }
+    default:
+      break;
+  }
+}
+
 export function validateSections(
   generatedSections: GeneratedSection[],
   schema: SectionSchemaEntry[] | TeacherGuideSectionSchemaEntry[],

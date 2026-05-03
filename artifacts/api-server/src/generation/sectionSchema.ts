@@ -121,6 +121,9 @@ export const STUDENT_WORKBOOK_SECTIONS: SectionSchemaEntry[] = [
   },
 ];
 
+// Teacher Guide sections — ordered to mirror the FINAL gold-standard reference,
+// linearized into a single top-to-bottom flow (no two-column layout, no margin
+// callouts; tip blocks are rendered inline within the section they belong to).
 export const TEACHER_GUIDE_SECTIONS: TeacherGuideSectionSchemaEntry[] = [
   {
     key: "lesson_overview",
@@ -128,7 +131,15 @@ export const TEACHER_GUIDE_SECTIONS: TeacherGuideSectionSchemaEntry[] = [
     standing_subheader: null,
     body_source: "llm",
     required: true,
-    tip_slots: 1,
+    tip_slots: 0,
+  },
+  {
+    key: "measurable_objectives",
+    display_title: "Measurable Objectives",
+    standing_subheader: null,
+    body_source: "llm",
+    required: true,
+    tip_slots: 0,
   },
   {
     key: "standards",
@@ -139,8 +150,8 @@ export const TEACHER_GUIDE_SECTIONS: TeacherGuideSectionSchemaEntry[] = [
     tip_slots: 0,
   },
   {
-    key: "measurable_objectives",
-    display_title: "Measurable Objectives",
+    key: "materials_needed",
+    display_title: "Materials Needed",
     standing_subheader: null,
     body_source: "llm",
     required: true,
@@ -156,7 +167,7 @@ export const TEACHER_GUIDE_SECTIONS: TeacherGuideSectionSchemaEntry[] = [
   },
   {
     key: "words_to_know_mini_lesson",
-    display_title: "Words to Know mini-lesson",
+    display_title: "Words to Know Mini-Lesson",
     standing_subheader: null,
     body_source: "llm",
     required: true,
@@ -164,31 +175,31 @@ export const TEACHER_GUIDE_SECTIONS: TeacherGuideSectionSchemaEntry[] = [
   },
   {
     key: "guided_reading",
-    display_title: "Guided Reading with pause points",
-    standing_subheader: null,
-    body_source: "llm",
-    required: true,
-    tip_slots: 1,
-  },
-  {
-    key: "tiered_discussion",
-    display_title: "Tiered Discussion",
+    display_title: "Guided Reading with Pause Points",
     standing_subheader: null,
     body_source: "llm",
     required: true,
     tip_slots: 0,
   },
   {
-    key: "answers_aligned_to_workbook_pages",
-    display_title: "Answers aligned to workbook pages",
+    key: "think_about_the_story_answers",
+    display_title: "Think About the Story — Answers + Inferential Thinking",
     standing_subheader: null,
     body_source: "llm",
     required: true,
     tip_slots: 0,
   },
   {
-    key: "support_for_diverse_learners",
-    display_title: "Struggling Readers / ELL / Advanced Students support",
+    key: "answer_key",
+    display_title: "Answer Key (Workbook Sections)",
+    standing_subheader: null,
+    body_source: "llm",
+    required: true,
+    tip_slots: 0,
+  },
+  {
+    key: "differentiated_supports",
+    display_title: "Differentiated Supports",
     standing_subheader: null,
     body_source: "llm",
     required: true,
@@ -196,7 +207,7 @@ export const TEACHER_GUIDE_SECTIONS: TeacherGuideSectionSchemaEntry[] = [
   },
   {
     key: "common_student_questions",
-    display_title: "Common student questions",
+    display_title: "Common Student Questions",
     standing_subheader: null,
     body_source: "llm",
     required: true,
@@ -204,7 +215,15 @@ export const TEACHER_GUIDE_SECTIONS: TeacherGuideSectionSchemaEntry[] = [
   },
   {
     key: "creative_response_common_errors",
-    display_title: "Creative Response common errors",
+    display_title: "Creative Response Common Errors",
+    standing_subheader: null,
+    body_source: "llm",
+    required: true,
+    tip_slots: 0,
+  },
+  {
+    key: "exit_ticket",
+    display_title: "Exit Ticket",
     standing_subheader: null,
     body_source: "llm",
     required: true,

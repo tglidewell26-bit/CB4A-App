@@ -14,10 +14,12 @@ export function getStandardsForFolder(
   grade: GradeLevel,
   useFor: CurriculumUse,
 ): ELAStandard[] {
-  const all = [
+  const all: ELAStandard[] = [
     ...standardsByGradeAndStrand(grade, "RL"),
     ...standardsByGradeAndStrand(grade, "RI"),
     ...standardsByGradeAndStrand(grade, "W"),
+    ...standardsByGradeAndStrand(grade, "L"),
+    ...standardsByGradeAndStrand(grade, "SL"),
   ];
   return all.filter((s) => s.useFor.includes(useFor));
 }
@@ -29,41 +31,36 @@ export function createStandardsProfileForFolder(grade: GradeLevel): FolderStanda
     rl: standardsByGradeAndStrand(grade, "RL"),
     ri: standardsByGradeAndStrand(grade, "RI"),
     w: standardsByGradeAndStrand(grade, "W"),
+    l: standardsByGradeAndStrand(grade, "L"),
+    sl: standardsByGradeAndStrand(grade, "SL"),
   };
 }
+
+const STRAND_HEADERS: Array<{ strand: StandardStrand; label: string }> = [
+  { strand: "RL", label: "Reading Literature (RL)" },
+  { strand: "RI", label: "Reading Informational Text (RI)" },
+  { strand: "W", label: "Writing (W)" },
+  { strand: "L", label: "Language (L)" },
+  { strand: "SL", label: "Speaking and Listening (SL)" },
+];
 
 export function formatStandardsForPrompt(
   grade: GradeLevel,
   includeSubstandards = false,
 ): string {
-  const rl = standardsByGradeAndStrand(grade, "RL").filter(
-    (s) => !s.subNumber || includeSubstandards,
-  );
-  const ri = standardsByGradeAndStrand(grade, "RI").filter(
-    (s) => !s.subNumber || includeSubstandards,
-  );
-  const w = standardsByGradeAndStrand(grade, "W").filter(
-    (s) => !s.subNumber || includeSubstandards,
-  );
-
   const lines: string[] = [`California Common Core ELA Standards — Grade ${grade}`, ""];
 
-  lines.push("Reading Literature (RL):");
-  for (const s of rl) {
-    lines.push(`  ${s.code}: ${s.text}`);
+  for (const { strand, label } of STRAND_HEADERS) {
+    const items = standardsByGradeAndStrand(grade, strand).filter(
+      (s) => !s.subNumber || includeSubstandards,
+    );
+    if (items.length === 0) continue;
+    lines.push(`${label}:`);
+    for (const s of items) {
+      lines.push(`  ${s.code}: ${s.text}`);
+    }
+    lines.push("");
   }
 
-  lines.push("");
-  lines.push("Reading Informational Text (RI):");
-  for (const s of ri) {
-    lines.push(`  ${s.code}: ${s.text}`);
-  }
-
-  lines.push("");
-  lines.push("Writing (W):");
-  for (const s of w) {
-    lines.push(`  ${s.code}: ${s.text}`);
-  }
-
-  return lines.join("\n");
+  return lines.join("\n").trimEnd();
 }

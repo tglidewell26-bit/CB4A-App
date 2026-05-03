@@ -19,7 +19,11 @@ import {
   type ChapterMeta,
   type GeneratedSection,
 } from "./templateRenderers.js";
-import { validateQuestionTypeTags, validateSections } from "./workbookValidators.js";
+import {
+  validateQuestionTypeTags,
+  validateSections,
+  validateTeacherGuideSectionStructure,
+} from "./workbookValidators.js";
 
 async function generateLlmSectionBody(systemPrompt: string, userPrompt: string): Promise<string> {
   const message = await anthropic.messages.create({
@@ -64,6 +68,7 @@ export async function generateTeacherGuide(
         standingSubheader,
         studentWorkbookHtml,
         chapterText,
+        priorSections: generatedSections,
       };
       const rawBodyHtml = await generateLlmSectionBody(
         buildTeacherSectionSystemPrompt(promptInputs),
@@ -85,8 +90,12 @@ export async function generateTeacherGuide(
       tipSlots: section.tip_slots,
     };
 
-    if (section.key === "guided_reading" || section.key === "tiered_discussion") {
+    if (section.key === "guided_reading") {
       validateQuestionTypeTags(generated);
+    }
+
+    if (section.body_source === "llm") {
+      validateTeacherGuideSectionStructure(generated, meta);
     }
 
     generatedSections.push(generated);

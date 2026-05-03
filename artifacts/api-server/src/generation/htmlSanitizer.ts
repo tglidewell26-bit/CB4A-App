@@ -47,7 +47,12 @@ export function sanitizeLlmBodyHtml(bodyHtml: string, section: SectionSchemaEntr
     removed.push("Removed unauthorized section wrapper(s)");
     cleaned = cleaned.replace(sectionWrapperRx, "");
   }
-  cleaned = cleaned.replace(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/gi, "");
+  // Strip only h1/h2 — those would duplicate the section title rendered by the
+  // template wrapper. Sub-headings (h3/h4/h5/h6) are required by the redesigned
+  // Teacher Guide structure (Words to Know sub-blocks, Guided Reading sections,
+  // Answer Key sub-blocks, Differentiated Supports groups, etc.) so they must
+  // be preserved.
+  cleaned = cleaned.replace(/<h[12][^>]*>[\s\S]*?<\/h[12]>/gi, "");
   return { cleaned: cleaned.trim(), removed };
 }
 

@@ -1,4 +1,4 @@
-import type { ELAStandard, GradeLevel } from "./types.js";
+import type { ELAStandard, GradeLevel, StandardStrand } from "./types.js";
 
 const ALL_STANDARDS: ELAStandard[] = [
   // ─── GRADE 3 ── Reading Literature ───────────────────────────────────────────
@@ -1106,9 +1106,81 @@ const ALL_STANDARDS: ELAStandard[] = [
   },
 ];
 
+// ─── Language (L) and Speaking & Listening (SL) — grades 3–8 ───
+// Covers L.x.4 (vocabulary strategies), L.x.5 (figurative language / word
+// relationships), SL.x.1 (collaborative discussion), and SL.x.3 (evaluating
+// speaker reasoning). These map to the Words-to-Know mini-lesson and the
+// discussion / common-student-questions blocks in the Teacher Guide.
+const L_TEXT_4: Record<GradeLevel, string> = {
+  3: "Determine or clarify the meaning of unknown and multiple-meaning word and phrases based on grade 3 reading and content, choosing flexibly from a range of strategies.",
+  4: "Determine or clarify the meaning of unknown and multiple-meaning words and phrases based on grade 4 reading and content, choosing flexibly from a range of strategies.",
+  5: "Determine or clarify the meaning of unknown and multiple-meaning words and phrases based on grade 5 reading and content, choosing flexibly from a range of strategies.",
+  6: "Determine or clarify the meaning of unknown and multiple-meaning words and phrases based on grade 6 reading and content, choosing flexibly from a range of strategies.",
+  7: "Determine or clarify the meaning of unknown and multiple-meaning words and phrases based on grade 7 reading and content, choosing flexibly from a range of strategies.",
+  8: "Determine or clarify the meaning of unknown and multiple-meaning words and phrases based on grade 8 reading and content, choosing flexibly from a range of strategies.",
+};
+
+const L_TEXT_5 =
+  "Demonstrate understanding of figurative language, word relationships, and nuances in word meanings.";
+
+const SL_TEXT_1: Record<GradeLevel, string> = {
+  3: "Engage effectively in a range of collaborative discussions (one-on-one, in groups, and teacher-led) with diverse partners on grade 3 topics and texts, building on others' ideas and expressing their own clearly.",
+  4: "Engage effectively in a range of collaborative discussions (one-on-one, in groups, and teacher-led) with diverse partners on grade 4 topics and texts, building on others' ideas and expressing their own clearly.",
+  5: "Engage effectively in a range of collaborative discussions (one-on-one, in groups, and teacher-led) with diverse partners on grade 5 topics and texts, building on others' ideas and expressing their own clearly.",
+  6: "Engage effectively in a range of collaborative discussions (one-on-one, in groups, and teacher-led) with diverse partners on grade 6 topics, texts, and issues, building on others' ideas and expressing their own clearly.",
+  7: "Engage effectively in a range of collaborative discussions (one-on-one, in groups, and teacher-led) with diverse partners on grade 7 topics, texts, and issues, building on others' ideas and expressing their own clearly.",
+  8: "Engage effectively in a range of collaborative discussions (one-on-one, in groups, and teacher-led) with diverse partners on grade 8 topics, texts, and issues, building on others' ideas and expressing their own clearly.",
+};
+
+const SL_TEXT_3: Record<GradeLevel, string> = {
+  3: "Ask and answer questions about information from a speaker, offering appropriate elaboration and detail.",
+  4: "Identify the reasons and evidence a speaker provides to support particular points.",
+  5: "Summarize the points a speaker makes and explain how each claim is supported by reasons and evidence.",
+  6: "Delineate a speaker's argument and specific claims, distinguishing claims that are supported by reasons and evidence from claims that are not.",
+  7: "Delineate a speaker's argument and specific claims, evaluating the soundness of the reasoning and the relevance and sufficiency of the evidence.",
+  8: "Delineate a speaker's argument and specific claims, evaluating the soundness of the reasoning and relevance and sufficiency of the evidence and identifying when irrelevant evidence is introduced.",
+};
+
+for (const grade of [3, 4, 5, 6, 7, 8] as GradeLevel[]) {
+  ALL_STANDARDS.push(
+    {
+      code: `L.${grade}.4`,
+      strand: "L",
+      grade,
+      number: "4",
+      text: L_TEXT_4[grade],
+      useFor: ["vocabulary", "vocabulary_mini_lesson"],
+    },
+    {
+      code: `L.${grade}.5`,
+      strand: "L",
+      grade,
+      number: "5",
+      text: L_TEXT_5,
+      useFor: ["vocabulary", "vocabulary_mini_lesson"],
+    },
+    {
+      code: `SL.${grade}.1`,
+      strand: "SL",
+      grade,
+      number: "1",
+      text: SL_TEXT_1[grade],
+      useFor: ["discussion", "common_student_questions"],
+    },
+    {
+      code: `SL.${grade}.3`,
+      strand: "SL",
+      grade,
+      number: "3",
+      text: SL_TEXT_3[grade],
+      useFor: ["discussion", "common_student_questions"],
+    },
+  );
+}
+
 export function standardsByGradeAndStrand(
   grade: GradeLevel,
-  strand: "RL" | "RI" | "W",
+  strand: StandardStrand,
 ): ELAStandard[] {
   return ALL_STANDARDS.filter((s) => s.grade === grade && s.strand === strand);
 }

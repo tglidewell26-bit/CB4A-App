@@ -180,13 +180,9 @@ export function renderTeacherGuideSection(section: GeneratedSection): string {
   const subheaderHtml = section.standingSubheader
     ? `\n  <p class="tg-instructions">${section.standingSubheader}</p>`
     : "";
-  const tipHtml = Array(section.tipSlots ?? 0)
-    .fill(0)
-    .map((_, idx) => `<div class="discussion-note">${buildManualSlot(`TIP ${section.key} ${idx + 1}`)}</div>`)
-    .join("\n  ");
 
   return `<div class="tg-section" data-section-key="${section.key}">
   <h2>${section.displayTitle}</h2>${subheaderHtml}
-  ${section.bodyHtml}${tipHtml ? `\n  ${tipHtml}` : ""}
+  ${section.bodyHtml}
 </div>`;
 }
