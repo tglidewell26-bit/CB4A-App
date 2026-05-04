@@ -37,6 +37,17 @@ async function generateLlmSectionBody(systemPrompt: string, userPrompt: string):
   return block.type === "text" ? block.text.trim() : "";
 }
 
+function buildMaterialsNeededHtml(meta: ChapterMeta): string {
+  return `<p>Materials needed</p>
+<ul>
+  <li>${meta.bookTitle}, by ${meta.author} (Classic Books for All edition), Chapter ${meta.chapterNum}, for each student.</li>
+  <li>Classic Books for All ${meta.bookTitle} Student Workbook.</li>
+  <li>Chart paper or whiteboard for class discussions.</li>
+  <li>Sticky notes for exit tickets.</li>
+  <li>Pencils, crayons/markers for graphic organizers.</li>
+</ul>`;
+}
+
 export async function generateTeacherGuide(
   meta: ChapterMeta,
   studentWorkbookHtml: string,
@@ -53,7 +64,9 @@ export async function generateTeacherGuide(
       : null;
 
     let bodyHtml: string;
-    if (section.body_source === "manual") {
+    if (section.key === "materials_needed") {
+      bodyHtml = buildMaterialsNeededHtml(meta);
+    } else if (section.body_source === "manual") {
       bodyHtml = buildManualSlot(section.display_title);
     } else {
       const promptInputs = {

@@ -153,7 +153,7 @@ export const TEACHER_GUIDE_SECTIONS: TeacherGuideSectionSchemaEntry[] = [
     key: "materials_needed",
     display_title: "Materials Needed",
     standing_subheader: null,
-    body_source: "llm",
+    body_source: "manual",
     required: true,
     tip_slots: 0,
   },
