@@ -11,14 +11,8 @@ export function teacherSectionRequirementByKey(key: string, grade?: GradeLevel):
   const gradeLevel = (grade ?? 4) as GradeLevel;
   switch (key) {
     case "lesson_overview":
-      return `Write a Lesson Overview block with these elements in order:
-1. A short paragraph naming the chapter (use the chapter label given) and stating the lesson is designed for one ~60-minute period.
-2. A "Learning Goals" sentence (one sentence) summarizing what students will be able to do by the end.
-3. An inline tip callout using exactly this HTML pattern:
-   <div class="tg-tip"><strong>Pacing tip:</strong> ...</div>
-   The tip should give a concrete pacing/timing suggestion for a 60-minute period.
-
-Do not list standards or objectives here — those are separate sections.`;
+      return `Output ONLY this exact tip line and no other prose, paragraph, goals, or pacing breakdown:
+<p><em>Tip: This lesson is designed to fit within a 60-minute instructional period. It may be split into two 30-minute sessions if needed.</em></p>`;
 
     case "measurable_objectives":
       return `Output 5–6 measurable "SWBAT" (Students Will Be Able To) bullets as an unordered list.
@@ -33,7 +27,7 @@ Output exactly one <ul> with 5–6 <li> children. No headings, no extra prose.`;
     case "standards": {
       const standardsBlock = formatStandardsForPrompt(gradeLevel);
       return `Output a single HTML <table class="tg-standards-table"> with this exact thead:
-<thead><tr><th>Standard</th><th>Description</th><th>Workbook Section(s)</th></tr></thead>
+<thead><tr><th>Standard</th><th>Description</th><th>Lesson Section(s)</th></tr></thead>
 Then a <tbody> with one row per standard the chapter actually addresses.
 Group rows in this strand order (do NOT include strand labels in rows themselves; group by inserting a <tr class="tg-strand-header"><td colspan="3">Reading Literature</td></tr> style row before each strand's rows): Reading Literature, Reading Informational Text, Writing, Language, Speaking and Listening. Skip any strand with no applicable standards.
 
@@ -42,14 +36,23 @@ Pick at least one standard from Reading Literature OR Reading Informational, plu
 For each row:
 - Standard column: the exact code from the block below (e.g. RL.${gradeLevel}.3). Never invent codes.
 - Description column: the official text from the block (you may shorten only by trimming trailing examples in parentheses).
-- Workbook Section(s) column: a comma-separated list of the workbook section names this standard maps to (e.g. "Think About the Story, Reading Between the Lines").
+- Lesson Section(s) column: a comma-separated list of the workbook section names this standard maps to (e.g. "Think About the Story, Reading Between the Lines").
 
 Available standards (use ONLY these — do not invent codes):
 ${standardsBlock}`;
     }
 
     case "materials_needed":
-      return `Output a single <ul> listing the physical/printable materials a teacher needs to run this lesson. Include at minimum: the chapter pages from the book, the Student Workbook for this chapter, pencils, and any anchor/wall material implied by the workbook (word wall, chart paper, etc.). 4–7 items. No headings.`;
+      return `Output exactly this heading and bullet list in this exact order with no extra items or rewording:
+<p>Materials needed</p>
+<ul>
+  <li>[book title], by [author] (Classic Books for All edition), Chapter [chapter number], for each student.</li>
+  <li>Classic Books for All [book title] Student Workbook.</li>
+  <li>Chart paper or whiteboard for class discussions.</li>
+  <li>Sticky notes for exit tickets.</li>
+  <li>Pencils, crayons/markers for graphic organizers.</li>
+</ul>
+Replace placeholders with chapter metadata values.`;
 
     case "get_ready_to_read":
       return `Generate a Get Ready to Read teacher block with these three elements in order:

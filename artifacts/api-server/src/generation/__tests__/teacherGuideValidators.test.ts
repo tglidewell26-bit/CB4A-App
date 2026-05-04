@@ -24,13 +24,13 @@ function section(key: string, bodyHtml: string): GeneratedSection {
 }
 
 describe("validateTeacherGuideSectionStructure", () => {
-  it("lesson_overview requires an inline tip callout", () => {
+  it("lesson_overview requires exact required tip text only", () => {
     expect(() =>
       validateTeacherGuideSectionStructure(section("lesson_overview", "<p>overview</p>"), meta),
-    ).toThrow(/tg-tip/);
+    ).toThrow(/exact required lesson tip text/);
     expect(() =>
       validateTeacherGuideSectionStructure(
-        section("lesson_overview", '<p>overview</p><div class="tg-tip">tip</div>'),
+        section("lesson_overview", "<p><em>Tip: This lesson is designed to fit within a 60-minute instructional period. It may be split into two 30-minute sessions if needed.</em></p>"),
         meta,
       ),
     ).not.toThrow();
@@ -60,7 +60,7 @@ describe("validateTeacherGuideSectionStructure", () => {
   });
 
   it("standards requires the table class, headers, and one row per required strand", () => {
-    const good = `<table class="tg-standards-table"><thead><tr><th>Standard</th><th>Description</th><th>Workbook Section(s)</th></tr></thead><tbody><tr><td>RL.4.1</td><td>x</td><td>y</td></tr><tr><td>W.4.1</td><td>x</td><td>y</td></tr><tr><td>L.4.4</td><td>x</td><td>y</td></tr><tr><td>SL.4.1</td><td>x</td><td>y</td></tr></tbody></table>`;
+    const good = `<table class="tg-standards-table"><thead><tr><th>Standard</th><th>Description</th><th>Lesson Section(s)</th></tr></thead><tbody><tr><td>RL.4.1</td><td>x</td><td>y</td></tr><tr><td>W.4.1</td><td>x</td><td>y</td></tr><tr><td>L.4.4</td><td>x</td><td>y</td></tr><tr><td>SL.4.1</td><td>x</td><td>y</td></tr></tbody></table>`;
     expect(() => validateTeacherGuideSectionStructure(section("standards", good), meta)).not.toThrow();
     expect(() =>
       validateTeacherGuideSectionStructure(section("standards", "<p>nope</p>"), meta),
