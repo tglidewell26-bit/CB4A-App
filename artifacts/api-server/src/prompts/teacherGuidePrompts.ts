@@ -1,279 +1,331 @@
-import { QUESTION_TYPE_TAGS } from "../generation/sectionSchema.js";
+/**
+ * Teacher Guide prompts — every prompt asks Claude to return ONLY a JSON
+ * object matching the corresponding interface in teacherGuideTypes.ts.
+ * No HTML, no headings, no class names. TypeScript renderers handle every
+ * structural decision.
+ */
+
 import { gradeGuidanceFor } from "./gradeGuidance.js";
 import type { VocabularyWord } from "../vocabulary/types.js";
 import { formatStandardsForPrompt } from "../standards/index.js";
 import type { GradeLevel } from "../standards/types.js";
-import type { GeneratedSection } from "../generation/templateRenderers.js";
 
-const QUESTION_TYPE_LABELS = QUESTION_TYPE_TAGS.map((t) => `- ${t}`).join("\n");
+const QUESTION_TYPES = [
+  "comprehension",
+  "inference",
+  "analysis",
+  "evaluation",
+  "vocabulary and inference",
+] as const;
 
 export function teacherSectionRequirementByKey(key: string, grade?: GradeLevel): string {
   const gradeLevel = (grade ?? 4) as GradeLevel;
   switch (key) {
-    case "lesson_overview":
-      return `Output ONLY this exact tip line and no other prose, paragraph, goals, or pacing breakdown:
-<p><em>Tip: This lesson is designed to fit within a 60-minute instructional period. It may be split into two 30-minute sessions if needed.</em></p>`;
-
     case "measurable_objectives":
-      return `Output 5–6 measurable "SWBAT" (Students Will Be Able To) bullets as an unordered list.
-Each bullet must:
-- Begin with "Students will be able to" and a measurable verb (identify, explain, compare, describe, infer, analyze, evaluate, write, etc.).
-- End with the relevant ELA standard code in parentheses, e.g. (RL.${gradeLevel}.1).
-- Use only standard codes for grade ${gradeLevel} from the Standards block below.
-- Be grade-appropriate in cognitive demand for grade ${gradeLevel}.
+      return `Return a JSON object with this exact shape and nothing else:
 
-Output exactly one <ul> with 5–6 <li> children. No headings, no extra prose.`;
+{
+  "objectives": [
+    { "text": "identify the main character and their motivation", "standardCode": "RL.${gradeLevel}.3" },
+    { "text": "describe the chapter's setting using text evidence", "standardCode": "RL.${gradeLevel}.1" }
+  ]
+}
+
+Rules:
+- Output 5–6 objective items.
+- Each "text" is the verb phrase that follows "Students will be able to". Do NOT prefix it with "Students will be able to" yourself.
+- Each "text" begins with a measurable verb (identify, describe, explain, compare, infer, analyze, evaluate, write, etc.).
+- Each "standardCode" must be an exact code for grade ${gradeLevel} from the standards block. Never invent codes.
+- The standardCode is the bare code (e.g. "RL.${gradeLevel}.1"), no parentheses, no extra text.
+
+Return ONLY the JSON object. No markdown fences, no commentary.`;
 
     case "standards": {
       const standardsBlock = formatStandardsForPrompt(gradeLevel);
-      return `Output a single HTML <table class="tg-standards-table"> with this exact thead:
-<thead><tr><th>Standard</th><th>Description</th><th>Lesson Section(s)</th></tr></thead>
-Then a <tbody> with one row per standard the chapter actually addresses.
-Group rows in this strand order (do NOT include strand labels in rows themselves; group by inserting a <tr class="tg-strand-header"><td colspan="3">Reading Literature</td></tr> style row before each strand's rows): Reading Literature, Reading Informational Text, Writing, Language, Speaking and Listening. Skip any strand with no applicable standards.
+      return `Return a JSON object with this exact shape and nothing else:
 
-Pick at least one standard from Reading Literature OR Reading Informational, plus at least one Writing standard, plus at least one Language standard (vocabulary mini-lesson maps here), plus at least one Speaking and Listening standard (discussion maps here).
+{
+  "standards": [
+    { "code": "RL.${gradeLevel}.1", "lessonSections": ["Think About the Story", "Reading Between the Lines"] },
+    { "code": "W.${gradeLevel}.3", "lessonSections": ["Creative Response"] }
+  ]
+}
 
-For each row:
-- Standard column: the exact code from the block below (e.g. RL.${gradeLevel}.3). Never invent codes.
-- Description column: the official text from the block (you may shorten only by trimming trailing examples in parentheses).
-- Lesson Section(s) column: a comma-separated list of the workbook section names this standard maps to (e.g. "Think About the Story, Reading Between the Lines").
+Rules:
+- Pick the standards this chapter actually addresses. Coverage must include at least:
+  - one Reading standard (RL.${gradeLevel}.* or RI.${gradeLevel}.*)
+  - one Writing standard (W.${gradeLevel}.*)
+  - one Language standard (L.${gradeLevel}.*) — vocabulary mini-lesson maps here
+  - one Speaking and Listening standard (SL.${gradeLevel}.*) — discussion maps here
+- Each "code" must be an exact grade-${gradeLevel} code from the standards block below. Do NOT invent codes.
+- Each "lessonSections" is an array of student workbook section names this standard maps to (e.g. "Think About the Story", "Words to Know", "Creative Response").
+- Standard descriptions are filled in from a code lookup table — do NOT include description text.
 
 Available standards (use ONLY these — do not invent codes):
-${standardsBlock}`;
+${standardsBlock}
+
+Return ONLY the JSON object. No markdown fences, no commentary.`;
     }
 
     case "get_ready_to_read":
-      return `Generate a Get Ready to Read teacher block with these three elements in order:
-1. A "Quick-write prompt" labeled clearly. Use this exact pattern:
-   <p><strong>Quick-write prompt:</strong> "..."</p>
-   The prompt is a single short question students respond to in writing. It must connect to a theme or situation in this specific chapter without spoiling plot.
-2. An ordered list of implementation steps. Use this exact pattern:
-   <ol class="tg-impl-steps"><li>Display the prompt and read it aloud.</li><li>Give students 3–5 minutes to write...</li>...</ol>
-   Include 4–5 steps covering: display, write time, share with partner, share whole-class, connect to today's chapter.
-3. An inline tip callout:
-   <div class="tg-tip"><strong>Connection tip:</strong> ...</div>
-   The tip explains why this warm-up activates schema for what students will read.`;
+      return `Return a JSON object with this exact shape and nothing else:
+
+{
+  "quickWritePrompt": "Have you ever moved to a new place where you didn't know anyone? What did that feel like?",
+  "implementationSteps": [
+    "Display the prompt and read it aloud.",
+    "Give students 3–5 minutes to write quietly.",
+    "Have students share with an elbow partner.",
+    "Invite 2–3 students to share with the whole class.",
+    "Connect responses to today's chapter."
+  ],
+  "connectionTip": "This warm-up activates students' background knowledge about change and unfamiliar settings, preparing them for the chapter's themes."
+}
+
+Rules:
+- "quickWritePrompt": ONE short open-ended question students respond to in writing. Connect to a theme or situation in this chapter without spoiling plot. No quote marks inside the string.
+- "implementationSteps": 4–5 short steps covering display, write time, partner share, whole-class share, connection to chapter.
+- "connectionTip": one sentence explaining why this warm-up activates schema for the chapter.
+
+Return ONLY the JSON object. No markdown fences, no commentary.`;
 
     case "words_to_know_mini_lesson":
-      return `Output exactly three labeled sub-blocks, in this order, each as its own <div>:
+      return `Return a JSON object with this exact shape and nothing else:
 
-<div class="tg-subblock"><h3>Activities</h3>
-  <p>Introduce vocabulary by previewing each word in the context of the chapter. Walk through this worked example for ONE of this chapter's vocab words:</p>
-  <ul>
-    <li>Word: <em>{{vocab_word}}</em></li>
-    <li>Quote from chapter (with page): "..."</li>
-    <li>Context-clue strategy: ...</li>
-    <li>Student-friendly definition: ...</li>
-  </ul>
-</div>
+{
+  "workedWord": "scrambled",
+  "workedQuote": "She scrambled up the steep mountain path.",
+  "workedPage": 7,
+  "contextClueStrategy": "Look at the verbs around the word — 'climbing' and 'pulling herself up' suggest a quick, hurried movement using hands and feet.",
+  "studentDefinition": "moved quickly and clumsily, using hands and feet",
+  "vocabularyTip": "Have students act out the word as a quick gesture before writing the definition — physicalizing the meaning helps it stick."
+}
 
-<div class="tg-subblock"><h3>Partner Practice</h3>
-  <p>Pair students. Have them locate each remaining word in the chapter and discuss meaning using a sentence frame such as: "I think <em>[word]</em> means ___ because the text says ___."</p>
-</div>
+Rules:
+- "workedWord": ONE real word from the provided vocabulary list.
+- "workedQuote": a real, verbatim quote from the chapter that contains the worked word.
+- "workedPage": the page number where the quote appears.
+- "contextClueStrategy": describe how a student would use surrounding text to figure out the meaning.
+- "studentDefinition": short, kid-friendly definition.
+- "vocabularyTip": short pedagogical extension idea (morphology, figurative-language tie-in, scaffolding for stronger or weaker readers).
 
-<div class="tg-subblock"><h3>Quick Check</h3>
-  <ol>
-    <li>Call on 2–3 pairs to share their definitions.</li>
-    <li>Confirm or correct using the official definition.</li>
-    <li>Add the word to the classroom word wall.</li>
-  </ol>
-</div>
-
-After the three sub-blocks, append one inline tip callout:
-<div class="tg-tip"><strong>Vocabulary tip:</strong> ...</div>
-The tip should give a short pedagogical extension idea (e.g. word-relationship work, morphology, figurative-language tie-in) that scales the vocabulary lesson for stronger or weaker readers.
-
-Replace {{vocab_word}} with one real word from the vocabulary list provided. Use a real quote from the chapter text. Do NOT add other top-level headings; ONLY emit the three sub-blocks above plus the tip callout.`;
+Return ONLY the JSON object. No markdown fences, no commentary.`;
 
     case "guided_reading":
-      return `Split the chapter into 3–4 numbered Guided Reading sections that cover the chapter's full page range in order. Use this exact pattern for each section:
+      return `Return a JSON object with this exact shape and nothing else:
 
-<div class="tg-gr-section">
-  <h3>Section [N]: pages [start]–[end]</h3>
-  <p><em>Read from "[opening phrase from this segment]" through "[closing phrase from this segment]".</em></p>
-  <p><strong>Pause-point questions:</strong></p>
-  <ol class="tg-pause-points">
-    <li>Question text. [question-type: comprehension]</li>
-    <li>Question text. [question-type: inference]</li>
-  </ol>
-</div>
+{
+  "sections": [
+    {
+      "pageStart": 4,
+      "pageEnd": 6,
+      "openingPhrase": "It was a bright June morning",
+      "closingPhrase": "Heidi stood at the top of the path",
+      "questions": [
+        { "text": "Who is Heidi traveling with at the start of the chapter?", "questionType": "comprehension" },
+        { "text": "What clues suggest that Heidi feels excited rather than afraid?", "questionType": "inference" }
+      ]
+    }
+  ],
+  "readAloudTip": "Pause at the closing phrase of each section to let students summarize before moving on."
+}
 
 Rules:
-- Section page ranges together must cover the full chapter page span given in the metadata. They must not overlap and must be in order.
-- Each section must have 2–4 pause-point questions.
-- Every pause-point question must end with a [question-type: LABEL] tag using EXACTLY one of these labels (do not modify or combine):
-${QUESTION_TYPE_LABELS}
-- Vary the question types across the sections — do not use the same label every time.
-- Opening/closing phrases must come from the actual chapter text supplied below.
+- Split the chapter into 3–4 sections that together COVER THE FULL CHAPTER PAGE RANGE in order. No overlapping ranges.
+- Each section has 2–4 pause-point questions.
+- Each "questionType" must be EXACTLY one of: ${QUESTION_TYPES.map((t) => `"${t}"`).join(", ")}.
+- Vary question types across sections — do not use the same type every time.
+- "openingPhrase" and "closingPhrase" must come VERBATIM from the actual chapter text.
+- "readAloudTip": one sentence of pedagogical advice for reading these sections aloud.
 
-After all numbered sections, append one inline tip callout:
-<div class="tg-tip"><strong>Read-aloud tip:</strong> ...</div>`;
+Return ONLY the JSON object. No markdown fences, no commentary.`;
 
     case "think_about_the_story_answers":
-      return `For each "Think About the Story" question in the Student Workbook (look for <div class="question"> elements inside the Think About the Story section), restate the question and provide the teacher answer.
+      return `For each "Think About the Story" question in the Student Workbook (provided in the workbook context), provide the teacher-facing answer.
 
-Use this exact pattern for each:
-<div class="tg-answer">
-  <p><strong>Q:</strong> [restated question]</p>
-  <p><strong>A:</strong> [literal answer in 1–2 sentences] (p. [page]).</p>
-</div>
+Return a JSON object with this exact shape and nothing else:
 
-After ALL Think About the Story answers, append a single inferential-thinking sub-block linearized into the flow:
-<div class="tg-subblock tg-inferential">
-  <h3>Inferential Thinking — deeper follow-ups</h3>
-  <ol>
-    <li>Deeper teacher prompt 1.</li>
-    <li>Deeper teacher prompt 2.</li>
-    <li>Deeper teacher prompt 3.</li>
-  </ol>
-</div>
-
-Generate 2–3 inferential follow-up prompts that push beyond literal recall. Do NOT skip the inferential block.`;
-
-    case "answer_key":
-      return `Output a teacher answer key for the remaining workbook sections. Emit each as its own labeled subblock in this order:
-
-<div class="tg-subblock"><h3>Reading Between the Lines — Answers</h3>
-  <ol>
-    <li><strong>Q:</strong> ...<br/><strong>A:</strong> ... (p. ...).</li>
-    ...
-  </ol>
-</div>
-
-<div class="tg-subblock"><h3>Dig Deeper — Answers</h3>
-  <ol>
-    <li><strong>Q:</strong> ...<br/><strong>A:</strong> ... (p. ...).</li>
-    ...
-  </ol>
-</div>
-
-<div class="tg-subblock"><h3>Multiple Choice — Answers</h3>
-  <ol>
-    <li><strong>Correct: [A/B/C/D]</strong> — one-line rationale citing the text.</li>
-    ...
-  </ol>
-</div>
-
-<div class="tg-subblock"><h3>Evidence from the Story — Sample Answers</h3>
-  <ol>
-    <li>Sample student answer with quote and page citation.</li>
-    ...
-  </ol>
-</div>
-
-<div class="tg-subblock"><h3>Character Chart — Answer Key</h3>
-  <table class="tg-character-key">
-    <thead><tr><th>Character</th><th>Description / Actions</th><th>What This Shows</th><th>Evidence (quote + page)</th></tr></thead>
-    <tbody>
-      <tr><td>...</td><td>...</td><td>...</td><td>"..." (p. ...)</td></tr>
-    </tbody>
-  </table>
-</div>
-
-<div class="tg-subblock"><h3>Draw It! — Suggested Details</h3>
-  <ul>
-    <li>Visual element 1 grounded in the chapter.</li>
-    <li>Visual element 2 grounded in the chapter.</li>
-    <li>Visual element 3 grounded in the chapter.</li>
-  </ul>
-</div>
-
-Use the actual workbook questions provided. Cite real page numbers from the chapter's page range. Do not invent characters not present in the chapter text.`;
-
-    case "differentiated_supports":
-      return `Output exactly three labeled groups, in this order, each as its own subblock. Within each group, split into Before / During / After reading bullets.
-
-<div class="tg-subblock tg-supports"><h3>Struggling Readers</h3>
-  <p><strong>Before reading:</strong></p>
-  <ul><li>...</li><li>...</li></ul>
-  <p><strong>During reading:</strong></p>
-  <ul><li>...</li><li>...</li></ul>
-  <p><strong>After reading:</strong></p>
-  <ul><li>...</li><li>...</li></ul>
-</div>
-
-<div class="tg-subblock tg-supports"><h3>English Language Learners</h3>
-  <p><strong>Before reading:</strong></p>
-  <ul><li>...</li><li>...</li></ul>
-  <p><strong>During reading:</strong></p>
-  <ul><li>...</li><li>...</li></ul>
-  <p><strong>After reading:</strong></p>
-  <ul><li>...</li><li>...</li></ul>
-</div>
-
-<div class="tg-subblock tg-supports"><h3>Advanced Students</h3>
-  <p><strong>Before reading:</strong></p>
-  <ul><li>...</li><li>...</li></ul>
-  <p><strong>During reading:</strong></p>
-  <ul><li>...</li><li>...</li></ul>
-  <p><strong>After reading:</strong></p>
-  <ul><li>...</li><li>...</li></ul>
-</div>
-
-Each phase must contain at least 2 bullets. Bullets must reference this specific chapter (its vocabulary, characters, or events) — not generic strategies.`;
-
-    case "common_student_questions":
-      return `Generate 5–8 question/answer pairs that students are likely to ask while reading THIS chapter. Each Q is short and student-voiced; each A is teacher-facing and 1–3 sentences with a page citation when applicable.
-
-Use this exact pattern:
-<ol class="tg-csq">
-  <li>
-    <p><strong>Q:</strong> ...</p>
-    <p><strong>A:</strong> ... (p. ...)</p>
-  </li>
-  ...
-</ol>`;
-
-    case "creative_response_common_errors":
-      return `Output only the Creative Response "Common errors" structure in this exact order.
-Do NOT generate weak examples. Do NOT generate how-to-fix guidance.
-
-Emit this exact HTML shape:
-<div class="tg-common-errors">
-  <h4>No Specific Details From The Chapter</h4>
-  <p>...</p>
-  <h4>Breaking Character</h4>
-  <p>...</p>
-  <h4>Retelling The Whole Chapter Instead of Focusing on [character's name] Experience</h4>
-  <p>...</p>
-  <h4>No Evidence From the Text</h4>
-  <p>...</p>
-  <h4>Modern Language That Doesn't Fit The Story.</h4>
-  <p>...</p>
-</div>
+{
+  "answers": [
+    { "question": "Who is taking Heidi up the mountain?", "answer": "Her aunt Deta is taking her to live with her grandfather.", "page": 4 }
+  ],
+  "inferentialPrompts": [
+    "What does Heidi's behavior on the climb suggest about her personality?",
+    "Why might Deta be eager to leave Heidi with Grandfather?"
+  ],
+  "tieredDiscussion": {
+    "literal": ["Where does Grandfather live?", "What does Peter do for work?"],
+    "inference": ["What does Grandfather's reputation suggest about how the village treats him?", "Why might Heidi feel free on the mountain?"],
+    "analysis": ["How does the contrast between Deta and Heidi reveal each character?"],
+    "evaluation": ["Was Deta right to leave Heidi with Grandfather? Defend your answer with text evidence."]
+  },
+  "analyticalThinking": [
+    "How does the author use the mountain setting to reveal Heidi's personality?",
+    "What does the chapter suggest about reputation versus reality?"
+  ],
+  "personalConnection": [
+    "Have you ever been judged before someone got to know you? How did that feel?",
+    "Describe a place where you feel completely free, like Heidi does on the mountain."
+  ]
+}
 
 Rules:
-- Keep all five headings exactly as written above and in that order.
-- Include exactly one short paragraph after each heading.
-- Replace [character's name] with the chapter's main character name.
-- No additional headings, bullets, labels, or sections.`;
+- "answers": one entry per question in the workbook's Think About the Story section, IN ORDER. Restate the question exactly as it appears in the workbook. Each answer is 1–2 sentences with a page citation.
+- "inferentialPrompts": 2–3 deeper teacher follow-up prompts that push beyond literal recall.
+- "tieredDiscussion": 1–3 prompts at each cognitive tier (literal, inference, analysis, evaluation).
+- "analyticalThinking": 2–3 higher-order prompts focused on author's craft, theme, or symbolism.
+- "personalConnection": 2–3 prompts that link the chapter's themes to students' own lives.
+
+Return ONLY the JSON object. No markdown fences, no commentary.`;
+
+    case "answer_key":
+      return `Provide a teacher answer key for the workbook sections supplied in the workbook context. The questions are already written — your job is to ANSWER them, in order, using the chapter text.
+
+Return a JSON object with this exact shape and nothing else:
+
+{
+  "readingBetweenTheLines": [
+    { "question": "<workbook question, restated exactly>", "answer": "<1–2 sentence teacher answer>", "page": 5 }
+  ],
+  "digDeeper": [
+    { "question": "<workbook question, restated exactly>", "answer": "<2–4 sentence teacher answer>", "page": 7 }
+  ],
+  "multipleChoice": [
+    { "question": "<workbook question, restated exactly>", "correctLetter": "B", "rationale": "Page 6 says exactly..." }
+  ],
+  "evidenceFromTheStory": [
+    { "question": "<workbook question, restated exactly>", "sampleAnswer": "<sample student answer>", "quote": "<exact quote from chapter>", "page": 8 }
+  ],
+  "characterChart": [
+    { "characterName": "Heidi", "description": "Curious and energetic; runs ahead on the climb.", "whatThisShows": "She adapts quickly to new situations.", "quote": "She scrambled up the steep path", "page": 5 }
+  ],
+  "drawItDetails": [
+    "Heidi's simple dress visible after she removes her layers",
+    "The steep mountain path with goats nearby",
+    "Grandfather's hut at the top with the dark fir trees behind it"
+  ]
+}
+
+Rules:
+- "readingBetweenTheLines", "digDeeper", "multipleChoice", "evidenceFromTheStory": one entry per question in the workbook context, IN ORDER. Restate each question EXACTLY as it appears in the workbook.
+- "multipleChoice.correctLetter" must be EXACTLY one of: "A", "B", "C", "D".
+- "characterChart": one entry per character row in the workbook's character chart. Use real characters from THIS chapter.
+- "drawItDetails": 3–5 concrete visual elements students should consider including, grounded in the chapter.
+- All page numbers must come from this chapter's actual page range.
+
+Return ONLY the JSON object. No markdown fences, no commentary.`;
+
+    case "differentiated_supports":
+      return `Return a JSON object with this exact shape and nothing else:
+
+{
+  "strugglingReaders": {
+    "before": ["Pre-teach 2–3 challenging vocabulary words.", "Show a quick image gallery of mountain settings to build context."],
+    "during": ["Read the first paragraph aloud together.", "Have students mark unknown words with a question mark."],
+    "after": ["Pair students to summarize each page in one sentence.", "Use the Words to Know table for guided definition writing."]
+  },
+  "englishLanguageLearners": {
+    "before": ["Provide a translated glossary of the chapter's key vocabulary."],
+    "during": ["Use a sentence frame: 'I think Heidi feels ___ because ___.'"],
+    "after": ["Allow students to draw their answer to a comprehension question before writing it."]
+  },
+  "advancedStudents": {
+    "before": ["Pose an open question: 'What might cause an adult to send a child away?'"],
+    "during": ["Track each character's emotional shifts in a notebook."],
+    "after": ["Compare this opening chapter to the opening of another classic novel they've read."]
+  }
+}
+
+Rules:
+- All three groups required: "strugglingReaders", "englishLanguageLearners", "advancedStudents".
+- Each group has "before", "during", "after" arrays with at least 2 strategies each.
+- Strategies must reference THIS specific chapter — its vocabulary, characters, or events. No generic strategies.
+
+Return ONLY the JSON object. No markdown fences, no commentary.`;
+
+    case "common_student_questions":
+      return `Return a JSON object with this exact shape and nothing else:
+
+{
+  "questions": [
+    { "studentQ": "Why doesn't Heidi want to wear all those clothes?", "teacherA": "Heidi removes the heavy clothes because she finds them hot and uncomfortable on the climb.", "page": 5 },
+    { "studentQ": "Why is everyone afraid of Grandfather?", "teacherA": "The villagers gossip about him because he lives alone on the mountain and rarely speaks to people. The chapter doesn't confirm whether the gossip is fair.", "page": 6 }
+  ]
+}
+
+Rules:
+- 5–8 question/answer pairs that students are LIKELY to ask while reading THIS chapter.
+- "studentQ": short, student-voiced.
+- "teacherA": teacher-facing, 1–3 sentences.
+- "page" is optional; include it whenever the answer points to a specific page.
+
+Return ONLY the JSON object. No markdown fences, no commentary.`;
+
+    case "creative_response_common_errors":
+      return `Return a JSON object with this exact shape and nothing else:
+
+{
+  "characterName": "Heidi",
+  "errors": {
+    "noSpecificDetails": {
+      "paragraph": "Students often write generic letters that could describe any character. Without details from the chapter, the response feels disconnected from the source material.",
+      "weakExample": "I am writing to tell you about my new home. It is very nice here. I like it a lot.",
+      "howToFix": "Coach students to name at least two specific details: a real character, a real setting, or a real event from the chapter."
+    },
+    "breakingCharacter": {
+      "paragraph": "Students sometimes drop the persona and write as themselves, breaking the immersion of the creative response.",
+      "weakExample": "Hi! My teacher said I had to write this letter as Heidi. So here it is. I think Heidi is kind.",
+      "howToFix": "Remind students to use 'I' and write everything from the character's perspective, never referring to themselves as a student."
+    },
+    "retelling": {
+      "paragraph": "Students retell the entire chapter rather than focusing on the character's inner experience and reflection.",
+      "weakExample": "First we left home. Then we walked up the mountain. Then I met Grandfather.",
+      "howToFix": "Ask students to focus on ONE moment and describe how the character FELT, not just what happened."
+    },
+    "noEvidence": {
+      "paragraph": "Students make claims about the character or events without grounding them in the actual text.",
+      "weakExample": "I love the mountain. It is the best place ever.",
+      "howToFix": "Have students underline 1–2 lines in the chapter and weave them into their response — even paraphrased."
+    },
+    "modernLanguage": {
+      "paragraph": "Students slip into present-day vocabulary and slang that doesn't fit the time period or setting of the story.",
+      "weakExample": "Grandfather's hut is super lit. The vibe is amazing.",
+      "howToFix": "Read 1–2 sentences from the chapter aloud and ask students to match that style and word choice in their writing."
+    }
+  }
+}
+
+Rules:
+- "characterName": the chapter's main character (used in the renderer's "Retelling" heading).
+- All five error keys are required, in this exact shape.
+- Each error has "paragraph" (1–2 sentences), "weakExample" (a concrete student response), "howToFix" (a teacher coaching tip).
+
+Return ONLY the JSON object. No markdown fences, no commentary.`;
 
     case "exit_ticket":
-      return `Output an exit ticket block with these elements in this order:
+      return `Return a JSON object with this exact shape and nothing else:
 
-<div class="tg-subblock"><h3>Prompt</h3>
-  <p>One short prompt students answer in 2–4 sentences.</p>
-</div>
+{
+  "prompt": "Predict what you think will happen between Heidi and Grandfather in the next chapter. Use 'because' and at least one detail from this chapter to support your prediction.",
+  "successCriteria": [
+    "Names a specific prediction (not just 'something will happen').",
+    "Uses the word 'because' to connect the prediction to text evidence.",
+    "References at least one detail from this chapter."
+  ],
+  "strongExample": "I predict Grandfather will start to like Heidi because at the end of this chapter he gave her a stool to sit on, which shows he is starting to make room for her in his home.",
+  "developingExample": "I think Heidi and Grandfather will get along because he seems okay."
+}
 
-<div class="tg-subblock"><h3>Success Criteria</h3>
-  <ul>
-    <li>Criterion 1 (concrete, observable).</li>
-    <li>Criterion 2.</li>
-    <li>Criterion 3.</li>
-  </ul>
-</div>
+Rules:
+- "prompt": MUST ask students to PREDICT what will happen in the NEXT chapter, justified with "because" + text evidence from THIS chapter. This is a prediction prompt, NOT a character-analysis prompt.
+- "successCriteria": EXACTLY 3 concrete observable criteria.
+- "strongExample": a model student response that demonstrates all success criteria.
+- "developingExample": a weaker student response that shows partial mastery.
 
-<div class="tg-subblock"><h3>Example Responses</h3>
-  <ol>
-    <li>Strong example response in 2–3 sentences.</li>
-    <li>Adequate example response in 2–3 sentences.</li>
-  </ol>
-</div>
-
-The prompt must connect to a key idea or character moment from THIS chapter. Success criteria are 3 items; example responses are 1–2 items.`;
+Return ONLY the JSON object. No markdown fences, no commentary.`;
 
     default:
-      return "Generate body HTML for this teacher section using chapter text and workbook as source of truth.";
+      return "Return a JSON object for this section.";
   }
 }
 
@@ -286,10 +338,8 @@ export interface TeacherGuidePromptInputs {
   grade: number;
   vocabulary: VocabularyWord[];
   sectionDisplayTitle: string;
-  standingSubheader: string | null;
   workbookContext: Record<string, string>;
   chapterText: string;
-  priorSections: GeneratedSection[];
 }
 
 function serializeVocabulary(vocabulary: VocabularyWord[]): string {
@@ -298,26 +348,12 @@ function serializeVocabulary(vocabulary: VocabularyWord[]): string {
     .join("\n");
 }
 
-function priorSectionsDigest(priorSections: GeneratedSection[]): string {
-  if (priorSections.length === 0) return "(none — this is the first section)";
-  return priorSections
-    .map(
-      (s) =>
-        `--- prior teacher section: ${s.key} (${s.displayTitle}) ---\n${s.bodyHtml}`,
-    )
-    .join("\n\n");
-}
-
 export function buildTeacherSectionSystemPrompt(input: TeacherGuidePromptInputs): string {
-  return `You are creating one section body for a CB4A Teacher Guide as HTML.
+  return `You are generating ONE section of a CB4A Teacher Guide.
 
-Output ONLY the section body HTML.
-- Do NOT wrap your output in a <div class="tg-section"> or any outer section wrapper.
-- Do NOT emit the section title (h1/h2) or the standing subheader text.
-- Do NOT use a two-column layout, sidebars, margin callouts, page headers, or page footers.
-- Do NOT use emojis.
-- Output is single-column, top-to-bottom, copy-paste ready. Tip callouts are inline <div class="tg-tip"> blocks INSIDE the section flow, never floating margins.
-- When you need to reference workbook questions, character names, vocabulary, or page numbers, pull them from the inputs below — never invent.
+Your output is consumed by a TypeScript program that renders the final HTML. You must return ONLY a JSON object matching the shape described in the section-specific requirements below. Do NOT return HTML. Do NOT return markdown fences. Do NOT return commentary.
+
+When the requirements reference workbook questions, character names, vocabulary, or page numbers, pull them from the inputs below — never invent.
 
 Grade calibration (apply to vocabulary depth, sentence complexity, and cognitive demand): ${gradeGuidanceFor(input.grade)}
 
@@ -344,14 +380,10 @@ Grade: ${input.grade}
 Vocabulary words for this chapter:
 ${serializeVocabulary(input.vocabulary)}
 
-Section title (for your context only, DO NOT output): ${input.sectionDisplayTitle}
-Standing subheader (for your context only, DO NOT output): ${input.standingSubheader ?? "None"}
+Section title (for your context only, DO NOT echo): ${input.sectionDisplayTitle}
 
 Workbook context (only the slices relevant for this section):
 ${workbookContextBlock}
-
-Previously generated Teacher Guide sections (for cohesion — reference codes/objectives/vocab from these instead of restating):
-${priorSectionsDigest(input.priorSections)}
 
 Chapter text:
 ${input.chapterText}`;

@@ -4,26 +4,42 @@ import {
   buildTeacherSectionUserPrompt,
 } from "../prompts/teacherGuidePrompts.js";
 import type { VocabularyWord } from "../vocabulary/types.js";
-import {
-  applyStandingSubstitutions,
-  enforceSingleSentenceItems,
-  sanitizeLlmBodyHtml,
-  sanitizeLogLine,
-} from "./htmlSanitizer.js";
 import { TEACHER_GUIDE_SECTIONS } from "./sectionSchema.js";
 import {
-  buildManualSlot,
+  parseAnswerKey,
+  parseCommonStudentQuestions,
+  parseCreativeResponseErrors,
+  parseDifferentiatedSupports,
+  parseExitTicket,
+  parseGetReadyToRead,
+  parseGuidedReading,
+  parseMeasurableObjectives,
+  parseStandards,
+  parseThinkAboutTheStoryAnswers,
+  parseWordsToKnowMiniLesson,
+} from "./teacherGuideJsonParsers.js";
+import {
+  renderAnswerKey,
+  renderCommonStudentQuestions,
+  renderCreativeResponseErrors,
+  renderDifferentiatedSupports,
+  renderExitTicket,
+  renderGetReadyToRead,
+  renderGuidedReading,
+  renderLessonOverview,
+  renderMaterialsNeeded,
+  renderMeasurableObjectives,
+  renderStandards,
+  renderThinkAboutTheStoryAnswers,
+  renderWordsToKnowMiniLesson,
+} from "./teacherGuideRenderers.js";
+import {
   getChapterLabel,
   renderTeacherGuideSection,
   truncateText,
   type ChapterMeta,
   type GeneratedSection,
 } from "./templateRenderers.js";
-import {
-  validateQuestionTypeTags,
-  validateSections,
-  validateTeacherGuideSectionStructure,
-} from "./workbookValidators.js";
 
 interface ParsedWorkbookSlices {
   thinkAboutTheStory: string;
@@ -50,6 +66,26 @@ function extractQuestionOnlySection(sectionHtml: string): string {
   return questions.length > 0 ? questions.join("\n") : sectionHtml;
 }
 
+/**
+ * Multiple choice questions are wrapped in:
+ *   <div class="mc-item">
+ *     <div class="question">...</div>
+ *     <ul class="mc-options"><li>A. ...</li>...</ul>
+ *   </div>
+ * The answer-key generator needs the FULL block (question + options) so Claude
+ * can name each letter's content. Match terminates on `</ul>\s*</div>` since
+ * every mc-item ends with the options list immediately followed by the outer
+ * closing div.
+ */
+export function extractMultipleChoiceItems(sectionHtml: string): string {
+  if (!sectionHtml) return "";
+  const items = [
+    ...sectionHtml.matchAll(/<div[^>]*class="[^"]*\bmc-item\b[^"]*"[^>]*>[\s\S]*?<\/ul>\s*<\/div>/g),
+  ].map((m) => m[0]);
+  if (items.length > 0) return items.join("\n");
+  return extractQuestionOnlySection(sectionHtml);
+}
+
 function parseWorkbookSlices(studentWorkbookHtml: string): ParsedWorkbookSlices {
   const wordsToKnow = extractWorkbookSection(studentWorkbookHtml, "words_to_know");
   const sectionNames = [...studentWorkbookHtml.matchAll(/<h2>([^<]+)<\/h2>/g)].map((m) => m[1].trim());
@@ -58,7 +94,7 @@ function parseWorkbookSlices(studentWorkbookHtml: string): ParsedWorkbookSlices 
     thinkAboutTheStory: extractQuestionOnlySection(extractWorkbookSection(studentWorkbookHtml, "think_about_the_story")),
     readingBetweenTheLines: extractQuestionOnlySection(extractWorkbookSection(studentWorkbookHtml, "reading_between_the_lines")),
     digDeeper: extractQuestionOnlySection(extractWorkbookSection(studentWorkbookHtml, "dig_deeper")),
-    multipleChoice: extractQuestionOnlySection(extractWorkbookSection(studentWorkbookHtml, "multiple_choice_questions")),
+    multipleChoice: extractMultipleChoiceItems(extractWorkbookSection(studentWorkbookHtml, "multiple_choice_questions")),
     evidenceFromTheStory: extractQuestionOnlySection(extractWorkbookSection(studentWorkbookHtml, "evidence_from_the_story")),
     characterChart: extractWorkbookSection(studentWorkbookHtml, "character_chart"),
     drawIt: extractWorkbookSection(studentWorkbookHtml, "draw_it"),
@@ -89,7 +125,7 @@ function workbookContextForTeacherSection(sectionKey: string, slices: ParsedWork
   }
 }
 
-async function generateLlmSectionBody(systemPrompt: string, userPrompt: string): Promise<string> {
+async function callClaudeForJson(systemPrompt: string, userPrompt: string): Promise<string> {
   const message = await anthropic.messages.create({
     model: CLAUDE_MODEL,
     max_tokens: 8192,
@@ -101,15 +137,76 @@ async function generateLlmSectionBody(systemPrompt: string, userPrompt: string):
   return block.type === "text" ? block.text.trim() : "";
 }
 
-function buildMaterialsNeededHtml(meta: ChapterMeta): string {
-  return `<p>Materials needed</p>
-<ul>
-  <li>${meta.bookTitle}, by ${meta.author} (Classic Books for All edition), Chapter ${meta.chapterNum}, for each student.</li>
-  <li>Classic Books for All ${meta.bookTitle} Student Workbook.</li>
-  <li>Chart paper or whiteboard for class discussions.</li>
-  <li>Sticky notes for exit tickets.</li>
-  <li>Pencils, crayons/markers for graphic organizers.</li>
-</ul>`;
+/**
+ * Render a single Teacher Guide section. For LLM sections this:
+ *   1. Builds the JSON-only prompt.
+ *   2. Calls Claude.
+ *   3. Parses the JSON into typed data (throws on malformed input).
+ *   4. Hands the typed data to the section's renderer to produce HTML.
+ *
+ * Pure-code sections (lesson_overview, materials_needed) skip Claude entirely.
+ */
+async function generateSectionBody(
+  sectionKey: string,
+  meta: ChapterMeta,
+  chapterText: string,
+  chapterLabel: string,
+  vocabulary: VocabularyWord[],
+  slices: ParsedWorkbookSlices,
+  sectionDisplayTitle: string,
+): Promise<string> {
+  if (sectionKey === "lesson_overview") {
+    return renderLessonOverview();
+  }
+  if (sectionKey === "materials_needed") {
+    return renderMaterialsNeeded(meta);
+  }
+
+  const promptInputs = {
+    sectionKey,
+    bookTitle: meta.bookTitle,
+    author: meta.author,
+    chapterLabel,
+    pages: meta.pages,
+    grade: meta.grade,
+    vocabulary,
+    sectionDisplayTitle,
+    workbookContext: workbookContextForTeacherSection(sectionKey, slices),
+    chapterText,
+  };
+  const systemPrompt = buildTeacherSectionSystemPrompt(promptInputs);
+  const userPrompt = buildTeacherSectionUserPrompt(promptInputs);
+  console.info(
+    `tg_prompt_size:${sectionKey}:system=${systemPrompt.length}:user=${userPrompt.length}:total=${systemPrompt.length + userPrompt.length}`,
+  );
+  const rawJson = await callClaudeForJson(systemPrompt, userPrompt);
+
+  switch (sectionKey) {
+    case "measurable_objectives":
+      return renderMeasurableObjectives(parseMeasurableObjectives(rawJson));
+    case "standards":
+      return renderStandards(parseStandards(rawJson));
+    case "get_ready_to_read":
+      return renderGetReadyToRead(parseGetReadyToRead(rawJson));
+    case "words_to_know_mini_lesson":
+      return renderWordsToKnowMiniLesson(parseWordsToKnowMiniLesson(rawJson));
+    case "guided_reading":
+      return renderGuidedReading(parseGuidedReading(rawJson));
+    case "think_about_the_story_answers":
+      return renderThinkAboutTheStoryAnswers(parseThinkAboutTheStoryAnswers(rawJson));
+    case "answer_key":
+      return renderAnswerKey(parseAnswerKey(rawJson));
+    case "differentiated_supports":
+      return renderDifferentiatedSupports(parseDifferentiatedSupports(rawJson));
+    case "common_student_questions":
+      return renderCommonStudentQuestions(parseCommonStudentQuestions(rawJson));
+    case "creative_response_common_errors":
+      return renderCreativeResponseErrors(parseCreativeResponseErrors(rawJson));
+    case "exit_ticket":
+      return renderExitTicket(parseExitTicket(rawJson));
+    default:
+      throw new Error(`Teacher Guide: no renderer registered for section "${sectionKey}".`);
+  }
 }
 
 export async function generateTeacherGuide(
@@ -124,62 +221,25 @@ export async function generateTeacherGuide(
   const generatedSections: GeneratedSection[] = [];
 
   for (const section of TEACHER_GUIDE_SECTIONS) {
-    const standingSubheader = section.standing_subheader
-      ? applyStandingSubstitutions(section.standing_subheader, meta.chapterNum)
-      : null;
+    const bodyHtml = await generateSectionBody(
+      section.key,
+      meta,
+      chapterText,
+      chapterLabel,
+      vocabulary,
+      workbookSlices,
+      section.display_title,
+    );
 
-    let bodyHtml: string;
-    if (section.key === "materials_needed") {
-      bodyHtml = buildMaterialsNeededHtml(meta);
-    } else if (section.body_source === "manual") {
-      bodyHtml = buildManualSlot(section.display_title);
-    } else {
-      const promptInputs = {
-        sectionKey: section.key,
-        bookTitle: meta.bookTitle,
-        author: meta.author,
-        chapterLabel,
-        pages: meta.pages,
-        grade: meta.grade,
-        vocabulary,
-        sectionDisplayTitle: section.display_title,
-        standingSubheader,
-        workbookContext: workbookContextForTeacherSection(section.key, workbookSlices),
-        chapterText,
-        priorSections: generatedSections,
-      };
-      const systemPrompt = buildTeacherSectionSystemPrompt(promptInputs);
-      const userPrompt = buildTeacherSectionUserPrompt(promptInputs);
-      console.info(`tg_prompt_size:${section.key}:system=${systemPrompt.length}:user=${userPrompt.length}:total=${systemPrompt.length + userPrompt.length}`);
-      const rawBodyHtml = await generateLlmSectionBody(systemPrompt, userPrompt);
-      const sanitized = sanitizeLlmBodyHtml(rawBodyHtml, section);
-      console.info(sanitizeLogLine(`tg:${section.key}`, sanitized.removed));
-      bodyHtml = sanitized.cleaned;
-    }
-
-    const sentenceSafeBody = enforceSingleSentenceItems(section.key, bodyHtml);
-
-    const generated: GeneratedSection = {
+    generatedSections.push({
       key: section.key,
       displayTitle: section.display_title,
-      standingSubheader,
+      standingSubheader: section.standing_subheader,
       bodySource: section.body_source,
-      bodyHtml: sentenceSafeBody,
+      bodyHtml,
       tipSlots: section.tip_slots,
-    };
-
-    if (section.key === "guided_reading") {
-      validateQuestionTypeTags(generated);
-    }
-
-    if (section.body_source === "llm") {
-      validateTeacherGuideSectionStructure(generated, meta);
-    }
-
-    generatedSections.push(generated);
+    });
   }
-
-  validateSections(generatedSections, TEACHER_GUIDE_SECTIONS, "Teacher Guide", meta);
 
   const headerHtml = `<div class="wb-header">
   <div class="wb-title">Teacher Guide</div>

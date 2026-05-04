@@ -190,6 +190,14 @@ export const TEACHER_GUIDE_SECTIONS: TeacherGuideSectionSchemaEntry[] = [
     tip_slots: 0,
   },
   {
+    key: "answer_key",
+    display_title: "Answer Key",
+    standing_subheader: null,
+    body_source: "llm",
+    required: true,
+    tip_slots: 0,
+  },
+  {
     key: "differentiated_supports",
     display_title: "Differentiated Supports",
     standing_subheader: null,

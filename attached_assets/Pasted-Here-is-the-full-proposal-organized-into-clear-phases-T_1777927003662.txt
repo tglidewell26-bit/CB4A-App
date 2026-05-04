@@ -1,0 +1,91 @@
+Here is the full proposal organized into clear phases.
+
+The Core Shift
+Claude returns typed JSON data. TypeScript renders all HTML. The validator layer mostly disappears — TypeScript types enforce structure at parse time, not after the fact.
+
+Phase 1 — Define Data Contracts
+Write a TypeScript interface for every section. Claude is asked to return JSON matching that interface, nothing else. For example:
+
+// Guided Reading
+interface GuidedReadingData {
+  readAloudTip: string;
+  sections: Array<{
+    pageStart: number;
+    pageEnd: number;
+    openingPhrase: string;
+    closingPhrase: string;
+    questions: Array<{ text: string; questionType: string }>;
+  }>;
+}
+// Creative Response Errors
+interface CreativeResponseErrorsData {
+  errors: Array<{
+    paragraph: string;
+    weakExample: string;
+    howToFix: string;
+  }>;
+  // headings are constants in code — Claude never touches them
+}
+
+Every section gets its own interface. This is the single source of truth.
+
+Phase 2 — Rewrite Prompts to Return JSON Only
+Strip all HTML instructions out of every prompt. Each prompt case in teacherGuidePrompts.ts becomes: "given this chapter context, return a JSON object matching this shape." Claude is never asked to produce a <div>, a <h3>, or a class name again.
+
+Two sections disappear from Claude entirely:
+
+Lesson Overview — becomes a constant string, no API call
+Materials Needed — already code, stays as-is
+Phase 3 — Write TypeScript Renderers
+One render function per section. Takes the typed data, returns HTML. The headings, wrappers, labels, table columns, ordering — all live here. Examples:
+
+renderGuidedReading(data) — builds section divs, page range headings, pause-point lists
+renderCreativeResponseErrors(data) — maps over the 5 fixed headings (constants), attaches Claude's paragraph + weak example + how-to-fix bullets under each
+renderStandardsTable(data) — builds the table with the exact columns and strand grouping rows
+renderDifferentiatedSupports(data) — builds the 3 groups × 3 phases structure
+Phase 4 — Answer Key Sections (Teacher Guide mirrors Student Workbook)
+This is the biggest content gap right now. The pattern is:
+
+The workbook is already generated and parsed (the parseWorkbookSlices wiring already exists)
+For each answer-key section, extract the questions/structure from the workbook HTML
+Send to Claude: "here are the questions — answer them with page citations, return JSON"
+Code renders a Teacher Guide page that mirrors the workbook layout, answers filled in
+Sections this covers:
+
+Words to Know — same table, Claude provides definition + context clue + sample sentence per word
+Think About the Story — same questions, Claude provides answers
+Reading Between the Lines — same questions, Claude provides answers
+Dig Deeper — same questions, Claude provides answers
+Multiple Choice — same options, Claude identifies correct letter + rationale
+Evidence from the Story — same prompts, Claude provides sample answers
+Character Chart — same characters/columns, Claude fills cells
+Draw It — same prompt, Claude provides suggested scene details
+Bonus Challenge — same events list, Claude provides correct numbered order
+This also fixes the answer_key section that was fully built in code but removed from the schema — it gets re-enabled and refactored into the new pattern.
+
+Phase 5 — Fix the Four Outstanding Content Gaps
+Gap	Fix
+Exit Ticket is character analysis, not prediction	Rewrite prompt to specify: prediction about next chapter, with "because" + text evidence
+Think About the Story missing Tiered Discussion / Analytical Thinking / Personal Connection	Add these fields to the ThinkAboutTheStoryData interface; renderer adds the sub-blocks
+Creative Response errors missing weak examples + how-to-fix	Re-enabled now that renderer controls headings, not Claude
+Standards format is a table but canonical is a compact list	Renderer decision — switch to compact list, same data either way
+Phase 6 — Delete Dead Code
+Remove most of workbookValidators.ts — the structural HTML validators are replaced by TypeScript type-checking at parse time. Keep only question-type tag checking and literal/higher-order classification for the workbook side.
+Remove all HTML structure instructions from prompts
+Remove the old case "answer_key" prompt text and replace with the new JSON-based version
+Remove any dead switch branches that are no longer called
+What This Looks Like End-to-End
+chapter input
+    ↓
+[parallel Claude calls, one per section, each returns typed JSON]
+    ↓
+[TypeScript parsers validate and type-assert each response]
+    ↓
+[TypeScript renderers build HTML from typed data]
+    ↓
+[single assembler combines all sections in schema order]
+    ↓
+final Teacher Guide HTML
+
+The schema (sectionSchema.ts) stays as the ordering authority. The validators shrink dramatically. The prompts become short and focused. Changes to layout mean editing one renderer function, nothing else.
+

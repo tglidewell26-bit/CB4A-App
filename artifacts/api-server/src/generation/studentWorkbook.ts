@@ -156,7 +156,7 @@ export async function generateStudentWorkbook(
     });
   }
 
-  validateSections(generatedSections, STUDENT_WORKBOOK_SECTIONS, "Student Workbook", meta);
+  validateSections(generatedSections, STUDENT_WORKBOOK_SECTIONS, meta);
 
   const headerHtml = `<div class="wb-header">
   <div class="wb-title">Student Workbook</div>
