@@ -252,8 +252,11 @@ export function validateTeacherGuideSectionStructure(
 
   switch (section.key) {
     case "lesson_overview": {
-      if (!/<div[^>]*class="[^"]*\btg-tip\b[^"]*"/i.test(html)) {
-        fail('missing inline <div class="tg-tip"> pacing/connection callout.');
+      const required =
+        "Tip: This lesson is designed to fit within a 60-minute instructional period. It may be split into two 30-minute sessions if needed.";
+      const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      if (text !== required) {
+        fail("must contain only the exact required lesson tip text.");
       }
       break;
     }
@@ -276,7 +279,7 @@ export function validateTeacherGuideSectionStructure(
       if (!/<table[^>]*class="[^"]*\btg-standards-table\b[^"]*"/i.test(html)) {
         fail('missing <table class="tg-standards-table">.');
       }
-      if (!/<th>\s*Standard\s*<\/th>\s*<th>\s*Description\s*<\/th>\s*<th>\s*Workbook Section\(s\)\s*<\/th>/i.test(html)) {
+      if (!/<th>\s*Standard\s*<\/th>\s*<th>\s*Description\s*<\/th>\s*<th>\s*Lesson Section\(s\)\s*<\/th>/i.test(html)) {
         fail("standards table headers must be Standard | Description | Workbook Section(s).");
       }
       const rowCount = (html.match(/<tr>/gi) ?? []).length;
@@ -302,12 +305,16 @@ export function validateTeacherGuideSectionStructure(
       break;
     }
     case "materials_needed": {
-      if (!/<ul[\s>]|<ol[\s>]/i.test(html)) {
-        fail("must contain a <ul> or <ol> list of materials.");
-      }
-      const liCount = (html.match(/<li[\s>]/g) ?? []).length;
-      if (liCount < 4) {
-        fail(`expected at least 4 material items, got ${liCount}.`);
+      const li = [...html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)].map((m) => m[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim());
+      const expected = [
+        `${meta.bookTitle}, by ${meta.author} (Classic Books for All edition), Chapter ${meta.chapterNum}, for each student.`,
+        `Classic Books for All ${meta.bookTitle} Student Workbook.`,
+        "Chart paper or whiteboard for class discussions.",
+        "Sticky notes for exit tickets.",
+        "Pencils, crayons/markers for graphic organizers.",
+      ];
+      if (li.length !== expected.length || expected.some((v, i) => li[i] !== v)) {
+        fail("materials list must match the required five-item format and order exactly.");
       }
       break;
     }
