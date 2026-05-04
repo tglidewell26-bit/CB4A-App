@@ -52,7 +52,7 @@ ${standardsBlock}`;
   <li>Sticky notes for exit tickets.</li>
   <li>Pencils, crayons/markers for graphic organizers.</li>
 </ul>
-Replace placeholders with chapter metadata values.`;
+Replace placeholders, which are surrounded with [], with chapter metadata values.`;
 
     case "get_ready_to_read":
       return `Generate a Get Ready to Read teacher block with these three elements in order:
