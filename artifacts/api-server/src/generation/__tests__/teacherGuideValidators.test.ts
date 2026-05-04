@@ -24,13 +24,13 @@ function section(key: string, bodyHtml: string): GeneratedSection {
 }
 
 describe("validateTeacherGuideSectionStructure", () => {
-  it("lesson_overview requires an inline tip callout", () => {
+  it("lesson_overview requires exact required tip text only", () => {
     expect(() =>
       validateTeacherGuideSectionStructure(section("lesson_overview", "<p>overview</p>"), meta),
-    ).toThrow(/tg-tip/);
+    ).toThrow(/exact required lesson tip text/);
     expect(() =>
       validateTeacherGuideSectionStructure(
-        section("lesson_overview", '<p>overview</p><div class="tg-tip">tip</div>'),
+        section("lesson_overview", "<p><em>Tip: This lesson is designed to fit within a 60-minute instructional period. It may be split into two 30-minute sessions if needed.</em></p>"),
         meta,
       ),
     ).not.toThrow();
@@ -60,7 +60,7 @@ describe("validateTeacherGuideSectionStructure", () => {
   });
 
   it("standards requires the table class, headers, and one row per required strand", () => {
-    const good = `<table class="tg-standards-table"><thead><tr><th>Standard</th><th>Description</th><th>Workbook Section(s)</th></tr></thead><tbody><tr><td>RL.4.1</td><td>x</td><td>y</td></tr><tr><td>W.4.1</td><td>x</td><td>y</td></tr><tr><td>L.4.4</td><td>x</td><td>y</td></tr><tr><td>SL.4.1</td><td>x</td><td>y</td></tr></tbody></table>`;
+    const good = `<table class="tg-standards-table"><thead><tr><th>Standard</th><th>Description</th><th>Lesson Section(s)</th></tr></thead><tbody><tr><td>RL.4.1</td><td>x</td><td>y</td></tr><tr><td>W.4.1</td><td>x</td><td>y</td></tr><tr><td>L.4.4</td><td>x</td><td>y</td></tr><tr><td>SL.4.1</td><td>x</td><td>y</td></tr></tbody></table>`;
     expect(() => validateTeacherGuideSectionStructure(section("standards", good), meta)).not.toThrow();
     expect(() =>
       validateTeacherGuideSectionStructure(section("standards", "<p>nope</p>"), meta),
@@ -120,21 +120,28 @@ describe("validateTeacherGuideSectionStructure", () => {
     ).toThrow(/page range/);
   });
 
-  it("creative_response_common_errors requires at least 3 weak/fix pairs with both labels", () => {
-    const pair = (n: number) =>
-      `<div class="tg-weak-fix"><h4>Error ${n}</h4><p><strong>Weak example:</strong> x</p><p><strong>How to fix:</strong> y</p></div>`;
+  it("creative_response_common_errors requires exact heading order with one paragraph each", () => {
+    const good = `
+      <div class="tg-common-errors">
+        <h4>No Specific Details From The Chapter</h4><p>x</p>
+        <h4>Breaking Character</h4><p>x</p>
+        <h4>Retelling The Whole Chapter Instead of Focusing on [character's name] Experience</h4><p>x</p>
+        <h4>No Evidence From the Text</h4><p>x</p>
+        <h4>Modern Language That Doesn't Fit The Story.</h4><p>x</p>
+      </div>`;
     expect(() =>
       validateTeacherGuideSectionStructure(
-        section("creative_response_common_errors", pair(1) + pair(2) + pair(3)),
+        section("creative_response_common_errors", good),
         meta,
       ),
     ).not.toThrow();
+    const wrongOrder = good.replace("Breaking Character", "Not This");
     expect(() =>
       validateTeacherGuideSectionStructure(
-        section("creative_response_common_errors", pair(1) + pair(2)),
+        section("creative_response_common_errors", wrongOrder),
         meta,
       ),
-    ).toThrow(/at least 3/);
+    ).toThrow(/required five titles/);
   });
 
   it("exit_ticket requires Prompt, Success Criteria (>=3), Example Responses (>=1) sub-blocks", () => {
