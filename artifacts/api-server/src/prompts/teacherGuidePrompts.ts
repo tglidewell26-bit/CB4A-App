@@ -287,7 +287,7 @@ export interface TeacherGuidePromptInputs {
   vocabulary: VocabularyWord[];
   sectionDisplayTitle: string;
   standingSubheader: string | null;
-  studentWorkbookHtml: string;
+  workbookContext: Record<string, string>;
   chapterText: string;
   priorSections: GeneratedSection[];
 }
@@ -328,6 +328,13 @@ ${teacherSectionRequirementByKey(input.sectionKey, input.grade as GradeLevel)}`;
 }
 
 export function buildTeacherSectionUserPrompt(input: TeacherGuidePromptInputs): string {
+  const workbookContextEntries = Object.entries(input.workbookContext);
+  const workbookContextBlock = workbookContextEntries.length === 0
+    ? "(none for this section)"
+    : workbookContextEntries
+      .map(([name, value]) => `--- ${name} ---\n${value}`)
+      .join("\n\n");
+
   return `Book: ${input.bookTitle}
 Author: ${input.author}
 Chapter: ${input.chapterLabel}
@@ -340,8 +347,8 @@ ${serializeVocabulary(input.vocabulary)}
 Section title (for your context only, DO NOT output): ${input.sectionDisplayTitle}
 Standing subheader (for your context only, DO NOT output): ${input.standingSubheader ?? "None"}
 
-Student Workbook (HTML — source of truth for question wording):
-${input.studentWorkbookHtml}
+Workbook context (only the slices relevant for this section):
+${workbookContextBlock}
 
 Previously generated Teacher Guide sections (for cohesion — reference codes/objectives/vocab from these instead of restating):
 ${priorSectionsDigest(input.priorSections)}
