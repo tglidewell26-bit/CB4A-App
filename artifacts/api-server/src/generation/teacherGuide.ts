@@ -25,6 +25,70 @@ import {
   validateTeacherGuideSectionStructure,
 } from "./workbookValidators.js";
 
+interface ParsedWorkbookSlices {
+  thinkAboutTheStory: string;
+  readingBetweenTheLines: string;
+  digDeeper: string;
+  multipleChoice: string;
+  evidenceFromTheStory: string;
+  characterChart: string;
+  drawIt: string;
+  wordsToKnow: string;
+  sectionNames: string[];
+}
+
+function extractWorkbookSection(studentWorkbookHtml: string, key: string): string {
+  const rx = new RegExp(
+    `<div class="wb-section" data-section-key="${key}">([\\s\\S]*?)<\\/div>\\s*(?=<div class="wb-section"|<\\/div>\\s*$)`,
+  );
+  return studentWorkbookHtml.match(rx)?.[1]?.trim() ?? "";
+}
+
+function extractQuestionOnlySection(sectionHtml: string): string {
+  if (!sectionHtml) return "";
+  const questions = [...sectionHtml.matchAll(/<div class="question">[\s\S]*?<\/div>/g)].map((m) => m[0]);
+  return questions.length > 0 ? questions.join("\n") : sectionHtml;
+}
+
+function parseWorkbookSlices(studentWorkbookHtml: string): ParsedWorkbookSlices {
+  const wordsToKnow = extractWorkbookSection(studentWorkbookHtml, "words_to_know");
+  const sectionNames = [...studentWorkbookHtml.matchAll(/<h2>([^<]+)<\/h2>/g)].map((m) => m[1].trim());
+
+  return {
+    thinkAboutTheStory: extractQuestionOnlySection(extractWorkbookSection(studentWorkbookHtml, "think_about_the_story")),
+    readingBetweenTheLines: extractQuestionOnlySection(extractWorkbookSection(studentWorkbookHtml, "reading_between_the_lines")),
+    digDeeper: extractQuestionOnlySection(extractWorkbookSection(studentWorkbookHtml, "dig_deeper")),
+    multipleChoice: extractQuestionOnlySection(extractWorkbookSection(studentWorkbookHtml, "multiple_choice_questions")),
+    evidenceFromTheStory: extractQuestionOnlySection(extractWorkbookSection(studentWorkbookHtml, "evidence_from_the_story")),
+    characterChart: extractWorkbookSection(studentWorkbookHtml, "character_chart"),
+    drawIt: extractWorkbookSection(studentWorkbookHtml, "draw_it"),
+    wordsToKnow,
+    sectionNames,
+  };
+}
+
+function workbookContextForTeacherSection(sectionKey: string, slices: ParsedWorkbookSlices): Record<string, string> {
+  switch (sectionKey) {
+    case "standards":
+      return { sectionNames: slices.sectionNames.join(", ") };
+    case "words_to_know_mini_lesson":
+      return { wordsToKnow: slices.wordsToKnow };
+    case "think_about_the_story_answers":
+      return { thinkAboutTheStory: slices.thinkAboutTheStory };
+    case "answer_key":
+      return {
+        readingBetweenTheLines: slices.readingBetweenTheLines,
+        digDeeper: slices.digDeeper,
+        multipleChoice: slices.multipleChoice,
+        evidenceFromTheStory: slices.evidenceFromTheStory,
+        characterChart: slices.characterChart,
+        drawIt: slices.drawIt,
+      };
+    default:
+      return {};
+  }
+}
+
 async function generateLlmSectionBody(systemPrompt: string, userPrompt: string): Promise<string> {
   const message = await anthropic.messages.create({
     model: CLAUDE_MODEL,
@@ -55,6 +119,7 @@ export async function generateTeacherGuide(
 ): Promise<string> {
   const chapterText = truncateText(meta.extractedText);
   const chapterLabel = getChapterLabel(meta);
+  const workbookSlices = parseWorkbookSlices(studentWorkbookHtml);
 
   const generatedSections: GeneratedSection[] = [];
 
@@ -79,14 +144,14 @@ export async function generateTeacherGuide(
         vocabulary,
         sectionDisplayTitle: section.display_title,
         standingSubheader,
-        studentWorkbookHtml,
+        workbookContext: workbookContextForTeacherSection(section.key, workbookSlices),
         chapterText,
         priorSections: generatedSections,
       };
-      const rawBodyHtml = await generateLlmSectionBody(
-        buildTeacherSectionSystemPrompt(promptInputs),
-        buildTeacherSectionUserPrompt(promptInputs),
-      );
+      const systemPrompt = buildTeacherSectionSystemPrompt(promptInputs);
+      const userPrompt = buildTeacherSectionUserPrompt(promptInputs);
+      console.info(`tg_prompt_size:${section.key}:system=${systemPrompt.length}:user=${userPrompt.length}:total=${systemPrompt.length + userPrompt.length}`);
+      const rawBodyHtml = await generateLlmSectionBody(systemPrompt, userPrompt);
       const sanitized = sanitizeLlmBodyHtml(rawBodyHtml, section);
       console.info(sanitizeLogLine(`tg:${section.key}`, sanitized.removed));
       bodyHtml = sanitized.cleaned;

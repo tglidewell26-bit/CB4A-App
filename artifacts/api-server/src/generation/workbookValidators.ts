@@ -45,9 +45,9 @@ const HIGHER_ORDER_PATTERNS: RegExp[] = [
   /\bwhy is this important\b/i,
   /\binfer\b/i,
   /\bmotivat/i,
-  /\breaction\b/i,
-  /\bemotion\b/i,
-  /\bfeel(?:s|ing)?\b/i,
+  /\bwhat is (?:his|her|their|the) reaction\b/i,
+  /\bhow does (?:he|she|the character|this) feel\b/i,
+  /\bwhat emotion\b/i,
 ];
 
 const CLEARLY_LITERAL_PATTERNS: RegExp[] = [
