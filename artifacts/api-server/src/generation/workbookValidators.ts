@@ -449,14 +449,22 @@ export function validateTeacherGuideSectionStructure(
       break;
     }
     case "creative_response_common_errors": {
-      const pairCount = (html.match(/<div[^>]*class="[^"]*\btg-weak-fix\b[^"]*"/gi) ?? []).length;
-      if (pairCount < 3) {
-        fail(`expected at least 3 weak/fix pairs (<div class="tg-weak-fix">), got ${pairCount}.`);
+      const headings = [...html.matchAll(/<h4[^>]*>([\s\S]*?)<\/h4>/gi)].map((m) =>
+        m[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim(),
+      );
+      const required = [
+        "No Specific Details From The Chapter",
+        "Breaking Character",
+        "Retelling The Whole Chapter Instead of Focusing on [character's name] Experience",
+        "No Evidence From the Text",
+        "Modern Language That Doesn't Fit The Story.",
+      ];
+      if (headings.length !== required.length || required.some((v, i) => headings[i] !== v)) {
+        fail("common-errors headings must match the required five titles in exact order.");
       }
-      const weakCount = (html.match(/Weak example/gi) ?? []).length;
-      const fixCount = (html.match(/How to fix/gi) ?? []).length;
-      if (weakCount < pairCount || fixCount < pairCount) {
-        fail(`each weak/fix pair must have both "Weak example:" and "How to fix:" labels (${weakCount}/${fixCount}/${pairCount}).`);
+      const paragraphCount = (html.match(/<p[\s>]/gi) ?? []).length;
+      if (paragraphCount < 5) {
+        fail("must include one paragraph under each common-errors heading.");
       }
       break;
     }

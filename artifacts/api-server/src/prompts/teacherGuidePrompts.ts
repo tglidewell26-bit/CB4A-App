@@ -237,16 +237,28 @@ Use this exact pattern:
 </ol>`;
 
     case "creative_response_common_errors":
-      return `Identify 3–5 common errors students make on this chapter's Creative Response prompt. For each error, emit a named pattern with a Weak example and a How-to-fix line.
+      return `Output only the Creative Response "Common errors" structure in this exact order.
+Do NOT generate weak examples. Do NOT generate how-to-fix guidance.
 
-Use this exact pattern:
-<div class="tg-weak-fix">
-  <h4>[Error pattern name]</h4>
-  <p><strong>Weak example:</strong> "..."</p>
-  <p><strong>How to fix:</strong> ...</p>
+Emit this exact HTML shape:
+<div class="tg-common-errors">
+  <h4>No Specific Details From The Chapter</h4>
+  <p>...</p>
+  <h4>Breaking Character</h4>
+  <p>...</p>
+  <h4>Retelling The Whole Chapter Instead of Focusing on [character's name] Experience</h4>
+  <p>...</p>
+  <h4>No Evidence From the Text</h4>
+  <p>...</p>
+  <h4>Modern Language That Doesn't Fit The Story.</h4>
+  <p>...</p>
 </div>
 
-Repeat for each error. Reference this specific chapter's creative response context.`;
+Rules:
+- Keep all five headings exactly as written above and in that order.
+- Include exactly one short paragraph after each heading.
+- Replace [character's name] with the chapter's main character name.
+- No additional headings, bullets, labels, or sections.`;
 
     case "exit_ticket":
       return `Output an exit ticket block with these elements in this order:

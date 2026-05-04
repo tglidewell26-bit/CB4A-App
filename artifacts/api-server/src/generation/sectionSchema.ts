@@ -207,8 +207,8 @@ export const TEACHER_GUIDE_SECTIONS: TeacherGuideSectionSchemaEntry[] = [
   },
   {
     key: "creative_response_common_errors",
-    display_title: "Creative Response Common Errors",
-    standing_subheader: null,
+    display_title: "Creative Response",
+    standing_subheader: "Common errors",
     body_source: "llm",
     required: true,
     tip_slots: 0,

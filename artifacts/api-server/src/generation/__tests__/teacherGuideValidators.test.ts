@@ -120,21 +120,28 @@ describe("validateTeacherGuideSectionStructure", () => {
     ).toThrow(/page range/);
   });
 
-  it("creative_response_common_errors requires at least 3 weak/fix pairs with both labels", () => {
-    const pair = (n: number) =>
-      `<div class="tg-weak-fix"><h4>Error ${n}</h4><p><strong>Weak example:</strong> x</p><p><strong>How to fix:</strong> y</p></div>`;
+  it("creative_response_common_errors requires exact heading order with one paragraph each", () => {
+    const good = `
+      <div class="tg-common-errors">
+        <h4>No Specific Details From The Chapter</h4><p>x</p>
+        <h4>Breaking Character</h4><p>x</p>
+        <h4>Retelling The Whole Chapter Instead of Focusing on [character's name] Experience</h4><p>x</p>
+        <h4>No Evidence From the Text</h4><p>x</p>
+        <h4>Modern Language That Doesn't Fit The Story.</h4><p>x</p>
+      </div>`;
     expect(() =>
       validateTeacherGuideSectionStructure(
-        section("creative_response_common_errors", pair(1) + pair(2) + pair(3)),
+        section("creative_response_common_errors", good),
         meta,
       ),
     ).not.toThrow();
+    const wrongOrder = good.replace("Breaking Character", "Not This");
     expect(() =>
       validateTeacherGuideSectionStructure(
-        section("creative_response_common_errors", pair(1) + pair(2)),
+        section("creative_response_common_errors", wrongOrder),
         meta,
       ),
-    ).toThrow(/at least 3/);
+    ).toThrow(/required five titles/);
   });
 
   it("exit_ticket requires Prompt, Success Criteria (>=3), Example Responses (>=1) sub-blocks", () => {
