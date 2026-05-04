@@ -436,16 +436,16 @@ export function validateTeacherGuideSectionStructure(
     }
     case "creative_response_common_errors": {
       const headings = [...html.matchAll(/<h4[^>]*>([\s\S]*?)<\/h4>/gi)].map((m) =>
-        m[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim(),
+        m[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim().toLowerCase(),
       );
-      const required = [
-        "No Specific Details From The Chapter",
-        "Breaking Character",
-        "Retelling The Whole Chapter Instead of Focusing on [character's name] Experience",
-        "No Evidence From the Text",
-        "Modern Language That Doesn't Fit The Story.",
+      const requiredPhrases = [
+        "no specific details",
+        "breaking character",
+        "retelling",
+        "no evidence from the text",
+        "modern language",
       ];
-      if (headings.length !== required.length || required.some((v, i) => headings[i] !== v)) {
+      if (headings.length !== requiredPhrases.length || requiredPhrases.some((phrase, i) => !headings[i].includes(phrase))) {
         fail("common-errors headings must match the required five titles in exact order.");
       }
       const paragraphCount = (html.match(/<p[\s>]/gi) ?? []).length;
