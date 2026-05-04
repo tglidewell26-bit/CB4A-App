@@ -42,18 +42,6 @@ Available standards (use ONLY these — do not invent codes):
 ${standardsBlock}`;
     }
 
-    case "materials_needed":
-      return `Output exactly this heading and bullet list in this exact order with no extra items or rewording:
-<p>Materials needed</p>
-<ul>
-  <li>[book title], by [author] (Classic Books for All edition), Chapter [chapter number], for each student.</li>
-  <li>Classic Books for All [book title] Student Workbook.</li>
-  <li>Chart paper or whiteboard for class discussions.</li>
-  <li>Sticky notes for exit tickets.</li>
-  <li>Pencils, crayons/markers for graphic organizers.</li>
-</ul>
-Replace placeholders, which are surrounded with [], with chapter metadata values.`;
-
     case "get_ready_to_read":
       return `Generate a Get Ready to Read teacher block with these three elements in order:
 1. A "Quick-write prompt" labeled clearly. Use this exact pattern:
