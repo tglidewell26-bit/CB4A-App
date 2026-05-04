@@ -304,20 +304,6 @@ export function validateTeacherGuideSectionStructure(
       }
       break;
     }
-    case "materials_needed": {
-      const li = [...html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)].map((m) => m[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim());
-      const expected = [
-        `${meta.bookTitle}, by ${meta.author} (Classic Books for All edition), Chapter ${meta.chapterNum}, for each student.`,
-        `Classic Books for All ${meta.bookTitle} Student Workbook.`,
-        "Chart paper or whiteboard for class discussions.",
-        "Sticky notes for exit tickets.",
-        "Pencils, crayons/markers for graphic organizers.",
-      ];
-      if (li.length !== expected.length || expected.some((v, i) => li[i] !== v)) {
-        fail("materials list must match the required five-item format and order exactly.");
-      }
-      break;
-    }
     case "get_ready_to_read": {
       if (!/Quick-write prompt/i.test(html)) {
         fail('missing "Quick-write prompt" label.');
