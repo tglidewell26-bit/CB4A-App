@@ -75,8 +75,7 @@ export function renderMeasurableObjectives(data: MeasurableObjectivesData): stri
   const items = data.objectives
     .map((o) => `  <li>${escapeHtml(o.text)} (${escapeHtml(o.standardCode)})</li>`)
     .join("\n");
-  return `<p>Students will be able to</p>
-<ul>\n${items}\n</ul>`;
+  return `<p>Students will be able to</p>\n<ul>\n${items}\n</ul>`;
 }
 
 /**
