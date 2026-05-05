@@ -26,15 +26,22 @@ export function teacherSectionRequirementByKey(key: string, grade?: GradeLevel):
 
 {
   "objectives": [
-    { "text": "identify the main character and their motivation", "standardCode": "RL.${gradeLevel}.3" },
-    { "text": "describe the chapter's setting using text evidence", "standardCode": "RL.${gradeLevel}.1" }
+    { "text": "Identify and describe main characters using evidence from the text", "standardCode": "RL.${gradeLevel}.3" },
+    { "text": "Define key vocabulary words using context clues", "standardCode": "L.${gradeLevel}.4" },
+    { "text": "Sequence major events and explain their importance", "standardCode": "RL.${gradeLevel}.2" },
+    { "text": "Make inferences about character feelings and motivations", "standardCode": "RL.${gradeLevel}.1" },
+    { "text": "Engage in collaborative discussions", "standardCode": "SL.${gradeLevel}.1" },
+    { "text": "Write a narrative or written response using clear event sequence and details", "standardCode": "W.${gradeLevel}.3" }
   ]
 }
 
 Rules:
 - Output 5–6 objective items.
-- Each "text" is the verb phrase that follows "Students will be able to". Do NOT prefix it with "Students will be able to" yourself.
-- Each "text" begins with a measurable verb (identify, describe, explain, compare, infer, analyze, evaluate, write, etc.).
+- Each "text" is a polished, curriculum-style objective fragment that completes the shared stem "Students will be able to...".
+- Do NOT include the stem "Students will be able to" in any "text" value.
+- Each "text" begins with a strong measurable verb in title case (for example: Identify, Define, Sequence, Make, Engage, Write, Explain, Compare, Analyze).
+- Write each objective as a concise fragment, not a full sentence: no ending periods, no first-person language, and no vague verbs such as understand, learn, know, or appreciate.
+- Use classroom-ready language that names the skill and, when useful, the evidence, strategy, or product students will use.
 - Each "standardCode" must be an exact code for grade ${gradeLevel} from the standards block. Never invent codes.
 - The standardCode is the bare code (e.g. "RL.${gradeLevel}.1"), no parentheses, no extra text.
 
