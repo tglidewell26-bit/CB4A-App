@@ -73,12 +73,10 @@ export function renderLessonOverview(): string {
 
 export function renderMeasurableObjectives(data: MeasurableObjectivesData): string {
   const items = data.objectives
-    .map(
-      (o) =>
-        `  <li>Students will be able to ${escapeHtml(o.text)} (${escapeHtml(o.standardCode)})</li>`,
-    )
+    .map((o) => `  <li>${escapeHtml(o.text)} (${escapeHtml(o.standardCode)})</li>`)
     .join("\n");
-  return `<ul>\n${items}\n</ul>`;
+  return `<p>Students will be able to</p>
+<ul>\n${items}\n</ul>`;
 }
 
 /**
