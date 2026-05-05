@@ -27,8 +27,12 @@ export function teacherSectionRequirementByKey(key: string, grade?: GradeLevel):
 
 {
   "objectives": [
-    { "text": "identify the main character and their motivation", "standardCode": "RL.${gradeLevel}.3" },
-    { "text": "describe the chapter's setting using text evidence", "standardCode": "RL.${gradeLevel}.1" }
+    { "text": "Identify and describe main characters using evidence from the text", "standardCode": "RL.${gradeLevel}.3" },
+    { "text": "Define key vocabulary words using context clues", "standardCode": "L.${gradeLevel}.4" },
+    { "text": "Sequence major events and explain their importance", "standardCode": "RL.${gradeLevel}.2" },
+    { "text": "Make inferences about character feelings and motivations", "standardCode": "RL.${gradeLevel}.1" },
+    { "text": "Engage in collaborative discussions", "standardCode": "SL.${gradeLevel}.1" },
+    { "text": "Write a narrative or written response using clear event sequence and details", "standardCode": "W.${gradeLevel}.3" }
   ]
 }
 

@@ -51,15 +51,15 @@ describe("teacherGuideRenderers", () => {
   });
 
   describe("renderMeasurableObjectives", () => {
-    it("renders a SWBAT bullet for each objective with code", () => {
+    it("renders one shared SWBAT line and objective-only bullets with codes", () => {
       const html = renderMeasurableObjectives({
         objectives: [
-          { text: "identify the protagonist", standardCode: "RL.4.3" },
-          { text: "describe the setting", standardCode: "RL.4.1" },
+          { text: "analyze how the protagonist’s actions reveal character traits", standardCode: "RL.4.3" },
+          { text: "cite textual evidence to describe the mountain setting", standardCode: "RL.4.1" },
         ],
       });
-      expect(html).toContain("Students will be able to identify the protagonist (RL.4.3)");
-      expect(html).toContain("Students will be able to describe the setting (RL.4.1)");
+      expect(html).toContain("Students will be able to analyze how the protagonist’s actions reveal character traits (RL.4.3)");
+      expect(html).toContain("Students will be able to cite textual evidence to describe the mountain setting (RL.4.1)");
       expect(html.startsWith("<ul>")).toBe(true);
     });
   });
