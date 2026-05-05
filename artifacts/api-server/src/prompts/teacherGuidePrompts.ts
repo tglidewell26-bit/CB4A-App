@@ -21,7 +21,8 @@ const QUESTION_TYPES = [
 export function teacherSectionRequirementByKey(key: string, grade?: GradeLevel): string {
   const gradeLevel = (grade ?? 4) as GradeLevel;
   switch (key) {
-    case "measurable_objectives":
+    case "measurable_objectives": {
+      const standardsBlock = formatStandardsForPrompt(gradeLevel);
       return `Return a JSON object with this exact shape and nothing else:
 
 {
@@ -35,10 +36,14 @@ Rules:
 - Output 5–6 objective items.
 - Each "text" is the verb phrase that follows "Students will be able to". Do NOT prefix it with "Students will be able to" yourself.
 - Each "text" begins with a measurable verb (identify, describe, explain, compare, infer, analyze, evaluate, write, etc.).
-- Each "standardCode" must be an exact code for grade ${gradeLevel} from the standards block. Never invent codes.
+- Each "standardCode" must be an exact code for grade ${gradeLevel} from the standards block below. Never invent codes.
 - The standardCode is the bare code (e.g. "RL.${gradeLevel}.1"), no parentheses, no extra text.
 
+Available standards (use ONLY these — do not invent codes):
+${standardsBlock}
+
 Return ONLY the JSON object. No markdown fences, no commentary.`;
+    }
 
     case "standards": {
       const standardsBlock = formatStandardsForPrompt(gradeLevel);
