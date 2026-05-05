@@ -50,12 +50,11 @@ interface ParsedWorkbookSlices {
   characterChart: string;
   drawIt: string;
   wordsToKnow: string;
-  sectionNames: string[];
 }
 
 function extractWorkbookSection(studentWorkbookHtml: string, key: string): string {
   const rx = new RegExp(
-    `<div class="wb-section" data-section-key="${key}">([\\s\\S]*?)<\\/div>\\s*(?=<div class="wb-section"|<\\/div>\\s*$)`,
+    `<div class="wb-section" data-section-key="${key}">([\\s\\S]*?)<\/div>\s*(?=<div class="wb-section"|<\/div>\s*$)`,
   );
   return studentWorkbookHtml.match(rx)?.[1]?.trim() ?? "";
 }
@@ -66,17 +65,6 @@ function extractQuestionOnlySection(sectionHtml: string): string {
   return questions.length > 0 ? questions.join("\n") : sectionHtml;
 }
 
-/**
- * Multiple choice questions are wrapped in:
- *   <div class="mc-item">
- *     <div class="question">...</div>
- *     <ul class="mc-options"><li>A. ...</li>...</ul>
- *   </div>
- * The answer-key generator needs the FULL block (question + options) so Claude
- * can name each letter's content. Match terminates on `</ul>\s*</div>` since
- * every mc-item ends with the options list immediately followed by the outer
- * closing div.
- */
 export function extractMultipleChoiceItems(sectionHtml: string): string {
   if (!sectionHtml) return "";
   const items = [
@@ -87,9 +75,6 @@ export function extractMultipleChoiceItems(sectionHtml: string): string {
 }
 
 function parseWorkbookSlices(studentWorkbookHtml: string): ParsedWorkbookSlices {
-  const wordsToKnow = extractWorkbookSection(studentWorkbookHtml, "words_to_know");
-  const sectionNames = [...studentWorkbookHtml.matchAll(/<h2>([^<]+)<\/h2>/g)].map((m) => m[1].trim());
-
   return {
     thinkAboutTheStory: extractQuestionOnlySection(extractWorkbookSection(studentWorkbookHtml, "think_about_the_story")),
     readingBetweenTheLines: extractQuestionOnlySection(extractWorkbookSection(studentWorkbookHtml, "reading_between_the_lines")),
@@ -98,15 +83,12 @@ function parseWorkbookSlices(studentWorkbookHtml: string): ParsedWorkbookSlices 
     evidenceFromTheStory: extractQuestionOnlySection(extractWorkbookSection(studentWorkbookHtml, "evidence_from_the_story")),
     characterChart: extractWorkbookSection(studentWorkbookHtml, "character_chart"),
     drawIt: extractWorkbookSection(studentWorkbookHtml, "draw_it"),
-    wordsToKnow,
-    sectionNames,
+    wordsToKnow: extractWorkbookSection(studentWorkbookHtml, "words_to_know"),
   };
 }
 
 function workbookContextForTeacherSection(sectionKey: string, slices: ParsedWorkbookSlices): Record<string, string> {
   switch (sectionKey) {
-    case "standards":
-      return { sectionNames: slices.sectionNames.join(", ") };
     case "words_to_know_mini_lesson":
       return { wordsToKnow: slices.wordsToKnow };
     case "think_about_the_story_answers":
@@ -137,15 +119,6 @@ async function callClaudeForJson(systemPrompt: string, userPrompt: string): Prom
   return block.type === "text" ? block.text.trim() : "";
 }
 
-/**
- * Render a single Teacher Guide section. For LLM sections this:
- *   1. Builds the JSON-only prompt.
- *   2. Calls Claude.
- *   3. Parses the JSON into typed data (throws on malformed input).
- *   4. Hands the typed data to the section's renderer to produce HTML.
- *
- * Pure-code sections (lesson_overview, materials_needed) skip Claude entirely.
- */
 async function generateSectionBody(
   sectionKey: string,
   meta: ChapterMeta,
@@ -168,7 +141,7 @@ async function generateSectionBody(
     author: meta.author,
     chapterLabel,
     pages: meta.pages,
-    grade: meta.grade,
+    grade: meta.grade as 3 | 4 | 5 | 6 | 7 | 8,
     vocabulary,
     sectionDisplayTitle,
     workbookContext: workbookContextForTeacherSection(sectionKey, slices),

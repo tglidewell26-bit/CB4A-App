@@ -28,7 +28,6 @@ describe("extractMultipleChoiceItems", () => {
     expect(result).toContain("D. To visit Peter");
     expect(result).toContain("Who walks Heidi up the path?");
     expect(result).toContain("B. Deta");
-    // Both items should be in the output:
     const itemCount = (result.match(/<div class="mc-item">/g) ?? []).length;
     expect(itemCount).toBe(2);
   });

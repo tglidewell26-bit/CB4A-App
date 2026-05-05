@@ -68,10 +68,10 @@ describe("teacherGuideRenderers", () => {
     it("renders compact strand-grouped lists with descriptions filled from code lookup", () => {
       const html = renderStandards({
         standards: [
-          { code: "RL.4.1", lessonSections: ["Think About the Story"] },
-          { code: "W.4.3", lessonSections: ["Creative Response"] },
-          { code: "L.4.4", lessonSections: ["Words to Know"] },
-          { code: "SL.4.1", lessonSections: ["Discussion"] },
+          { code: "RL.4.1" },
+          { code: "W.4.3" },
+          { code: "L.4.4" },
+          { code: "SL.4.1" },
         ],
       });
       expect(html).toContain("Reading Literature");
@@ -80,14 +80,13 @@ describe("teacherGuideRenderers", () => {
       expect(html).toContain("Speaking and Listening");
       expect(html).toContain("RL.4.1");
       expect(html).toContain("W.4.3");
-      // Standards descriptions are pulled from elaStandards.ts, not from Claude:
       expect(html).toMatch(/Refer to details and examples in a text/i);
-      expect(html).toContain("Used in: Think About the Story");
+      expect(html).not.toContain("Used in:");
     });
 
     it("ignores fabricated codes (no lookup match) without crashing", () => {
       const html = renderStandards({
-        standards: [{ code: "ZZ.4.99", lessonSections: ["X"] }],
+        standards: [{ code: "ZZ.4.99" }],
       });
       expect(html).toContain("No standards selected for this chapter.");
     });
@@ -243,7 +242,6 @@ describe("teacherGuideRenderers", () => {
       expect(html).toContain("Retelling The Whole Chapter Instead of Focusing on Heidi&#39;s Experience");
       expect(html).toContain("No Evidence From the Text");
       expect(html).toContain("Modern Language That Doesn&#39;t Fit The Story");
-      // Weak example + how to fix bullets restored:
       const weakCount = (html.match(/Weak example/g) ?? []).length;
       const fixCount = (html.match(/How to fix/g) ?? []).length;
       expect(weakCount).toBe(5);
@@ -302,8 +300,7 @@ describe("teacherGuideRenderers", () => {
         characterChart: [],
         drawItDetails: [],
       });
-      expect(html).toContain("No questions to answer in this section.");
-      expect(html).not.toThrow;
+      expect(html).toContain('<table class="tg-character-key">');
     });
   });
 });

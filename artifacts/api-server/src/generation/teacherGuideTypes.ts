@@ -23,11 +23,6 @@ export interface StandardsData {
   /** Standards Claude selected for this chapter. Description text comes from elaStandards.ts in code. */
   standards: Array<{
     code: string;
-    /**
-     * Comma-ready list of student-workbook section names this standard maps to,
-     * e.g. ["Think About the Story", "Reading Between the Lines"].
-     */
-    lessonSections: string[];
   }>;
 }
 

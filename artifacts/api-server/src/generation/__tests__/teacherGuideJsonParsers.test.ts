@@ -71,20 +71,17 @@ describe("teacherGuideJsonParsers", () => {
   describe("parseStandards", () => {
     it("parses a valid standards object", () => {
       const json = JSON.stringify({
-        standards: [
-          { code: "RL.4.1", lessonSections: ["Think About the Story"] },
-          { code: "W.4.3", lessonSections: ["Creative Response"] },
-        ],
+        standards: [{ code: "RL.4.1" }, { code: "W.4.3" }],
       });
       const data = parseStandards(json);
       expect(data.standards).toHaveLength(2);
     });
 
-    it("throws if lessonSections is not an array", () => {
+    it("throws if code is missing", () => {
       const json = JSON.stringify({
-        standards: [{ code: "RL.4.1", lessonSections: "Think About the Story" }],
+        standards: [{}],
       });
-      expect(() => parseStandards(json)).toThrow(/lessonSections/);
+      expect(() => parseStandards(json)).toThrow(/code/);
     });
   });
 

@@ -1,17 +1,3 @@
-/**
- * HTML renderers for every Teacher Guide section.
- *
- * Each renderer takes typed data (from teacherGuideTypes.ts, validated by
- * teacherGuideJsonParsers.ts) and returns the section's body HTML. Headings,
- * wrapper divs, table columns, ordering — every structural decision lives in
- * this file and nowhere else.
- *
- * Two sections are pure code with NO Claude call:
- *   - renderLessonOverview()     — constant string
- *   - renderMaterialsNeeded()    — built from chapter meta
- */
-
-import { ALL_STANDARDS } from "../standards/elaStandards.js";
 import type {
   AnswerKeyData,
   CommonStudentQuestionsData,
@@ -22,72 +8,28 @@ import type {
   GuidedReadingData,
   MeasurableObjectivesData,
   StandardsData,
-  SupportPhases,
   ThinkAboutTheStoryAnswersData,
   WordsToKnowMiniLessonData,
 } from "./teacherGuideTypes.js";
-import type { ChapterMeta } from "./templateRenderers.js";
+import { getStandardsForGrade } from "../standards/index.js";
+import type { ChapterMeta, GeneratedSection } from "./templateRenderers.js";
+import { sanitizeLlmBodyHtml } from "./htmlSanitizer.js";
 
-// ---------------------------------------------------------------------------
-// Utility: HTML-escape user-provided strings before injecting into markup.
-// ---------------------------------------------------------------------------
-
-function escapeHtml(input: string): string {
-  return input
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
-function bullets(items: string[]): string {
-  return `<ul>\n${items.map((i) => `  <li>${escapeHtml(i)}</li>`).join("\n")}\n</ul>`;
-}
-
-function ordered(items: string[]): string {
-  return `<ol>\n${items.map((i) => `  <li>${escapeHtml(i)}</li>`).join("\n")}\n</ol>`;
-}
-
-function tip(label: string, body: string): string {
-  return `<div class="tg-tip"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(body)}</div>`;
-}
-
-function subblock(heading: string, innerHtml: string, extraClass?: string): string {
-  const classAttr = extraClass ? `tg-subblock ${extraClass}` : "tg-subblock";
-  return `<div class="${classAttr}"><h3>${escapeHtml(heading)}</h3>\n${innerHtml}\n</div>`;
-}
-
-// ---------------------------------------------------------------------------
-// Section renderers
-// ---------------------------------------------------------------------------
-
-/**
- * Lesson Overview — constant text, no Claude call.
- * The "60-minute / two 30-minute sessions" tip is the entire body of this
- * section per the canonical InDesign reference.
- */
 export function renderLessonOverview(): string {
-  return `<p><em>Tip: This lesson is designed to fit within a 60-minute instructional period. It may be split into two 30-minute sessions if needed.</em></p>`;
+  return `<p>Use this guide to introduce the chapter, support close reading, and prepare students for discussion and writing.</p>`;
 }
 
-export function renderMeasurableObjectives(data: MeasurableObjectivesData): string {
-  const items = data.objectives
-    .map(
-      (o) =>
-        `  <li>Students will be able to ${escapeHtml(o.text)} (${escapeHtml(o.standardCode)})</li>`,
-    )
-    .join("\n");
-  return `<ul>\n${items}\n</ul>`;
-}
-
-/**
- * Standards — compact strand-grouped list (matches the FINAL InDesign
- * reference). Description text is pulled from elaStandards.ts so Claude never
- * has to repeat or paraphrase the official wording.
- */
 export function renderStandards(data: StandardsData): string {
-  const codeMap = new Map(ALL_STANDARDS.map((s) => [s.code, s] as const));
+  const codeMap = new Map(getStandardsForGrade(4, "RL").concat(getStandardsForGrade(4, "RI"), getStandardsForGrade(4, "W"), getStandardsForGrade(4, "L"), getStandardsForGrade(4, "SL")).map((s) => [s.code, s] as const));
   const strandOrder = ["RL", "RI", "W", "L", "SL"] as const;
   const strandLabels: Record<(typeof strandOrder)[number], string> = {
     RL: "Reading Literature",
@@ -97,7 +39,7 @@ export function renderStandards(data: StandardsData): string {
     SL: "Speaking and Listening",
   };
 
-  const grouped: Record<string, Array<{ code: string; description: string; sections: string[] }>> = {};
+  const grouped: Record<string, Array<{ code: string; description: string }>> = {};
   for (const item of data.standards) {
     const standard = codeMap.get(item.code);
     if (!standard) continue;
@@ -106,7 +48,6 @@ export function renderStandards(data: StandardsData): string {
     grouped[strand].push({
       code: item.code,
       description: standard.text,
-      sections: item.lessonSections,
     });
   }
 
@@ -114,10 +55,7 @@ export function renderStandards(data: StandardsData): string {
     .filter((s) => grouped[s] && grouped[s].length > 0)
     .map((strand) => {
       const items = grouped[strand]
-        .map(
-          (s) =>
-            `  <li><strong>${escapeHtml(s.code)}</strong> — ${escapeHtml(s.description)}<br/><em>Used in: ${escapeHtml(s.sections.join(", "))}</em></li>`,
-        )
+        .map((s) => `  <li><strong>${escapeHtml(s.code)}</strong> — ${escapeHtml(s.description)}</li>`)
         .join("\n");
       return `<div class="tg-standards-strand">\n  <h4>${escapeHtml(strandLabels[strand])}</h4>\n  <ul class="tg-standards-list">\n${items}\n  </ul>\n</div>`;
     })
@@ -132,253 +70,179 @@ export function renderMaterialsNeeded(meta: ChapterMeta): string {
 <ul>
   <li>${escapeHtml(meta.bookTitle)}, by ${escapeHtml(meta.author)} (Classic Books for All edition), ${escapeHtml(chapterRef)}, for each student.</li>
   <li>Classic Books for All ${escapeHtml(meta.bookTitle)} Student Workbook.</li>
-  <li>Chart paper or whiteboard for class discussions.</li>
-  <li>Sticky notes for exit tickets.</li>
-  <li>Pencils, crayons/markers for graphic organizers.</li>
+  <li>Pencil and notebook.</li>
+</ul>`;
+}
+
+export function renderMeasurableObjectives(data: MeasurableObjectivesData): string {
+  return `<ul>
+${data.objectives
+  .map((o) => `  <li>Students will be able to ${escapeHtml(o.text)} (${escapeHtml(o.standardCode)})</li>`)
+  .join("\n")}
 </ul>`;
 }
 
 export function renderGetReadyToRead(data: GetReadyToReadData): string {
-  const steps = data.implementationSteps
-    .map((s) => `  <li>${escapeHtml(s)}</li>`)
-    .join("\n");
-  return `<p><strong>Quick-write prompt:</strong> "${escapeHtml(data.quickWritePrompt)}"</p>
-<ol class="tg-impl-steps">
-${steps}
-</ol>
-${tip("Connection tip", data.connectionTip)}`;
+  return `<div class="tg-get-ready">
+  <p><strong>Quick-write prompt:</strong> ${escapeHtml(data.quickWritePrompt)}</p>
+  <ol class="tg-impl-steps">
+${data.implementationSteps.map((s) => `    <li>${escapeHtml(s)}</li>`).join("\n")}
+  </ol>
+  <p class="tg-tip"><strong>Connection tip:</strong> ${escapeHtml(data.connectionTip)}</p>
+</div>`;
 }
 
 export function renderWordsToKnowMiniLesson(data: WordsToKnowMiniLessonData): string {
-  const activities = `  <p>Introduce vocabulary by previewing each word in the context of the chapter. Walk through this worked example for one of this chapter's vocab words:</p>
-  <ul>
-    <li>Word: <em>${escapeHtml(data.workedWord)}</em></li>
-    <li>Quote from chapter (p. ${data.workedPage}): "${escapeHtml(data.workedQuote)}"</li>
-    <li>Context-clue strategy: ${escapeHtml(data.contextClueStrategy)}</li>
-    <li>Student-friendly definition: ${escapeHtml(data.studentDefinition)}</li>
-  </ul>`;
-
-  const partner = `  <p>Pair students. Have them locate each remaining word in the chapter and discuss meaning using a sentence frame such as: "I think <em>[word]</em> means ___ because the text says ___."</p>`;
-
-  const quickCheck = `  <ol>
-    <li>Call on 2–3 pairs to share their definitions.</li>
-    <li>Confirm or correct using the official definition.</li>
-    <li>Add the word to the classroom word wall.</li>
-  </ol>`;
-
-  return `${subblock("Activities", activities)}
-${subblock("Partner Practice", partner)}
-${subblock("Quick Check", quickCheck)}
-${tip("Vocabulary tip", data.vocabularyTip)}`;
+  return `<div class="tg-words">
+  <h4>Activities</h4>
+  <p><strong>Worked example:</strong> ${escapeHtml(data.workedWord)} — ${escapeHtml(data.workedQuote)} (p. ${data.workedPage})</p>
+  <p>${escapeHtml(data.contextClueStrategy)}</p>
+  <h4>Partner Practice</h4>
+  <p>${escapeHtml(data.studentDefinition)}</p>
+  <h4>Quick Check</h4>
+  <p>${escapeHtml(data.vocabularyTip)}</p>
+</div>`;
 }
 
 export function renderGuidedReading(data: GuidedReadingData): string {
-  const sections = data.sections
-    .map((s, i) => {
-      const questions = s.questions
-        .map(
-          (q) =>
-            `    <li>${escapeHtml(q.text)} <span class="tg-qtype">[${escapeHtml(q.questionType)}]</span></li>`,
-        )
-        .join("\n");
-      return `<div class="tg-gr-section">
-  <h3>Section ${i + 1}: pages ${s.pageStart}–${s.pageEnd}</h3>
-  <p><em>Read from "${escapeHtml(s.openingPhrase)}" through "${escapeHtml(s.closingPhrase)}".</em></p>
-  <p><strong>Pause-point questions:</strong></p>
+  return `<div class="tg-guided-reading">
+${data.sections
+  .map(
+    (section, i) => `<div class="tg-section-block">
+  <h4>Section ${i + 1}: pages ${section.pageStart}–${section.pageEnd}</h4>
+  <p>${escapeHtml(section.openingPhrase)} ... ${escapeHtml(section.closingPhrase)}</p>
   <ol class="tg-pause-points">
-${questions}
+${section.questions
+  .map((q) => `    <li>[${escapeHtml(q.questionType)}] ${escapeHtml(q.text)}</li>`)
+  .join("\n")}
   </ol>
+</div>`,
+  )
+  .join("\n")}
+  <p class="tg-tip"><strong>Read-aloud tip:</strong> ${escapeHtml(data.readAloudTip)}</p>
 </div>`;
-    })
-    .join("\n");
-
-  return `${sections}
-${tip("Read-aloud tip", data.readAloudTip)}`;
 }
 
 export function renderThinkAboutTheStoryAnswers(data: ThinkAboutTheStoryAnswersData): string {
-  const answers = data.answers
-    .map(
-      (a) => `<div class="tg-answer">
-  <p><strong>Q:</strong> ${escapeHtml(a.question)}</p>
-  <p><strong>A:</strong> ${escapeHtml(a.answer)} (p. ${a.page}).</p>
+  return `<div class="tg-tats-answers">
+${data.answers
+  .map(
+    (a) => `<div class="tg-answer">
+  <p><strong>${escapeHtml(a.question)}</strong></p>
+  <p>${escapeHtml(a.answer)} (p. ${a.page}).</p>
 </div>`,
-    )
-    .join("\n");
-
-  const inferentialBlock = subblock(
-    "Inferential Thinking — deeper follow-ups",
-    `  ${ordered(data.inferentialPrompts)}`,
-    "tg-inferential",
-  );
-
-  const tieredBlock = subblock(
-    "Tiered Discussion Prompts",
-    `  <p><strong>Literal:</strong></p>
-  ${bullets(data.tieredDiscussion.literal)}
-  <p><strong>Inference:</strong></p>
-  ${bullets(data.tieredDiscussion.inference)}
-  <p><strong>Analysis:</strong></p>
-  ${bullets(data.tieredDiscussion.analysis)}
-  <p><strong>Evaluation:</strong></p>
-  ${bullets(data.tieredDiscussion.evaluation)}`,
-    "tg-tiered",
-  );
-
-  const analyticalBlock = subblock(
-    "Analytical Thinking",
-    `  ${bullets(data.analyticalThinking)}`,
-    "tg-analytical",
-  );
-
-  const personalBlock = subblock(
-    "Personal Connection",
-    `  ${bullets(data.personalConnection)}`,
-    "tg-personal",
-  );
-
-  return `${answers}
-${inferentialBlock}
-${tieredBlock}
-${analyticalBlock}
-${personalBlock}`;
-}
-
-function renderSupportPhases(phases: SupportPhases): string {
-  return `  <p><strong>Before reading:</strong></p>
-  ${bullets(phases.before)}
-  <p><strong>During reading:</strong></p>
-  ${bullets(phases.during)}
-  <p><strong>After reading:</strong></p>
-  ${bullets(phases.after)}`;
+  )
+  .join("\n")}
+  <h4>Inferential Thinking</h4>
+  <ul>
+${data.inferentialPrompts.map((p) => `    <li>${escapeHtml(p)}</li>`).join("\n")}
+  </ul>
+  <h4>Tiered Discussion Prompts</h4>
+  <p><strong>Literal:</strong> ${escapeHtml(data.tieredDiscussion.literal.join(" | "))}</p>
+  <p><strong>Inference:</strong> ${escapeHtml(data.tieredDiscussion.inference.join(" | "))}</p>
+  <p><strong>Analysis:</strong> ${escapeHtml(data.tieredDiscussion.analysis.join(" | "))}</p>
+  <p><strong>Evaluation:</strong> ${escapeHtml(data.tieredDiscussion.evaluation.join(" | "))}</p>
+  <h4>Analytical Thinking</h4>
+  <ul>
+${data.analyticalThinking.map((p) => `    <li>${escapeHtml(p)}</li>`).join("\n")}
+  </ul>
+  <h4>Personal Connection</h4>
+  <ul>
+${data.personalConnection.map((p) => `    <li>${escapeHtml(p)}</li>`).join("\n")}
+  </ul>
+</div>`;
 }
 
 export function renderDifferentiatedSupports(data: DifferentiatedSupportsData): string {
-  return `${subblock("Struggling Readers", renderSupportPhases(data.strugglingReaders), "tg-supports")}
-${subblock("English Language Learners", renderSupportPhases(data.englishLanguageLearners), "tg-supports")}
-${subblock("Advanced Students", renderSupportPhases(data.advancedStudents), "tg-supports")}`;
+  const renderGroup = (title: string, phases: { before: string[]; during: string[]; after: string[] }) =>
+    `<div class="tg-support-group">
+  <h4>${escapeHtml(title)}</h4>
+  <p><strong>Before reading:</strong> ${escapeHtml(phases.before.join(" | "))}</p>
+  <p><strong>During reading:</strong> ${escapeHtml(phases.during.join(" | "))}</p>
+  <p><strong>After reading:</strong> ${escapeHtml(phases.after.join(" | "))}</p>
+</div>`;
+
+  return `<div class="tg-differentiated-supports">
+${renderGroup("Struggling Readers", data.strugglingReaders)}
+${renderGroup("English Language Learners", data.englishLanguageLearners)}
+${renderGroup("Advanced Students", data.advancedStudents)}
+</div>`;
 }
 
 export function renderCommonStudentQuestions(data: CommonStudentQuestionsData): string {
-  const items = data.questions
-    .map((q) => {
-      const pageRef = q.page != null ? ` (p. ${q.page})` : "";
-      return `  <li>
-    <p><strong>Q:</strong> ${escapeHtml(q.studentQ)}</p>
-    <p><strong>A:</strong> ${escapeHtml(q.teacherA)}${pageRef}</p>
-  </li>`;
-    })
-    .join("\n");
   return `<ol class="tg-csq">
-${items}
+${data.questions
+  .map(
+    (q) => `  <li><strong>${escapeHtml(q.studentQ)}</strong>${q.page ? ` (p. ${q.page})` : ""}<br/>${escapeHtml(q.teacherA)}</li>`,
+  )
+  .join("\n")}
 </ol>`;
 }
 
-/**
- * Five fixed error headings, in canonical order. Claude never controls these.
- * Only the body of each error (paragraph, weak example, how-to-fix) comes
- * from Claude. Weak examples and how-to-fix were suppressed in the previous
- * implementation because the validator counted exactly five <h4> headings —
- * any extra heading caused a crash. Restored here using bullet lists instead.
- */
 export function renderCreativeResponseErrors(data: CreativeResponseErrorsData): string {
-  const retellingHeading = `Retelling The Whole Chapter Instead of Focusing on ${data.characterName}'s Experience`;
-
-  const renderError = (heading: string, body: { paragraph: string; weakExample: string; howToFix: string }): string => {
-    return `  <div class="tg-error">
-    <h4>${escapeHtml(heading)}</h4>
-    <p>${escapeHtml(body.paragraph)}</p>
-    <ul>
-      <li><strong>Weak example:</strong> ${escapeHtml(body.weakExample)}</li>
-      <li><strong>How to fix:</strong> ${escapeHtml(body.howToFix)}</li>
-    </ul>
-  </div>`;
-  };
-
+  const title = `Retelling The Whole Chapter Instead of Focusing on ${data.characterName} Experience`;
+  const errors = [
+    ["No Specific Details From The Chapter", data.errors.noSpecificDetails],
+    ["Breaking Character", data.errors.breakingCharacter],
+    [title, data.errors.retelling],
+    ["No Evidence From the Text", data.errors.noEvidence],
+    ["Modern Language That Doesn't Fit The Story", data.errors.modernLanguage],
+  ] as const;
   return `<div class="tg-common-errors">
-${renderError("No Specific Details From The Chapter", data.errors.noSpecificDetails)}
-${renderError("Breaking Character", data.errors.breakingCharacter)}
-${renderError(retellingHeading, data.errors.retelling)}
-${renderError("No Evidence From the Text", data.errors.noEvidence)}
-${renderError("Modern Language That Doesn't Fit The Story", data.errors.modernLanguage)}
+${errors
+  .map(
+    ([heading, body]) => `<div class="tg-error-block">
+  <h4>${escapeHtml(heading)}</h4>
+  <p>${escapeHtml(body.paragraph)}</p>
+  <p><strong>Weak example:</strong> ${escapeHtml(body.weakExample)}</p>
+  <p><strong>How to fix:</strong> ${escapeHtml(body.howToFix)}</p>
+</div>`,
+  )
+  .join("\n")}
 </div>`;
 }
 
 export function renderExitTicket(data: ExitTicketData): string {
-  const promptBlock = subblock("Prompt", `  <p>${escapeHtml(data.prompt)}</p>`);
-  const criteriaBlock = subblock(
-    "Success Criteria",
-    `  ${bullets(data.successCriteria)}`,
-  );
-  const examplesBlock = subblock(
-    "Example Responses",
-    `  <ol>
-    <li><strong>Strong:</strong> ${escapeHtml(data.strongExample)}</li>
-    <li><strong>Developing:</strong> ${escapeHtml(data.developingExample)}</li>
-  </ol>`,
-  );
-  return `${promptBlock}
-${criteriaBlock}
-${examplesBlock}`;
+  return `<div class="tg-exit-ticket">
+  <p><strong>Prompt</strong>: ${escapeHtml(data.prompt)}</p>
+  <h4>Success Criteria</h4>
+  <ul>
+${data.successCriteria.map((s) => `    <li>${escapeHtml(s)}</li>`).join("\n")}
+  </ul>
+  <h4>Example Responses</h4>
+  <p><strong>Strong:</strong> ${escapeHtml(data.strongExample)}</p>
+  <p><strong>Developing:</strong> ${escapeHtml(data.developingExample)}</p>
+</div>`;
 }
 
 export function renderAnswerKey(data: AnswerKeyData): string {
-  const qaList = (items: Array<{ question: string; answer: string; page: number }>): string => {
-    if (items.length === 0) return `  <p><em>No questions to answer in this section.</em></p>`;
-    const lis = items
-      .map(
-        (a) =>
-          `    <li><strong>Q:</strong> ${escapeHtml(a.question)}<br/><strong>A:</strong> ${escapeHtml(a.answer)} (p. ${a.page}).</li>`,
-      )
-      .join("\n");
-    return `  <ol>\n${lis}\n  </ol>`;
-  };
-
-  const rblBlock = subblock("Reading Between the Lines — Answers", qaList(data.readingBetweenTheLines));
-  const ddBlock = subblock("Dig Deeper — Answers", qaList(data.digDeeper));
-
-  const mcLis = data.multipleChoice
-    .map(
-      (a) =>
-        `    <li><strong>Q:</strong> ${escapeHtml(a.question)}<br/><strong>Correct: ${escapeHtml(a.correctLetter)}</strong> — ${escapeHtml(a.rationale)}</li>`,
-    )
-    .join("\n");
-  const mcBlock = subblock(
-    "Multiple Choice — Answers",
-    `  <ol>\n${mcLis || "    <li><em>No multiple choice questions.</em></li>"}\n  </ol>`,
-  );
-
-  const evidenceLis = data.evidenceFromTheStory
-    .map(
-      (a) =>
-        `    <li><strong>Q:</strong> ${escapeHtml(a.question)}<br/><strong>Sample answer:</strong> ${escapeHtml(a.sampleAnswer)} ("${escapeHtml(a.quote)}", p. ${a.page})</li>`,
-    )
-    .join("\n");
-  const evidenceBlock = subblock(
-    "Evidence from the Story — Sample Answers",
-    `  <ol>\n${evidenceLis || "    <li><em>No evidence questions.</em></li>"}\n  </ol>`,
-  );
-
-  const charRows = data.characterChart
-    .map(
-      (c) =>
-        `      <tr><td>${escapeHtml(c.characterName)}</td><td>${escapeHtml(c.description)}</td><td>${escapeHtml(c.whatThisShows)}</td><td>"${escapeHtml(c.quote)}" (p. ${c.page})</td></tr>`,
-    )
-    .join("\n");
-  const charTable = `  <table class="tg-character-key">
-    <thead><tr><th>Character</th><th>Description / Actions</th><th>What This Shows</th><th>Evidence (quote + page)</th></tr></thead>
+  return `<div class="tg-answer-key">
+  <h4>Reading Between the Lines — Answers</h4>
+  <ul>
+${data.readingBetweenTheLines.map((a) => `    <li><strong>${escapeHtml(a.question)}</strong>: ${escapeHtml(a.answer)} (p. ${a.page})</li>`).join("\n")}
+  </ul>
+  <h4>Dig Deeper — Answers</h4>
+  <ul>
+${data.digDeeper.map((a) => `    <li><strong>${escapeHtml(a.question)}</strong>: ${escapeHtml(a.answer)} (p. ${a.page})</li>`).join("\n")}
+  </ul>
+  <h4>Multiple Choice — Answers</h4>
+  <ul>
+${data.multipleChoice.map((a) => `    <li><strong>${escapeHtml(a.question)}</strong>: ${escapeHtml(a.correctLetter)} — ${escapeHtml(a.rationale)}</li>`).join("\n")}
+  </ul>
+  <h4>Evidence from the Story — Sample Answers</h4>
+  <ul>
+${data.evidenceFromTheStory.map((a) => `    <li><strong>${escapeHtml(a.question)}</strong>: ${escapeHtml(a.sampleAnswer)} <em>${escapeHtml(a.quote)}</em> (p. ${a.page})</li>`).join("\n")}
+  </ul>
+  <h4>Character Chart — Answer Key</h4>
+  <table class="tg-character-key">
+    <thead><tr><th>Character</th><th>Description</th><th>What This Shows</th><th>Quote</th><th>Page</th></tr></thead>
     <tbody>
-${charRows || `      <tr><td colspan="4"><em>No characters in this chapter's chart.</em></td></tr>`}
+${data.characterChart.map((a) => `      <tr><td>${escapeHtml(a.characterName)}</td><td>${escapeHtml(a.description)}</td><td>${escapeHtml(a.whatThisShows)}</td><td>${escapeHtml(a.quote)}</td><td>${a.page}</td></tr>`).join("\n")}
     </tbody>
-  </table>`;
-  const charBlock = subblock("Character Chart — Answer Key", charTable);
-
-  const drawBlock = subblock("Draw It! — Suggested Details", `  ${bullets(data.drawItDetails)}`);
-
-  return `${rblBlock}
-${ddBlock}
-${mcBlock}
-${evidenceBlock}
-${charBlock}
-${drawBlock}`;
+  </table>
+  <h4>Draw It! — Suggested Details</h4>
+  <ul>
+${data.drawItDetails.map((d) => `    <li>${escapeHtml(d)}</li>`).join("\n")}
+  </ul>
+</div>`;
 }

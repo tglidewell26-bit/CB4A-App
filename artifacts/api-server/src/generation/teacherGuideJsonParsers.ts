@@ -179,11 +179,6 @@ export function parseStandards(raw: string): StandardsData {
     const obj = asObject(sectionKey, item, `standards[${i}]`);
     return {
       code: asString(sectionKey, obj.code, `standards[${i}].code`),
-      lessonSections: asStringArray(
-        sectionKey,
-        obj.lessonSections,
-        `standards[${i}].lessonSections`,
-      ),
     };
   });
   return { standards };
