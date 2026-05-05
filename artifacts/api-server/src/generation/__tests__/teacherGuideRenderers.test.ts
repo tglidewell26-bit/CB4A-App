@@ -51,7 +51,7 @@ describe("teacherGuideRenderers", () => {
   });
 
   describe("renderMeasurableObjectives", () => {
-    it("renders a SWBAT bullet for each objective with code", () => {
+    it("renders one shared SWBAT line and objective-only bullets with codes", () => {
       const html = renderMeasurableObjectives({
         objectives: [
           { text: "analyze how the protagonist’s actions reveal character traits", standardCode: "RL.4.3" },
