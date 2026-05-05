@@ -51,16 +51,18 @@ describe("teacherGuideRenderers", () => {
   });
 
   describe("renderMeasurableObjectives", () => {
-    it("renders a SWBAT bullet for each objective with code", () => {
+    it("renders one shared SWBAT stem followed by objective bullets with codes", () => {
       const html = renderMeasurableObjectives({
         objectives: [
           { text: "identify the protagonist", standardCode: "RL.4.3" },
           { text: "describe the setting", standardCode: "RL.4.1" },
         ],
       });
-      expect(html).toContain("Students will be able to identify the protagonist (RL.4.3)");
-      expect(html).toContain("Students will be able to describe the setting (RL.4.1)");
-      expect(html.startsWith("<ul>")).toBe(true);
+      expect(html).toContain("<p>Students will be able to</p>");
+      expect(html).toContain("<li>identify the protagonist (RL.4.3)</li>");
+      expect(html).toContain("<li>describe the setting (RL.4.1)</li>");
+      expect(html).not.toContain("Students will be able to identify");
+      expect(html.startsWith("<p>Students will be able to</p>\n<ul>")).toBe(true);
     });
   });
 
