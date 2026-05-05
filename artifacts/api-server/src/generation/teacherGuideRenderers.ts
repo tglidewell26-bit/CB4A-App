@@ -78,6 +78,8 @@ export function renderMaterialsNeeded(meta: ChapterMeta): string {
   <li>${escapeHtml(meta.bookTitle)}, by ${escapeHtml(meta.author)} (Classic Books for All edition), ${escapeHtml(chapterRef)}, for each student.</li>
   <li>Classic Books for All ${escapeHtml(meta.bookTitle)} Student Workbook.</li>
   <li>Pencil and notebook.</li>
+  <li>Whiteboard and markers.</li>
+  <li>Optional: Drawing paper and colored pencils.</li>
 </ul>`;
 }
 

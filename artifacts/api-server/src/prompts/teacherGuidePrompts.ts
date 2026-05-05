@@ -98,10 +98,10 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
 
 Rules:
 - Pick the standards this chapter actually addresses. Coverage must include at least:
-  - one Reading standard (RL.${gradeLevel}.* or RI.${gradeLevel}.*)
-  - one Writing standard (W.${gradeLevel}.*)
-  - one Language standard (L.${gradeLevel}.*) — vocabulary mini-lesson maps here
-  - one Speaking and Listening standard (SL.${gradeLevel}.*) — discussion maps here
+  - one to three Reading standard (RL.${gradeLevel}.* or RI.${gradeLevel}.*)
+  - one to three Writing standard (W.${gradeLevel}.*)
+  - one to three Reading Language standard (L.${gradeLevel}.*) — vocabulary mini-lesson maps here
+  - one to three Reading Speaking and Listening standard (SL.${gradeLevel}.*) — discussion maps here
 - Each "code" must be an exact grade-${gradeLevel} code from the standards block below. Do NOT invent codes.
 - Standard descriptions are filled in from a code lookup table — do NOT include description text.
 
