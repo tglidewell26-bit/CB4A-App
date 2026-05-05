@@ -21,7 +21,8 @@ const QUESTION_TYPES = [
 export function teacherSectionRequirementByKey(key: string, grade?: GradeLevel): string {
   const gradeLevel = (grade ?? 4) as GradeLevel;
   switch (key) {
-    case "measurable_objectives":
+    case "measurable_objectives": {
+      const standardsBlock = formatStandardsForPrompt(gradeLevel);
       return `Return a JSON object with this exact shape and nothing else:
 
 {
@@ -37,15 +38,16 @@ export function teacherSectionRequirementByKey(key: string, grade?: GradeLevel):
 
 Rules:
 - Output 5–6 objective items.
-- Each "text" is a polished, curriculum-style objective fragment that completes the shared stem "Students will be able to...".
-- Do NOT include the stem "Students will be able to" in any "text" value.
-- Each "text" begins with a strong measurable verb in title case (for example: Identify, Define, Sequence, Make, Engage, Write, Explain, Compare, Analyze).
-- Write each objective as a concise fragment, not a full sentence: no ending periods, no first-person language, and no vague verbs such as understand, learn, know, or appreciate.
-- Use classroom-ready language that names the skill and, when useful, the evidence, strategy, or product students will use.
-- Each "standardCode" must be an exact code for grade ${gradeLevel} from the standards block. Never invent codes.
+- Each "text" is the verb phrase that follows "Students will be able to". Do NOT prefix it with "Students will be able to" yourself.
+- Each "text" begins with a measurable verb (identify, describe, explain, compare, infer, analyze, evaluate, write, etc.).
+- Each "standardCode" must be an exact code for grade ${gradeLevel} from the standards block below. Never invent codes.
 - The standardCode is the bare code (e.g. "RL.${gradeLevel}.1"), no parentheses, no extra text.
 
+Available standards (use ONLY these — do not invent codes):
+${standardsBlock}
+
 Return ONLY the JSON object. No markdown fences, no commentary.`;
+    }
 
     case "standards": {
       const standardsBlock = formatStandardsForPrompt(gradeLevel);
