@@ -12,6 +12,7 @@ import type {
   WordsToKnowMiniLessonData,
 } from "./teacherGuideTypes.js";
 import { getStandardsForGrade } from "../standards/index.js";
+import type { GradeLevel } from "../standards/types.js";
 import type { ChapterMeta, GeneratedSection } from "./templateRenderers.js";
 import { sanitizeLlmBodyHtml } from "./htmlSanitizer.js";
 
@@ -25,11 +26,11 @@ function escapeHtml(value: string): string {
 }
 
 export function renderLessonOverview(): string {
-  return `<p>Use this guide to introduce the chapter, support close reading, and prepare students for discussion and writing.</p>`;
+  return `<p>Use this guide to introduce the chapter, support close reading, and prepare students for discussion and writing.</p>
+<p>This guide is designed for a 60-minute instructional period or two 30-minute sessions.</p>`;
 }
 
-export function renderStandards(data: StandardsData): string {
-  const codeMap = new Map(getStandardsForGrade(4, "RL").concat(getStandardsForGrade(4, "RI"), getStandardsForGrade(4, "W"), getStandardsForGrade(4, "L"), getStandardsForGrade(4, "SL")).map((s) => [s.code, s] as const));
+export function renderStandards(data: StandardsData, grade: GradeLevel): string {
   const strandOrder = ["RL", "RI", "W", "L", "SL"] as const;
   const strandLabels: Record<(typeof strandOrder)[number], string> = {
     RL: "Reading Literature",
@@ -39,15 +40,19 @@ export function renderStandards(data: StandardsData): string {
     SL: "Speaking and Listening",
   };
 
+  const codeMap = new Map(
+    strandOrder.flatMap((s) => getStandardsForGrade(grade, s)).map((s) => [s.code, s] as const),
+  );
+
   const grouped: Record<string, Array<{ code: string; description: string }>> = {};
   for (const item of data.standards) {
     const standard = codeMap.get(item.code);
-    if (!standard) continue;
-    const strand = standard.strand;
+    const strand = standard?.strand ?? item.code.split(".")[0];
+    if (!strandOrder.includes(strand as (typeof strandOrder)[number])) continue;
     if (!grouped[strand]) grouped[strand] = [];
     grouped[strand].push({
       code: item.code,
-      description: standard.text,
+      description: standard?.text ?? "",
     });
   }
 
@@ -55,7 +60,9 @@ export function renderStandards(data: StandardsData): string {
     .filter((s) => grouped[s] && grouped[s].length > 0)
     .map((strand) => {
       const items = grouped[strand]
-        .map((s) => `  <li><strong>${escapeHtml(s.code)}</strong> — ${escapeHtml(s.description)}</li>`)
+        .map((s) =>
+          `  <li><strong>${escapeHtml(s.code)}</strong>${s.description ? ` — ${escapeHtml(s.description)}` : ""}</li>`,
+        )
         .join("\n");
       return `<div class="tg-standards-strand">\n  <h4>${escapeHtml(strandLabels[strand])}</h4>\n  <ul class="tg-standards-list">\n${items}\n  </ul>\n</div>`;
     })
@@ -88,7 +95,7 @@ export function renderGetReadyToRead(data: GetReadyToReadData): string {
   <ol class="tg-impl-steps">
 ${data.implementationSteps.map((s) => `    <li>${escapeHtml(s)}</li>`).join("\n")}
   </ol>
-  <p class="tg-tip"><strong>Connection tip:</strong> ${escapeHtml(data.connectionTip)}</p>
+  <div class="tg-tip"><strong>Connection tip:</strong> ${escapeHtml(data.connectionTip)}</div>
 </div>`;
 }
 
@@ -100,7 +107,7 @@ export function renderWordsToKnowMiniLesson(data: WordsToKnowMiniLessonData): st
   <h4>Partner Practice</h4>
   <p>${escapeHtml(data.studentDefinition)}</p>
   <h4>Quick Check</h4>
-  <p>${escapeHtml(data.vocabularyTip)}</p>
+  <p><strong>Vocabulary tip:</strong> ${escapeHtml(data.vocabularyTip)}</p>
 </div>`;
 }
 
@@ -180,7 +187,7 @@ ${data.questions
 }
 
 export function renderCreativeResponseErrors(data: CreativeResponseErrorsData): string {
-  const title = `Retelling The Whole Chapter Instead of Focusing on ${data.characterName} Experience`;
+  const title = `Retelling The Whole Chapter Instead of Focusing on ${data.characterName}'s Experience`;
   const errors = [
     ["No Specific Details From The Chapter", data.errors.noSpecificDetails],
     ["Breaking Character", data.errors.breakingCharacter],

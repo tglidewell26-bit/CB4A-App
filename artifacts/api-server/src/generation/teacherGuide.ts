@@ -4,6 +4,7 @@ import {
   buildTeacherSectionUserPrompt,
 } from "../prompts/teacherGuidePrompts.js";
 import type { VocabularyWord } from "../vocabulary/types.js";
+import type { GradeLevel } from "../standards/types.js";
 import { TEACHER_GUIDE_SECTIONS } from "./sectionSchema.js";
 import {
   parseAnswerKey,
@@ -158,7 +159,7 @@ async function generateSectionBody(
     case "measurable_objectives":
       return renderMeasurableObjectives(parseMeasurableObjectives(rawJson));
     case "standards":
-      return renderStandards(parseStandards(rawJson));
+      return renderStandards(parseStandards(rawJson), meta.grade as GradeLevel);
     case "get_ready_to_read":
       return renderGetReadyToRead(parseGetReadyToRead(rawJson));
     case "words_to_know_mini_lesson":

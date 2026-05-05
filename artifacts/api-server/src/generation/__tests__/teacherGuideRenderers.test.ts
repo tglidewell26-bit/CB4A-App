@@ -73,7 +73,7 @@ describe("teacherGuideRenderers", () => {
           { code: "L.4.4" },
           { code: "SL.4.1" },
         ],
-      });
+      }, 4);
       expect(html).toContain("Reading Literature");
       expect(html).toContain("Writing");
       expect(html).toContain("Language");
@@ -87,7 +87,7 @@ describe("teacherGuideRenderers", () => {
     it("ignores fabricated codes (no lookup match) without crashing", () => {
       const html = renderStandards({
         standards: [{ code: "ZZ.4.99" }],
-      });
+      }, 4);
       expect(html).toContain("No standards selected for this chapter.");
     });
   });
