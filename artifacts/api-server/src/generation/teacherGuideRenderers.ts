@@ -120,7 +120,7 @@ ${data.sections
   .map(
     (section, i) => `<div class="tg-section-block">
   <h4>Section ${i + 1}: pages ${section.pageStart}–${section.pageEnd}</h4>
-  <p>${escapeHtml(section.openingPhrase)} ... ${escapeHtml(section.closingPhrase)}</p>
+  <p>Read from ${escapeHtml(section.openingPhrase)} ... ${escapeHtml(section.closingPhrase)}</p>
   <ol class="tg-pause-points">
 ${section.questions
   .map((q) => `    <li>${escapeHtml(q.text)}</li>`)
