@@ -121,10 +121,19 @@ ${wordList}
     <li>Think-aloud: "What clues help me understand this word?"</li>
     <li>Example for <em>${escapeHtml(data.workedWord)}</em>: "${escapeHtml(data.workedQuote)}" (p. ${data.workedPage}) — ${escapeHtml(data.contextClueStrategy)}</li>
   </ul>
-  <h4>Partner Practice</h4>
-  <p>${escapeHtml(data.studentDefinition)}</p>
-  <h4>Quick Check</h4>
-  <p><strong>Vocabulary tip:</strong> ${escapeHtml(data.vocabularyTip)}</p>
+  <h4>Partner practice</h4>
+  <ul>
+    <li>Assign partners.</li>
+    <li>Each pair gets two to three vocabulary words.</li>
+    <li>Partners find the word in the text and discuss what it might mean.</li>
+    <li>Use sentence: "I think _____ means _____ because the text says _____."</li>
+  </ul>
+  <h4>Quick check</h4>
+  <ul>
+    <li>Call on pairs to share definitions.</li>
+    <li>Confirm or clarify meanings.</li>
+    <li>Post vocabulary words on Word Wall.</li>
+  </ul>
 </div>`;
 }
 
