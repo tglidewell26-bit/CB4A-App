@@ -75,8 +75,7 @@ export function renderStandards(data: StandardsData, grade: GradeLevel): string 
 
 export function renderMaterialsNeeded(meta: ChapterMeta): string {
   const chapterRef = meta.chapterNum != null ? `Chapter ${meta.chapterNum}` : meta.chapterTitle;
-  return `<p>Materials needed</p>
-<ul>
+  return `<ul>
   <li>${escapeHtml(meta.bookTitle)}, by ${escapeHtml(meta.author)} (Classic Books for All edition), ${escapeHtml(chapterRef)}, for each student.</li>
   <li>Classic Books for All ${escapeHtml(meta.bookTitle)} Student Workbook.</li>
   <li>Pencil and notebook.</li>
