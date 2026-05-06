@@ -15,6 +15,7 @@ import { getStandardsForGrade } from "../standards/index.js";
 import type { GradeLevel } from "../standards/types.js";
 import type { ChapterMeta, GeneratedSection } from "./templateRenderers.js";
 import { sanitizeLlmBodyHtml } from "./htmlSanitizer.js";
+import type { VocabularyWord } from "../vocabulary/types.js";
 
 
 function escapeHtml(value: string): string {
@@ -104,11 +105,23 @@ ${data.implementationSteps.map((s) => `    <li>${escapeHtml(s)}</li>`).join("\n"
 </div>`;
 }
 
-export function renderWordsToKnowMiniLesson(data: WordsToKnowMiniLessonData): string {
+export function renderWordsToKnowMiniLesson(data: WordsToKnowMiniLessonData, vocabulary: VocabularyWord[]): string {
+  const wordList = vocabulary
+    .map((v, i) => `    <li>${escapeHtml(v.word)} <em>(page ${v.page_number})</em></li>`)
+    .join("\n");
   return `<div class="tg-words">
+  <h4>Mini-lesson</h4>
+  <ol>
+${wordList}
+  </ol>
   <h4>Activities</h4>
-  <p><strong>Worked example:</strong> ${escapeHtml(data.workedWord)} — ${escapeHtml(data.workedQuote)} (p. ${data.workedPage})</p>
-  <p>${escapeHtml(data.contextClueStrategy)}</p>
+  <p><strong>Introduce words with context</strong></p>
+  <ul>
+    <li>Write each word on the board.</li>
+    <li>Read the sentence from the book containing the word.</li>
+    <li>Think-aloud: "What clues help me understand this word?"</li>
+    <li>Example for <em>${escapeHtml(data.workedWord)}</em>: "${escapeHtml(data.workedQuote)}" (p. ${data.workedPage}) — ${escapeHtml(data.contextClueStrategy)}</li>
+  </ul>
   <h4>Partner Practice</h4>
   <p>${escapeHtml(data.studentDefinition)}</p>
   <h4>Quick Check</h4>
