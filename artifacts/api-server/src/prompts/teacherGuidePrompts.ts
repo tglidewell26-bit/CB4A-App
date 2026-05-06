@@ -86,6 +86,19 @@ Rules:
 - Each "standardCode" must be an exact code for grade ${gradeLevel} from the standards block below. Never invent codes.
 - The standardCode is the bare code (e.g. "RL.${gradeLevel}.1"), no parentheses, no extra text.
 
+Example output (used only as an example, and not as the default):
+Identify and describe the main characters (Heidi, Deta, Grandfather [Alm-Uncle], Peter) using
+evidence from the text (RL.3.3).
+• Define ten key vocabulary words using context clues and apply them in sentences (L.3.4).
+• Sequence the major events of Heidi’s journey up the mountain and explain why each event is
+important (RL.3.1).
+• Make inferences about character feelings and motivations based on their actions and dialogue
+(RL.3.1).
+• Engage effectively in collaborative discussions by building on others’ ideas, asking clarifying
+questions, and providing text evidence to support thinking (SL.3.1).
+• Write narratives to develop real or imagined experiences or events using effective technique,
+descriptive details, and clear event sequences (W.3.1).
+
 Available standards (use ONLY these — do not invent codes):
 ${standardsBlock}
 
