@@ -26,7 +26,7 @@ export interface TeacherGuidePromptInputs {
 
 export function buildTeacherSectionSystemPrompt(args: TeacherGuidePromptInputs): string {
   const guidance = gradeGuidanceFor(args.grade);
-  const requirements = teacherSectionRequirementByKey(args.sectionKey, args.grade);
+  const requirements = teacherSectionRequirementByKey(args.sectionKey, args.grade, args.vocabulary.length);
   return `You are writing the ${args.sectionDisplayTitle} section of a Teacher Guide for ${args.bookTitle} by ${args.author}.
 ${guidance}
 
@@ -57,8 +57,9 @@ Vocabulary:
 ${args.vocabulary.map((v) => `${v.word} — ${v.book_quote}`).join("\n")}`;
 }
 
-export function teacherSectionRequirementByKey(key: string, grade?: GradeLevel): string {
+export function teacherSectionRequirementByKey(key: string, grade?: GradeLevel, vocabCount?: number): string {
   const gradeLevel = (grade ?? 4) as GradeLevel;
+  const wordCount = vocabCount ?? 10;
   switch (key) {
     case "measurable_objectives": {
       const standardsBlock = formatStandardsForPrompt(gradeLevel);
@@ -66,12 +67,12 @@ export function teacherSectionRequirementByKey(key: string, grade?: GradeLevel):
 
 {
   "objectives": [
-    { "text": "Identify and describe the main characters in this chapter using evidence from the text", "standardCode": "RL.${gradeLevel}.3" },
-    { "text": "Define key vocabulary words from this chapter using context clues and apply them in sentences", "standardCode": "L.${gradeLevel}.4" },
-    { "text": "Sequence the major events of this chapter and explain why each event is important", "standardCode": "RL.${gradeLevel}.1" },
+    { "text": "Identify and describe the main characters (e.g., Character A, Character B, Character C) using evidence from the text", "standardCode": "RL.${gradeLevel}.3" },
+    { "text": "Define ${wordCount} key vocabulary words using context clues and apply them in sentences", "standardCode": "L.${gradeLevel}.4" },
+    { "text": "Sequence the major events of [specific chapter event or journey] and explain why each event is important", "standardCode": "RL.${gradeLevel}.1" },
     { "text": "Make inferences about character feelings and motivations based on their actions and dialogue", "standardCode": "RL.${gradeLevel}.3" },
-    { "text": "Engage in collaborative discussions about the chapter by building on others' ideas and asking clarifying questions", "standardCode": "SL.${gradeLevel}.1" },
-    { "text": "Write narratives to develop real or imagined experiences or events using descriptive details and a clear event sequence", "standardCode": "W.${gradeLevel}.3" }
+    { "text": "Engage effectively in collaborative discussions by building on others' ideas, asking clarifying questions, and providing text evidence", "standardCode": "SL.${gradeLevel}.1" },
+    { "text": "Write narratives to develop real or imagined experiences or events using effective technique, descriptive details, and clear event sequences", "standardCode": "W.${gradeLevel}.3" }
   ]
 }
 
@@ -79,7 +80,9 @@ Rules:
 - Output 5–6 objective items.
 - Each "text" is the verb phrase that follows "Students will be able to". Do NOT prefix it with "Students will be able to" yourself.
 - Each "text" begins with a measurable verb (identify, describe, explain, compare, infer, analyze, evaluate, write, etc.).
-- Make the objective text chapter-specific whenever possible by referencing characters, events, or details from the provided chapter text.
+- For character objectives: name the specific characters who appear in this chapter in parentheses, e.g. "Identify and describe the main characters (Heidi, Peter, Grandfather) using evidence from the text".
+- For the vocabulary objective: always use exactly ${wordCount} as the word count — do not change this number.
+- For event-sequencing objectives: name the specific event, journey, or situation from this chapter rather than writing "the major events of this chapter" generically.
 - Each "standardCode" must be an exact code for grade ${gradeLevel} from the standards block below. Never invent codes.
 - The standardCode is the bare code (e.g. "RL.${gradeLevel}.1"), no parentheses, no extra text.
 
