@@ -94,10 +94,12 @@ ${data.objectives
 
 export function renderGetReadyToRead(data: GetReadyToReadData): string {
   return `<div class="tg-get-ready">
-  <p><strong>Quick-write prompt:</strong> ${escapeHtml(data.quickWritePrompt)}</p>
-  <ol class="tg-impl-steps">
+  <h4>Quick-write prompt</h4>
+  <p>"${escapeHtml(data.quickWritePrompt)}"</p>
+  <h4>Implementation</h4>
+  <ul class="tg-impl-steps">
 ${data.implementationSteps.map((s) => `    <li>${escapeHtml(s)}</li>`).join("\n")}
-  </ol>
+  </ul>
   <div class="tg-tip"><strong>Connection tip:</strong> ${escapeHtml(data.connectionTip)}</div>
 </div>`;
 }
