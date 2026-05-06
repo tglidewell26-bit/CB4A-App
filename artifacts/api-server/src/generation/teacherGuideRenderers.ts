@@ -121,6 +121,7 @@ ${data.sections
     (section, i) => `<div class="tg-section-block">
   <h4>Section ${i + 1}: pages ${section.pageStart}–${section.pageEnd}</h4>
   <p>Read from ${escapeHtml(section.openingPhrase)} ... ${escapeHtml(section.closingPhrase)}</p>
+  <p>Pause and ask:</p>
   <ol class="tg-pause-points">
 ${section.questions
   .map((q) => `    <li>${escapeHtml(q.text)}</li>`)
@@ -143,20 +144,20 @@ ${data.answers
 </div>`,
   )
   .join("\n")}
-  <h4>Inferential Thinking</h4>
+  <h3>Inferential Thinking</h3>
   <ul>
 ${data.inferentialPrompts.map((p) => `    <li>${escapeHtml(p)}</li>`).join("\n")}
   </ul>
-  <h4>Tiered Discussion Prompts</h4>
+  <h3>Tiered Discussion Prompts</h3>
   <p><strong>Literal:</strong> ${escapeHtml(data.tieredDiscussion.literal.join(" | "))}</p>
   <p><strong>Inference:</strong> ${escapeHtml(data.tieredDiscussion.inference.join(" | "))}</p>
   <p><strong>Analysis:</strong> ${escapeHtml(data.tieredDiscussion.analysis.join(" | "))}</p>
   <p><strong>Evaluation:</strong> ${escapeHtml(data.tieredDiscussion.evaluation.join(" | "))}</p>
-  <h4>Analytical Thinking</h4>
+  <h3>Analytical Thinking</h3>
   <ul>
 ${data.analyticalThinking.map((p) => `    <li>${escapeHtml(p)}</li>`).join("\n")}
   </ul>
-  <h4>Personal Connection</h4>
+  <h3>Personal Connection</h3>
   <ul>
 ${data.personalConnection.map((p) => `    <li>${escapeHtml(p)}</li>`).join("\n")}
   </ul>

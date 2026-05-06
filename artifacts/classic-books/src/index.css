@@ -35,9 +35,10 @@ body {
 }
 
 .teacher-guide .tg-section h3 {
-  font-size: 1.05rem;
-  font-weight: 600;
-  margin: 16px 0 8px 0;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 20px 0 8px 0;
   color: #1C1917;
 }
 
