@@ -13,7 +13,7 @@ import type {
 } from "./teacherGuideTypes.js";
 import { getStandardsForGrade } from "../standards/index.js";
 
-import type { ChapterMeta, GeneratedSection } from "./templateRenderers.js";
+import type { ChapterMeta} from "./templateRenderers.js";
 
 
 function escapeHtml(value: string): string {
