@@ -66,12 +66,12 @@ export function teacherSectionRequirementByKey(key: string, grade?: GradeLevel):
 
 {
   "objectives": [
-    { "text": "Identify and describe main characters using evidence from the text", "standardCode": "RL.${gradeLevel}.3" },
-    { "text": "Define key vocabulary words using context clues", "standardCode": "L.${gradeLevel}.4" },
-    { "text": "Sequence major events and explain their importance", "standardCode": "RL.${gradeLevel}.2" },
-    { "text": "Make inferences about character feelings and motivations", "standardCode": "RL.${gradeLevel}.1" },
-    { "text": "Engage in collaborative discussions", "standardCode": "SL.${gradeLevel}.1" },
-    { "text": "Write a narrative or written response using clear event sequence and details", "standardCode": "W.${gradeLevel}.3" }
+    { "text": "Identify and describe the main characters in this chapter using evidence from the text", "standardCode": "RL.${gradeLevel}.3" },
+    { "text": "Define key vocabulary words from this chapter using context clues and apply them in sentences", "standardCode": "L.${gradeLevel}.4" },
+    { "text": "Sequence the major events of this chapter and explain why each event is important", "standardCode": "RL.${gradeLevel}.1" },
+    { "text": "Make inferences about character feelings and motivations based on their actions and dialogue", "standardCode": "RL.${gradeLevel}.3" },
+    { "text": "Engage in collaborative discussions about the chapter by building on others' ideas and asking clarifying questions", "standardCode": "SL.${gradeLevel}.1" },
+    { "text": "Write narratives to develop real or imagined experiences or events using descriptive details and a clear event sequence", "standardCode": "W.${gradeLevel}.3" }
   ]
 }
 
@@ -79,6 +79,7 @@ Rules:
 - Output 5–6 objective items.
 - Each "text" is the verb phrase that follows "Students will be able to". Do NOT prefix it with "Students will be able to" yourself.
 - Each "text" begins with a measurable verb (identify, describe, explain, compare, infer, analyze, evaluate, write, etc.).
+- Make the objective text chapter-specific whenever possible by referencing characters, events, or details from the provided chapter text.
 - Each "standardCode" must be an exact code for grade ${gradeLevel} from the standards block below. Never invent codes.
 - The standardCode is the bare code (e.g. "RL.${gradeLevel}.1"), no parentheses, no extra text.
 
