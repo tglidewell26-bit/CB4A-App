@@ -75,8 +75,7 @@ export function renderStandards(data: StandardsData, grade: GradeLevel): string 
 
 export function renderMaterialsNeeded(meta: ChapterMeta): string {
   const chapterRef = meta.chapterNum != null ? `Chapter ${meta.chapterNum}` : meta.chapterTitle;
-  return `<p>Materials needed</p>
-<ul>
+  return `<ul>
   <li>${escapeHtml(meta.bookTitle)}, by ${escapeHtml(meta.author)} (Classic Books for All edition), ${escapeHtml(chapterRef)}, for each student.</li>
   <li>Classic Books for All ${escapeHtml(meta.bookTitle)} Student Workbook.</li>
   <li>Pencil and notebook.</li>
@@ -135,7 +134,7 @@ ${data.sections
   .map(
     (section, i) => `<div class="tg-section-block">
   <h4>Section ${i + 1}: pages ${section.pageStart}–${section.pageEnd}</h4>
-  <p>Read from ${escapeHtml(section.openingPhrase)} ... ${escapeHtml(section.closingPhrase)}</p>
+  <p>Read from ${escapeHtml(section.openingPhrase)} ...</p>
   <p>Pause and ask:</p>
   <ol class="tg-pause-points">
 ${section.questions
