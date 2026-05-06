@@ -337,27 +337,32 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
 
 {
   "readingBetweenTheLines": [
-    { "question": "...", "answer": "...", "page": 4 }
+    { "question": "...", "answer": "...", "page": 3 },
+    { "question": "...", "answer": "...", "page": 11 }
   ],
   "digDeeper": [
-    { "question": "...", "answer": "...", "page": 5 }
+    { "question": "...", "answer": "...", "page": 6 },
+    { "question": "...", "answer": "...", "page": 14 }
   ],
   "multipleChoice": [
     { "question": "...", "correctLetter": "B", "rationale": "..." }
   ],
   "evidenceFromTheStory": [
-    { "question": "...", "sampleAnswer": "...", "quote": "...", "page": 6 }
+    { "question": "...", "sampleAnswer": "...", "quote": "...", "page": 8 },
+    { "question": "...", "sampleAnswer": "...", "quote": "...", "page": 2 }
   ],
   "characterChart": [
-    { "characterName": "...", "description": "...", "whatThisShows": "...", "quote": "...", "page": 7 }
+    { "characterName": "...", "description": "...", "whatThisShows": "...", "quote": "...", "page": 5 },
+    { "characterName": "...", "description": "...", "whatThisShows": "...", "quote": "...", "page": 13 }
   ],
   "drawItDetails": ["...", "...", "..."]
 }
 
 Rules:
-- Use the workbook context provided to answer only the questions that appear in the workbook.
+- Copy each question exactly as it appears in the workbook context — do not reword or omit any questions.
+- For each "page" field: scan the chapter text for the page marker (e.g. [p. 5] or similar) nearest to where the answer or quote appears, and use that number. Every entry must have its own correct page number — do not reuse the same page for all entries.
 - For multipleChoice, read the full question + options and return the correct letter plus a short rationale.
-- drawItDetails must be 3–5 concrete visual details.
+- drawItDetails must be 3–5 concrete visual details a student could draw based on the chapter.
 
 Return ONLY the JSON object. No markdown fences, no commentary.`;
 
