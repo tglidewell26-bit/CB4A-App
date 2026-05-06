@@ -18,11 +18,11 @@ describe("teacherGuideJsonParsers", () => {
     it("parses a valid 5-objective JSON object", () => {
       const json = JSON.stringify({
         objectives: [
-          { text: "identify the main character", standardCode: "RL.4.3" },
-          { text: "describe the setting", standardCode: "RL.4.1" },
-          { text: "infer character feelings", standardCode: "RL.4.3" },
-          { text: "use new vocabulary words", standardCode: "L.4.4" },
-          { text: "discuss text in a partner pair", standardCode: "SL.4.1" },
+          { text: "analyze how character actions reveal traits", standardCode: "RL.4.3" },
+          { text: "cite textual evidence to explain key events", standardCode: "RL.4.1" },
+          { text: "infer character motivations from dialogue and actions", standardCode: "RL.4.3" },
+          { text: "determine the meaning of unfamiliar vocabulary using context clues", standardCode: "L.4.4" },
+          { text: "collaborate to discuss evidence-based interpretations", standardCode: "SL.4.1" },
         ],
       });
       const data = parseMeasurableObjectives(json);

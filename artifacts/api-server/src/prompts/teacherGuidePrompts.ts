@@ -68,22 +68,33 @@ ${teacherSectionRequirementByKey(args.sectionKey, args.grade)}`;
 export function teacherSectionRequirementByKey(key: string, grade?: GradeLevel): string {
   const gradeLevel = (grade ?? 4) as GradeLevel;
   switch (key) {
-    case "measurable_objectives":
+    case "measurable_objectives": {
+      const standardsBlock = formatStandardsForPrompt(gradeLevel);
       return `Return a JSON object with this exact shape and nothing else:
 
 {
   "objectives": [
-    { "text": "identify the main character and their motivation", "standardCode": "RL.${gradeLevel}.3" },
-    { "text": "describe the chapter's setting using text evidence", "standardCode": "RL.${gradeLevel}.1" }
+    { "text": "Identify and describe main characters using evidence from the text", "standardCode": "RL.${gradeLevel}.3" },
+    { "text": "Define key vocabulary words using context clues", "standardCode": "L.${gradeLevel}.4" },
+    { "text": "Sequence major events and explain their importance", "standardCode": "RL.${gradeLevel}.2" },
+    { "text": "Make inferences about character feelings and motivations", "standardCode": "RL.${gradeLevel}.1" },
+    { "text": "Engage in collaborative discussions", "standardCode": "SL.${gradeLevel}.1" },
+    { "text": "Write a narrative or written response using clear event sequence and details", "standardCode": "W.${gradeLevel}.3" }
   ]
 }
 
 Rules:
-- Write 5–6 objectives.
-- Each "standardCode" must be an exact grade-${gradeLevel} ELA code from the standards block below.
-- Do not include any markdown, headings, or explanations.
+- Output 5–6 objective items.
+- Each "text" is the verb phrase that follows "Students will be able to". Do NOT prefix it with "Students will be able to" yourself.
+- Each "text" begins with a measurable verb (identify, describe, explain, compare, infer, analyze, evaluate, write, etc.).
+- Each "standardCode" must be an exact code for grade ${gradeLevel} from the standards block below. Never invent codes.
+- The standardCode is the bare code (e.g. "RL.${gradeLevel}.1"), no parentheses, no extra text.
+
+Available standards (use ONLY these — do not invent codes):
+${standardsBlock}
 
 Return ONLY the JSON object. No markdown fences, no commentary.`;
+    }
 
     case "standards": {
       const standardsBlock = formatStandardsForPrompt(gradeLevel);
