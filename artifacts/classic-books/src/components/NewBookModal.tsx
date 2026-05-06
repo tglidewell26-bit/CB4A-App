@@ -26,6 +26,7 @@ export function NewBookModal({ onClose, onSave }: NewBookModalProps) {
   const [author, setAuthor] = useState("");
   const [grade, setGrade] = useState<string>("");
   const [lookupState, setLookupState] = useState<LookupState>("idle");
+  const [saving, setSaving] = useState(false);
 
   const lookup = () => {
     if (!title.trim()) return;
@@ -45,7 +46,8 @@ export function NewBookModal({ onClose, onSave }: NewBookModalProps) {
   const canSave = title.trim() && author.trim() && grade;
 
   const handleSave = () => {
-    if (!canSave) return;
+    if (!canSave || saving) return;
+    setSaving(true);
     onSave({ title: title.trim(), author: author.trim(), grade: Number(grade) as Book["grade"] });
   };
 
@@ -194,20 +196,22 @@ export function NewBookModal({ onClose, onSave }: NewBookModalProps) {
           </button>
           <button
             onClick={handleSave}
-            disabled={!canSave}
+            disabled={!canSave || saving}
             style={{
               padding: "9px 22px",
               borderRadius: 6,
-              background: canSave ? "#92400E" : "#D4C9B8",
+              background: canSave && !saving ? "#92400E" : "#D4C9B8",
               border: "none",
               color: "white",
               fontFamily: "'Source Sans 3', sans-serif",
               fontSize: 13,
               fontWeight: 500,
-              cursor: canSave ? "pointer" : "default",
+              cursor: canSave && !saving ? "pointer" : "default",
+              opacity: saving ? 0.7 : 1,
+              transition: "opacity 0.15s, background 0.15s",
             }}
           >
-            Create folder
+            {saving ? "Creating…" : "Create folder"}
           </button>
         </div>
       </div>

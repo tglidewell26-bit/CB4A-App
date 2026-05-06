@@ -12,8 +12,9 @@ import type {
   WordsToKnowMiniLessonData,
 } from "./teacherGuideTypes.js";
 import { getStandardsForGrade } from "../standards/index.js";
-
-import type { ChapterMeta} from "./templateRenderers.js";
+import type { GradeLevel } from "../standards/types.js";
+import type { ChapterMeta, GeneratedSection } from "./templateRenderers.js";
+import { sanitizeLlmBodyHtml } from "./htmlSanitizer.js";
 
 
 function escapeHtml(value: string): string {
@@ -30,21 +31,7 @@ export function renderLessonOverview(): string {
 <p>This guide is designed for a 60-minute instructional period or two 30-minute sessions.</p>`;
 }
 
-export function renderMeasurableObjectives(data: MeasurableObjectivesData): string {
-  const items = data.objectives
-    .map((o) => `  <li>${escapeHtml(o.text)} (${escapeHtml(o.standardCode)})</li>`)
-    .join("\n");
-  return `<p>Students will be able to</p>\n<ul>\n${items}\n</ul>`;
-}
-
-/**
- * Standards — compact strand-grouped list (matches the FINAL InDesign
- * reference). Description text is pulled from elaStandards.ts so Claude never
- * has to repeat or paraphrase the official wording.
- */
-export function renderStandards(data: StandardsData): string {
-  const codeMap = new Map(ALL_STANDARDS.map((s) => [s.code, s] as const));
-
+export function renderStandards(data: StandardsData, grade: GradeLevel): string {
   const strandOrder = ["RL", "RI", "W", "L", "SL"] as const;
   const strandLabels: Record<(typeof strandOrder)[number], string> = {
     RL: "Reading Literature",

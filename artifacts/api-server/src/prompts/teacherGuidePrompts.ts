@@ -11,7 +11,7 @@ const QUESTION_TYPES = [
   "vocabulary and inference",
 ] as const;
 
-export function buildTeacherSectionSystemPrompt(args: {
+export interface TeacherGuidePromptInputs {
   sectionKey: string;
   bookTitle: string;
   author: string;
@@ -22,27 +22,21 @@ export function buildTeacherSectionSystemPrompt(args: {
   sectionDisplayTitle: string;
   workbookContext: Record<string, string>;
   chapterText: string;
-}): string {
+}
+
+export function buildTeacherSectionSystemPrompt(args: TeacherGuidePromptInputs): string {
   const guidance = gradeGuidanceFor(args.grade);
+  const requirements = teacherSectionRequirementByKey(args.sectionKey, args.grade);
   return `You are writing the ${args.sectionDisplayTitle} section of a Teacher Guide for ${args.bookTitle} by ${args.author}.
 ${guidance}
 
 Use only the provided chapter text and workbook context.
-Return ONLY valid JSON.`;
+Required section key: ${args.sectionKey}
+
+${requirements}`;
 }
 
-export function buildTeacherSectionUserPrompt(args: {
-  sectionKey: string;
-  bookTitle: string;
-  author: string;
-  chapterLabel: string;
-  pages: string;
-  grade: GradeLevel;
-  vocabulary: VocabularyWord[];
-  sectionDisplayTitle: string;
-  workbookContext: Record<string, string>;
-  chapterText: string;
-}): string {
+export function buildTeacherSectionUserPrompt(args: TeacherGuidePromptInputs): string {
   const context = Object.entries(args.workbookContext)
     .map(([key, value]) => `${key}: ${value}`)
     .join("\n");
@@ -60,9 +54,7 @@ Chapter text:
 ${args.chapterText}
 
 Vocabulary:
-${args.vocabulary.map((v) => `${v.word} — ${v.book_quote}`).join("\n")}
-
-${teacherSectionRequirementByKey(args.sectionKey, args.grade)}`;
+${args.vocabulary.map((v) => `${v.word} — ${v.book_quote}`).join("\n")}`;
 }
 
 export function teacherSectionRequirementByKey(key: string, grade?: GradeLevel): string {
