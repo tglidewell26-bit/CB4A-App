@@ -123,7 +123,7 @@ ${data.sections
   <p>${escapeHtml(section.openingPhrase)} ... ${escapeHtml(section.closingPhrase)}</p>
   <ol class="tg-pause-points">
 ${section.questions
-  .map((q) => `    <li>[${escapeHtml(q.questionType)}] ${escapeHtml(q.text)}</li>`)
+  .map((q) => `    <li>${escapeHtml(q.text)}</li>`)
   .join("\n")}
   </ol>
 </div>`,
