@@ -163,7 +163,7 @@ async function generateSectionBody(
     case "get_ready_to_read":
       return renderGetReadyToRead(parseGetReadyToRead(rawJson));
     case "words_to_know_mini_lesson":
-      return renderWordsToKnowMiniLesson(parseWordsToKnowMiniLesson(rawJson));
+      return renderWordsToKnowMiniLesson(parseWordsToKnowMiniLesson(rawJson), vocabulary);
     case "guided_reading":
       return renderGuidedReading(parseGuidedReading(rawJson));
     case "think_about_the_story_answers":
