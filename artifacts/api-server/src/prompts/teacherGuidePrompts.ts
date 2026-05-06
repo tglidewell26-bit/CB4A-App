@@ -139,7 +139,7 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
   "implementationSteps": [
     "Display the prompt.",
     "Give students 2–3 quiet writing minutes.",
-    "Invite turn-and-talk partners."
+    "Invite students to share with their neighbor."
   ],
   "connectionTip": "This activates prior knowledge before close reading."
 }
@@ -148,6 +148,7 @@ Rules:
 - quickWritePrompt must be a single open-ended question.
 - implementationSteps must have 4–5 short steps.
 - connectionTip must be one concise sentence.
+- Never use the phrase "turn-and-talk"; always say "turn to your neighbor" or "share with their neighbor" when describing partner sharing.
 
 Return ONLY the JSON object. No markdown fences, no commentary.`;
 
