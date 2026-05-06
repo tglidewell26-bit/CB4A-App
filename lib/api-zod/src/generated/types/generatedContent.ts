@@ -7,7 +7,7 @@
  */
 
 export interface GeneratedContent {
-  html: string;
+  markdown: string;
   chapterId: number;
   type: string;
 }

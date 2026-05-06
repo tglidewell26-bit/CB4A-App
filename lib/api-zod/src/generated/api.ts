@@ -84,6 +84,7 @@ export const ListChaptersResponseItem = zod.object({
   file: zod.string().nullish(),
   hasWorkbook: zod.boolean(),
   hasTeacherGuide: zod.boolean(),
+  errorMessage: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListChaptersResponse = zod.array(ListChaptersResponseItem);
@@ -129,6 +130,7 @@ export const UpdateChapterResponse = zod.object({
   file: zod.string().nullish(),
   hasWorkbook: zod.boolean(),
   hasTeacherGuide: zod.boolean(),
+  errorMessage: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -141,7 +143,7 @@ export const DeleteChapterParams = zod.object({
 });
 
 /**
- * @summary Get the generated student workbook HTML for a chapter
+ * @summary Get the generated student workbook Markdown for a chapter
  */
 export const GetWorkbookParams = zod.object({
   bookId: zod.coerce.number(),
@@ -149,13 +151,13 @@ export const GetWorkbookParams = zod.object({
 });
 
 export const GetWorkbookResponse = zod.object({
-  html: zod.string(),
+  markdown: zod.string(),
   chapterId: zod.number(),
   type: zod.string(),
 });
 
 /**
- * @summary Get the generated teacher guide HTML for a chapter
+ * @summary Get the generated teacher guide Markdown for a chapter
  */
 export const GetTeacherGuideParams = zod.object({
   bookId: zod.coerce.number(),
@@ -163,7 +165,7 @@ export const GetTeacherGuideParams = zod.object({
 });
 
 export const GetTeacherGuideResponse = zod.object({
-  html: zod.string(),
+  markdown: zod.string(),
   chapterId: zod.number(),
   type: zod.string(),
 });

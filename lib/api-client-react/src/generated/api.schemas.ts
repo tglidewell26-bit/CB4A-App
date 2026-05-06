@@ -41,6 +41,7 @@ export interface Chapter {
   file?: string | null;
   hasWorkbook: boolean;
   hasTeacherGuide: boolean;
+  errorMessage?: string | null;
   createdAt: string;
 }
 
@@ -60,7 +61,7 @@ export interface UpdateChapterInput {
 }
 
 export interface GeneratedContent {
-  html: string;
+  markdown: string;
   chapterId: number;
   type: string;
 }

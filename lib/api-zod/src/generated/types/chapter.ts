@@ -17,5 +17,6 @@ export interface Chapter {
   file?: string | null;
   hasWorkbook: boolean;
   hasTeacherGuide: boolean;
+  errorMessage?: string | null;
   createdAt: Date;
 }

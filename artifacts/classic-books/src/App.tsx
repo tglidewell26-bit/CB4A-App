@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { Book, Chapter } from "./types";
 import {
   useListBooks,
+  useCreateBook,
   useDeleteBook,
   useUpdateBook,
   useUpdateChapter,
@@ -13,7 +14,6 @@ import {
   getListChaptersQueryKey,
   getCreateChapterUrl,
 } from "@workspace/api-client-react";
-import type { CreateBookInput } from "@workspace/api-client-react";
 import { Sidebar } from "./components/Sidebar";
 import { ChapterCard } from "./components/ChapterCard";
 import { EmptyState } from "./components/EmptyState";
@@ -68,6 +68,7 @@ export default function App() {
     };
   }, [hasGenerating, selectedBookId, queryClient]);
 
+  const createBookMutation = useCreateBook();
   const deleteBookMutation = useDeleteBook();
   const updateBookMutation = useUpdateBook();
   const updateChapterMutation = useUpdateChapter();
@@ -99,6 +100,7 @@ export default function App() {
     file: c.file ?? undefined,
     hasWorkbook: c.hasWorkbook,
     hasTeacherGuide: c.hasTeacherGuide,
+    errorMessage: c.errorMessage,
   }));
 
   const selectedBook: Book | null = selectedApiBook
@@ -133,27 +135,28 @@ export default function App() {
     return JSON.parse(text) as T;
   };
 
-  const addBook = async (bookData: Omit<Book, "id" | "chapters">) => {
-    const input: CreateBookInput = {
-      title: bookData.title,
-      author: bookData.author,
-      grade: bookData.grade,
-    };
-    try {
-      const response = await fetch("/api/books", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      const newBook = await parseJsonResponse<{ id: number }>(response);
-      queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
-      if (newBook?.id) {
-        setSelectedBookId(newBook.id);
-      }
-      setShowNewBook(false);
-    } catch (err) {
-      console.error("Failed to create book", err);
-    }
+  const addBook = (bookData: Omit<Book, "id" | "chapters">) => {
+    createBookMutation.mutate(
+      {
+        data: {
+          title: bookData.title,
+          author: bookData.author,
+          grade: bookData.grade,
+        },
+      },
+      {
+        onSuccess: (newBook) => {
+          queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+          if (newBook?.id) {
+            setSelectedBookId(newBook.id);
+          }
+          setShowNewBook(false);
+        },
+        onError: (err) => {
+          console.error("Failed to create book", err);
+        },
+      },
+    );
   };
 
   const requestDeleteBook = (bookId: number) => {

@@ -1,0 +1,40 @@
+Well I really just want to stop relying on Claude so much. It seems to be causing the biggest issues. Claude really shouldn't be building anything. it should just be making creative responses. The responses should be stored and then a print function just grabs on the information and puts it together. Headers, subheaders, the number of questions, the layout, the order, etc. This is all very doable with code and syntax. The other issue is that when things are changed, the API calls and function mapping are being broken, because things are changed, but then they can never be called, or things are being called that don't exist, or logic is being kept that is no longer needed. It seems like the go to is just "add it on", instead of, can we replace, remove, or tweak.
+
+26 minutes ago
+
+1 message & 1 action
+Let's talk through it more. Given how things are currently set up, what are some areas you think should be taken away from Claude an implemented in typescript?
+
+23 minutes ago
+
+1 message & 1 action
+This is, but are you missing, "words to know" vocabulary table with the answers? Are you missing "Think About the Story" and "Reading Between the Lines" with answers? What about dig deeper and multiple choice? This can be built directly from the Student workbook, and Claude just answers them. Ther are and exact replicate to the Student Workbook.
+
+2 minutes ago
+
+Planning Teacher Guide answer structure (16 seconds)
+You're absolutely right, and that's a stronger version of the same principle. Those sections are the clearest example of all:
+
+The Teacher Guide answer key for those sections is not a separate document — it is the Student Workbook with the answers filled in.
+
+The structure, the questions, the layout, the order — they already exist. The Student Workbook is already generated. So for every one of these sections:
+
+Words to Know table — same table structure, same words, same columns. Claude provides: definition, context-clue explanation, sample sentence. Code mirrors the workbook table with those answers in the cells.
+Think About the Story — same questions, same order. Claude provides: the answer text + page citation. Code renders each question with its answer directly below it.
+Reading Between the Lines — same pattern.
+Dig Deeper — same pattern.
+Multiple Choice — same questions, same A/B/C/D options. Claude identifies: which letter is correct + one-line rationale. Code renders it.
+Evidence from the Story — same prompts. Claude provides: sample student answer with quote + page.
+Character Chart — same characters, same columns (Description, What This Shows). Claude fills in each cell. Code renders using the same table structure.
+Draw It / Bonus Challenge — same prompt. Claude provides suggested scene details / correct event order. Code renders.
+So what Claude is actually doing for all of those sections combined is: answer a list of questions. Pass it the workbook's questions, get back a structured list of answers. The code already has the workbook parsed into slices in parseWorkbookSlices() in teacherGuide.ts — the wiring is partially there, it just never closes the loop by using the workbook structure as the render template.
+
+The full picture of Claude's role then becomes:
+
+Role	What Claude does
+Creative writing	Quick-write prompt, connection tip, read-aloud tip, vocabulary tip, error paragraph text, exit ticket prompt, example responses
+Question answering	Answers to every Student Workbook question across all sections
+Selection	Which standard codes apply, which lesson sections they map to
+Everything else — structure, headings, layout, order, wrappers, labels, table columns — is TypeScript.
+
+Does this capture it fully? If so I can draft the task plan for the refactor.

@@ -10,6 +10,7 @@ export interface Chapter {
   file?: string;
   hasWorkbook?: boolean;
   hasTeacherGuide?: boolean;
+  errorMessage?: string | null;
 }
 
 export interface Book {

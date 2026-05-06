@@ -11,3 +11,173 @@ body {
   background: #F8F6F1;
   color: #1C1917;
 }
+
+/* ─── Teacher Guide preview/print styles (single-column, copy-paste ready) ─── */
+
+.teacher-guide {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  line-height: 1.55;
+}
+
+.teacher-guide .tg-section {
+  margin: 0 0 32px 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #E7E5E0;
+}
+
+.teacher-guide .tg-section h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  margin: 0 0 12px 0;
+  color: #1C1917;
+}
+
+.teacher-guide .tg-section h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 20px 0 8px 0;
+  color: #1C1917;
+}
+
+.teacher-guide .tg-section h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 12px 0 4px 0;
+}
+
+.teacher-guide p,
+.teacher-guide li {
+  margin: 6px 0;
+}
+
+.teacher-guide ul,
+.teacher-guide ol {
+  padding-left: 24px;
+  margin: 8px 0;
+}
+
+/* Inline tip callout — never floats; lives in the section flow */
+.teacher-guide .tg-tip {
+  background: #FFF8E1;
+  border-left: 4px solid #D4A24C;
+  padding: 10px 14px;
+  margin: 12px 0;
+  border-radius: 4px;
+}
+
+/* Sub-block (Activities, Partner Practice, Quick Check, supports groups, etc.) */
+.teacher-guide .tg-subblock {
+  margin: 14px 0;
+  padding: 10px 14px;
+  background: #FBFAF6;
+  border: 1px solid #ECEAE3;
+  border-radius: 4px;
+}
+
+.teacher-guide .tg-inferential {
+  background: #F2F6FA;
+  border-color: #D6E1EC;
+}
+
+/* Standards table */
+.teacher-guide .tg-standards-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 0.95rem;
+}
+
+.teacher-guide .tg-standards-table th,
+.teacher-guide .tg-standards-table td {
+  border: 1px solid #D6D3CC;
+  padding: 6px 10px;
+  vertical-align: top;
+  text-align: left;
+}
+
+.teacher-guide .tg-standards-table thead th {
+  background: #EFEBE2;
+  font-weight: 600;
+}
+
+.teacher-guide .tg-strand-header td {
+  background: #F5F1E6;
+  font-weight: 600;
+  font-style: italic;
+}
+
+/* Character chart answer key */
+.teacher-guide .tg-character-key {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 0.95rem;
+}
+
+.teacher-guide .tg-character-key th,
+.teacher-guide .tg-character-key td {
+  border: 1px solid #D6D3CC;
+  padding: 6px 10px;
+  vertical-align: top;
+  text-align: left;
+}
+
+.teacher-guide .tg-character-key thead th {
+  background: #EFEBE2;
+  font-weight: 600;
+}
+
+/* Guided Reading section block */
+.teacher-guide .tg-gr-section {
+  margin: 14px 0;
+  padding: 10px 14px;
+  border-left: 3px solid #6B7B8C;
+  background: #FBFAF6;
+}
+
+.teacher-guide .tg-pause-points {
+  margin: 6px 0 0 0;
+}
+
+/* Implementation steps under Get Ready to Read */
+.teacher-guide .tg-impl-steps {
+  margin: 8px 0;
+}
+
+/* Think About the Story answers */
+.teacher-guide .tg-answer {
+  margin: 10px 0;
+  padding: 8px 12px;
+  background: #FBFAF6;
+  border-radius: 4px;
+}
+
+/* Common student questions list */
+.teacher-guide .tg-csq > li {
+  margin-bottom: 10px;
+}
+
+/* Creative Response weak/fix pairs */
+.teacher-guide .tg-weak-fix {
+  margin: 12px 0;
+  padding: 10px 14px;
+  background: #FBF5F2;
+  border-left: 3px solid #B85C42;
+  border-radius: 4px;
+}
+
+@media print {
+  .teacher-guide {
+    max-width: none;
+  }
+  .teacher-guide .tg-tip,
+  .teacher-guide .tg-subblock,
+  .teacher-guide .tg-gr-section,
+  .teacher-guide .tg-answer,
+  .teacher-guide .tg-weak-fix {
+    page-break-inside: avoid;
+  }
+}

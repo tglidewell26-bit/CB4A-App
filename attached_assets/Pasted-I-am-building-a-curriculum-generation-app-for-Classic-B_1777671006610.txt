@@ -1,0 +1,797 @@
+I am building a curriculum generation app for Classic Books for All. The app creates Reading and Writing curriculum for grades 3–8.
+
+I will attach:
+
+1. Common Core standards PDF
+2. A Heidi chapter for testing
+
+Use the Common Core standards PDF as the reference source for building the standards data.
+
+Use the Heidi chapter only as a testing passage to confirm that generated workbook content changes appropriately by grade level.
+
+IMPORTANT WORK STYLE
+
+Work step by step.
+
+Do not move to the next step until the current step is completed, debugged, and tested.
+
+At the end of each step:
+
+1. Run a quick debug check.
+2. Run a quick test.
+3. Confirm what worked.
+4. Fix any issue found.
+5. Then continue to the next step.
+
+Use TypeScript for all new app logic.
+
+Use the existing project structure wherever possible.
+
+Prefer extending or wrapping existing modules instead of scattering new code across the app.
+
+Keep code easy to read, easy to edit, and easy to test.
+
+PDF REFERENCE RULE
+
+Use the attached PDF as a reference source while building the TypeScript standards data.
+
+The PDF should help identify:
+
+- correct grade-specific standards
+- official wording
+- strand labels
+- standard codes
+
+After the standards are converted into TypeScript data, the app should use the TypeScript standards reference as the source for runtime lookups.
+
+Do not embed the PDF in the codebase.
+
+Do not store the PDF inside the app as a file dependency.
+
+Do not require the app to open, parse, scan, or search the PDF during curriculum generation.
+
+This would create a double-lookup problem:
+
+1. The app would first look up the selected grade level from the folder.
+2. Then the app would look up the standards by searching the PDF again.
+
+Use this cleaner flow:
+
+1. Use the PDF once during development as the source reference.
+2. Convert the needed grades 3–8 RL, RI, and W standards into TypeScript standards data.
+3. Store that standards data in a clean TypeScript module.
+4. During folder creation, save the selected grade level and standards reference in folder metadata.
+5. During document generation, retrieve standards directly from the TypeScript standards module using the folder’s saved grade level.
+
+The final app should work from the TypeScript standards reference, not from the PDF.
+
+The PDF is the build-time reference.
+
+The TypeScript standards module is the app’s runtime reference.
+
+CURRENT APP WORKFLOW
+
+The current workflow works like this:
+
+1. User selects “Create Folder.”
+2. User names the folder.
+3. User selects a grade level.
+4. The app creates the new curriculum folder.
+
+This is where the new Common Core standards logic should be initiated.
+
+When the user creates a folder and selects a grade level, the app should attach that grade level’s Common Core ELA Reading and Writing standards to the folder.
+
+Every future document created inside that folder should reference the same selected grade-level standards.
+
+The selected grade level should become a folder-level setting.
+
+The user should not have to reselect the grade level every time they create a new document inside the folder.
+
+WHERE TO FIND THE STANDARDS IN THE PDF
+
+Use these sections only.
+
+FOR GRADES 3–5:
+
+1. Reading Standards for Literature K–5
+   - Use the Grade 3, Grade 4, and Grade 5 columns.
+   - Standards are labeled RL.
+   - These are the Reading Literature standards.
+
+2. Reading Standards for Informational Text K–5
+   - Use the Grade 3, Grade 4, and Grade 5 columns.
+   - Standards are labeled RI.
+   - These are the Reading Informational Text standards.
+
+3. Writing Standards K–5
+   - Use the Grade 3, Grade 4, and Grade 5 columns.
+   - Standards are labeled W.
+   - These are the Writing standards.
+
+FOR GRADES 6–8:
+
+4. Reading Standards for Literature 6–12
+   - Use the Grade 6, Grade 7, and Grade 8 columns.
+   - Standards are labeled RL.
+   - These are the Reading Literature standards.
+
+5. Reading Standards for Informational Text 6–12
+   - Use the Grade 6, Grade 7, and Grade 8 columns.
+   - Standards are labeled RI.
+   - These are the Reading Informational Text standards.
+
+6. Writing Standards 6–12
+   - Use the Grade 6, Grade 7, and Grade 8 columns.
+   - Standards are labeled W.
+   - These are the Writing standards.
+
+Use the official Common Core code format:
+
+- RI.4.3 means Reading Informational Text, Grade 4, Standard 3.
+- W.5.1a means Writing, Grade 5, Standard 1a.
+- RL.6.2 means Reading Literature, Grade 6, Standard 2.
+
+Use this same code format in the TypeScript standards reference.
+
+SECTIONS TO USE AS BACKGROUND ONLY
+
+The PDF has College and Career Readiness Anchor Standards before each strand.
+
+Use these anchor standards only as background context.
+
+The app’s standards data should use the grade-specific standards, not only the anchor standards.
+
+SECTIONS TO SKIP FOR THIS VERSION
+
+Skip these sections:
+
+- Speaking and Listening
+- Language
+- Foundational Skills
+- Literacy in History/Social Studies
+- Literacy in Science and Technical Subjects
+- Technical Subjects
+- Appendices
+
+The app currently needs Reading and Writing only.
+
+STEP 1 — INSPECT THE PROJECT STRUCTURE
+
+Before writing new code, inspect the current project structure.
+
+Look for existing folders or modules related to:
+
+- folder creation
+- folder metadata
+- project metadata
+- curriculum generation
+- document generation
+- prompt building
+- grade-level logic
+- shared types
+- validation
+- reusable utilities
+
+Decide where the standards system naturally belongs.
+
+Use the existing structure wherever possible.
+
+Possible structure if no better structure exists:
+
+src/curriculum/standards/types.ts
+src/curriculum/standards/elaStandards.ts
+src/curriculum/standards/getStandardsForGrade.ts
+src/curriculum/standards/getStandardsForFolder.ts
+src/curriculum/standards/createStandardsProfileForFolder.ts
+
+Adapt this to the app’s actual structure.
+
+STEP 1 DEBUG + TEST
+
+Before moving on:
+
+1. Confirm which existing modules will be extended.
+2. Confirm where the standards data will live.
+3. Confirm where folder metadata is handled.
+4. Confirm where curriculum prompts are built.
+5. Confirm where document generation happens.
+6. Run the existing app/test command to make sure the project still starts before changes are made.
+
+Do not move to Step 2 until this is confirmed.
+
+STEP 2 — CREATE TYPESCRIPT TYPES
+
+Create clear TypeScript types for the standards system.
+
+Use this as the starting point and adapt it to the existing project:
+
+type GradeLevel = 3 | 4 | 5 | 6 | 7 | 8;
+
+type StandardStrand = "RL" | "RI" | "W";
+
+type CurriculumUse =
+  | "think_about_the_story"
+  | "reading_between_the_lines"
+  | "dig_deeper"
+  | "vocabulary"
+  | "writing_prompt"
+  | "summary";
+
+type ELAStandard = {
+  grade: GradeLevel;
+  strand: StandardStrand;
+  code: string;
+  officialText: string;
+  studentFriendlySkill: string;
+  useFor: CurriculumUse[];
+  sourcePageOrSection: string;
+};
+
+type FolderStandardsProfile = {
+  subject: "ELA";
+  source: "California Common Core State Standards";
+  standardsVersion: "CA CCSS ELA 2013";
+  gradeLevel: GradeLevel;
+  strands: StandardStrand[];
+  standardsRef: string;
+};
+
+STEP 2 DEBUG + TEST
+
+Before moving on:
+
+1. Run TypeScript type checking.
+2. Confirm the new types import correctly.
+3. Confirm no duplicate type names conflict with existing app types.
+4. Confirm the app still starts.
+
+Do not move to Step 3 until this is clean.
+
+STEP 3 — CREATE THE TYPESCRIPT STANDARDS DATA
+
+Convert the needed standards from the PDF into TypeScript data.
+
+Use only:
+
+- Grades 3–8
+- RL = Reading Literature
+- RI = Reading Informational Text
+- W = Writing
+
+Each standard should include:
+
+- grade
+- strand
+- code
+- officialText
+- studentFriendlySkill
+- useFor
+- sourcePageOrSection
+
+Example:
+
+{
+  grade: 4,
+  strand: "RL",
+  code: "RL.4.1",
+  officialText: "Refer to details and examples in a text when explaining what the text says explicitly and when drawing inferences from the text.",
+  studentFriendlySkill: "Use details and examples from the story to explain what happened and make reasonable inferences.",
+  useFor: ["think_about_the_story", "reading_between_the_lines"],
+  sourcePageOrSection: "Reading Standards for Literature K–5"
+}
+
+STANDARDS EXTRACTION RULES
+
+When converting the PDF into TypeScript standards data:
+
+1. Use the official wording from the grade-specific standards.
+2. Keep the official standard code format.
+3. Preserve lettered substandards when they exist, such as W.5.1a.
+4. Add a studentFriendlySkill field that explains the standard in plain language.
+5. Add useFor tags that connect each standard to the correct curriculum section.
+6. Add sourcePageOrSection so each standard can be traced back to the PDF.
+7. Use Grade 3–8 standards only.
+8. Use RL, RI, and W only.
+
+STEP 3 DEBUG + TEST
+
+Before moving on:
+
+1. Run TypeScript type checking.
+2. Confirm all standards match the ELAStandard type.
+3. Confirm each standard has grade, strand, code, officialText, studentFriendlySkill, useFor, and sourcePageOrSection.
+4. Confirm no PDF file is imported into runtime code.
+5. Confirm the app does not depend on the PDF to run.
+6. Confirm the app still starts.
+
+Do not move to Step 4 until the standards data is clean.
+
+STEP 4 — CREATE WORKBOOK SECTION MAPPING
+
+Create or add a mapping that connects workbook sections to likely standards.
+
+Use this default mapping:
+
+think_about_the_story:
+- RL/RI.1
+- RL/RI.2
+- RL/RI.3
+
+reading_between_the_lines:
+- RL/RI.1
+- RL/RI.3
+- RL/RI.6
+
+dig_deeper:
+- RL/RI.2
+- RL/RI.5
+- RL/RI.6
+- RL/RI.9
+
+vocabulary:
+- RL/RI.4
+
+writing_prompt:
+- W.1
+- W.2
+- W.3
+- W.4
+- W.5
+- W.9
+
+summary:
+- RL/RI.2
+- W.4
+- W.9
+
+This mapping should help the app select standards for the correct curriculum section.
+
+STEP 4 DEBUG + TEST
+
+Before moving on:
+
+1. Confirm each CurriculumUse value maps to at least one standard pattern.
+2. Confirm the mapping works for grades 3–8.
+3. Confirm the mapping does not require PDF lookup.
+4. Run type checking.
+5. Confirm the app still starts.
+
+Do not move to Step 5 until the mapping is working.
+
+STEP 5 — CREATE STANDARDS RETRIEVAL FUNCTIONS
+
+Create reusable TypeScript functions for standards lookup.
+
+Function 1:
+
+createStandardsProfileForFolder
+
+Purpose:
+Used during folder creation.
+
+Input:
+- gradeLevel
+
+Output:
+- folder standards profile
+
+Example:
+
+createStandardsProfileForFolder(4)
+
+Returns:
+
+{
+  subject: "ELA",
+  source: "California Common Core State Standards",
+  standardsVersion: "CA CCSS ELA 2013",
+  gradeLevel: 4,
+  strands: ["RL", "RI", "W"],
+  standardsRef: "ela-ca-ccss-grade-4"
+}
+
+Function 2:
+
+getStandardsForGrade
+
+Purpose:
+Used when generating curriculum documents.
+
+Input:
+- grade
+- strand optional
+- useFor optional
+
+Example:
+
+getStandardsForGrade(4)
+getStandardsForGrade(4, "RL")
+getStandardsForGrade(4, "RL", "reading_between_the_lines")
+
+Output:
+- matching standards
+
+Function 3:
+
+getStandardsForFolder
+
+Purpose:
+Used when generating any future document inside an existing folder.
+
+Input:
+- folder metadata
+- optional strand
+- optional useFor
+
+Behavior:
+- Read the grade level from the folder metadata.
+- Retrieve matching standards for that grade.
+- Return the standards to the document generation logic.
+
+Example:
+
+getStandardsForFolder(folderMetadata, "RL", "reading_between_the_lines")
+
+SAFE INPUT HANDLING
+
+Build the standards functions so they handle unexpected inputs gracefully.
+
+Preferred behavior:
+
+- If the folder has a supported grade level, return matching standards.
+- If the folder is missing a grade level, return an empty standards array and a helpful warning if the app already has a warning or logger pattern.
+- If the grade is outside grades 3–8, return an empty standards array with a helpful warning if appropriate.
+- If the strand is supported, apply the strand filter.
+- If the strand is not recognized, return an empty standards array with a helpful warning if appropriate.
+- If the useFor value is supported, apply the useFor filter.
+- If the useFor value is not recognized, return an empty standards array or skip the filter, depending on the project’s existing style.
+- If no standards are found, allow curriculum generation to continue and clearly mark standards as unavailable.
+
+Use a return shape that fits the existing app.
+
+Preferred result object if it fits the app:
+
+{
+  standards: [],
+  warnings: ["No standards found for this folder grade level."]
+}
+
+A simple array is also acceptable if that matches the existing app better:
+
+[]
+
+STEP 5 DEBUG + TEST
+
+Before moving on:
+
+1. Test getStandardsForGrade(3).
+2. Test getStandardsForGrade(4, "RL").
+3. Test getStandardsForGrade(5, "W").
+4. Test getStandardsForGrade(6, "RI").
+5. Test getStandardsForGrade(8, "RL", "dig_deeper").
+6. Test an unsupported grade and confirm the app continues safely.
+7. Test an unsupported strand and confirm the app continues safely.
+8. Test missing folder grade metadata and confirm the app continues safely.
+9. Run type checking.
+10. Confirm the app still starts.
+
+Do not move to Step 6 until all retrieval functions work.
+
+STEP 6 — EXTEND FOLDER CREATION
+
+Update the current folder creation flow.
+
+When the user creates a new folder:
+
+1. User clicks “Create Folder.”
+2. User enters the folder name.
+3. User selects the grade level.
+4. App creates the folder.
+5. App creates a standards profile using createStandardsProfileForFolder.
+6. App saves the grade level and standards reference to folder metadata.
+7. Future documents inside that folder use the folder’s saved grade level and standards reference.
+
+Preferred folder metadata shape:
+
+{
+  folderId: "abc123",
+  folderName: "Treasure Island Grade 4",
+  gradeLevel: 4,
+  standardsProfile: {
+    subject: "ELA",
+    source: "California Common Core State Standards",
+    strands: ["RL", "RI", "W"],
+    standardsVersion: "CA CCSS ELA 2013",
+    standardsRef: "ela-ca-ccss-grade-4"
+  }
+}
+
+Preferred approach:
+
+- Store the selected grade level in folder metadata.
+- Store a standards reference key in folder metadata.
+- Retrieve the actual standards from the TypeScript standards reference file when generating documents.
+
+This keeps folder metadata lighter and easier to maintain.
+
+STEP 6 DEBUG + TEST
+
+Before moving on:
+
+1. Create a test folder through the interface.
+2. Select Grade 4.
+3. Confirm the folder is created.
+4. Confirm folder metadata stores gradeLevel: 4.
+5. Confirm folder metadata stores standardsProfile.
+6. Confirm standardsRef is correct, such as ela-ca-ccss-grade-4.
+7. Monitor backend logs or database writes.
+8. Fix any folder creation or metadata issue.
+9. Confirm the app still starts and the folder can be reopened.
+
+Do not move to Step 7 until folder creation correctly saves grade-level standards metadata.
+
+STEP 7 — UPDATE DOCUMENT GENERATION
+
+Find the current place where documents are generated inside a folder.
+
+Update that flow so every generated document:
+
+1. Reads the folder metadata.
+2. Gets the saved grade level from the folder.
+3. Retrieves the correct standards using getStandardsForFolder.
+4. Passes those standards into the curriculum prompt.
+5. Uses the same folder-level standards for every document created inside that folder.
+
+The document generation logic should use the folder-level grade once the folder has been created.
+
+The document generation flow should not ask the user to select grade level again if the folder already has one.
+
+STEP 7 DEBUG + TEST
+
+Before moving on:
+
+1. Create or open a folder with a saved grade level.
+2. Start document generation inside that folder.
+3. Confirm backend logs show the folder grade level is being read.
+4. Confirm standards are retrieved from the TypeScript standards module.
+5. Confirm the PDF is not parsed, searched, opened, or required during runtime.
+6. Confirm document generation does not ask for grade level again.
+7. Confirm document generation continues safely if standards are unavailable.
+8. Fix any issue found.
+9. Run type checking and app startup again.
+
+Do not move to Step 8 until document generation uses folder-level standards correctly.
+
+STEP 8 — UPDATE CURRICULUM PROMPT BUILDING
+
+Find the current place where curriculum generation prompts are created.
+
+Extend that prompt-building logic so it receives selected standards from the folder.
+
+The prompt should include a clear standards section.
+
+Example:
+
+FOLDER GRADE LEVEL:
+Grade 4
+
+CURRICULUM SECTION:
+Reading Between the Lines
+
+STANDARDS TO USE:
+RL.4.1 — Refer to details and examples in a text when explaining what the text says explicitly and when drawing inferences from the text.
+RL.4.3 — Describe in depth a character, setting, or event in a story or drama, drawing on specific details in the text.
+RL.4.6 — Compare and contrast the point of view from which different stories are narrated.
+
+AI INSTRUCTIONS:
+Use the provided standards as the grade-level guide for this curriculum section.
+Align the questions and answer expectations to these standards.
+Use the chapter text as the source of truth for all question content.
+When standards are unavailable, continue generating curriculum and label standards alignment as unavailable.
+
+STEP 8 DEBUG + TEST
+
+Before moving on:
+
+1. Generate a prompt for Grade 3.
+2. Confirm Grade 3 standards appear in the prompt.
+3. Generate a prompt for Grade 5.
+4. Confirm Grade 5 standards appear in the prompt.
+5. Generate a prompt for Grade 8.
+6. Confirm Grade 8 standards appear in the prompt.
+7. Confirm the prompt marks standards as unavailable if no standards are found.
+8. Confirm the prompt does not invent standards.
+9. Confirm the app still starts.
+
+Do not move to Step 9 until prompts include correct folder-level standards.
+
+STEP 9 — INTERFACE + BACKEND TESTING WITH HEIDI CHAPTER
+
+Test this feature by interacting with the actual app interface and monitoring backend behavior.
+
+Use the attached Heidi chapter as the test reading passage.
+
+The same Heidi chapter can be reused across multiple grade levels so the test focuses on whether the curriculum adjusts by grade level.
+
+The attached Heidi chapter is only a testing document. It should be used to verify grade-level behavior, not stored permanently as part of the standards system.
+
+Run the app and test the full user workflow through the interface.
+
+Create these folders:
+
+- Heidi Grade 3 Test
+- Heidi Grade 4 Test
+- Heidi Grade 5 Test
+- Heidi Grade 6 Test
+- Heidi Grade 7 Test
+- Heidi Grade 8 Test
+
+For each folder:
+
+1. Select “Create Folder.”
+2. Enter the folder name.
+3. Select the matching grade level.
+4. Confirm the folder is created.
+5. Confirm folder metadata stores:
+   - folder name
+   - selected grade level
+   - standards profile
+   - standards reference key
+6. Generate a workbook from the same Heidi chapter.
+7. Monitor backend logs, API calls, database writes, and document generation flow.
+
+STEP 9 DEBUG + TEST
+
+For each grade-level folder, confirm:
+
+1. The selected grade level is saved when the folder is created.
+2. The folder metadata includes the correct grade level.
+3. The standards profile is created during folder creation.
+4. Future documents inside the folder use the saved folder-level grade.
+5. The app does not ask for grade level again during document generation inside an existing folder.
+6. The standards lookup uses the TypeScript standards module.
+7. The app does not parse or search the PDF during runtime.
+8. The generated prompt includes the correct standards for the folder’s grade level.
+9. The generated workbook output changes appropriately by grade level.
+
+Do not move to Step 10 until all six Heidi folders can generate workbooks through the interface.
+
+STEP 10 — COMPARE GRADE-LEVEL WORKBOOK OUTPUTS
+
+Compare the generated Heidi workbook outputs across grades 3–8.
+
+The same Heidi chapter should produce different workbook expectations depending on the folder grade level.
+
+Expected differences:
+
+Grade 3 workbook expectations:
+- simpler wording
+- more direct questions
+- more literal comprehension
+- shorter expected answers
+- more support for finding answers directly in the text
+
+Grade 4 workbook expectations:
+- more use of details and examples
+- stronger inference questions
+- more attention to character, setting, and events
+- answers may require more explanation than Grade 3
+
+Grade 5 workbook expectations:
+- more accurate quoting from the text
+- more comparison and contrast
+- deeper theme questions
+- more multi-sentence answers
+
+Grade 6 workbook expectations:
+- more analysis of plot, character development, and theme
+- more attention to how events unfold
+- stronger evidence-based responses
+
+Grade 7 workbook expectations:
+- more complex inference
+- more attention to how story elements interact
+- more analysis of word choice, structure, and point of view
+
+Grade 8 workbook expectations:
+- more advanced analysis
+- stronger focus on theme development
+- more attention to dialogue, incidents, structure, and textual evidence
+- more mature written response expectations
+
+STEP 10 DEBUG + TEST
+
+Before moving on:
+
+1. Compare Grade 3 output to Grade 8 output.
+2. Confirm the questions are not basically identical.
+3. Confirm the answer expectations become more advanced as grade level increases.
+4. Confirm the prompt used different standards by grade.
+5. Confirm backend logs show the correct grade and standards for each folder.
+6. Fix any issue where output does not change enough by grade level.
+7. Rerun the affected grade-level test after fixing.
+
+Do not move to Step 11 until the workbook output clearly changes by grade level.
+
+STEP 11 — ERROR CHECKING
+
+During interface testing, watch for:
+
+- folder creation errors
+- missing grade level in folder metadata
+- missing standards profile
+- incorrect standards reference key
+- document generation using the wrong grade
+- document generation asking for grade again
+- prompts missing standards
+- prompts using standards from the wrong grade
+- generated workbook content that looks identical across grade levels
+- backend crashes
+- frontend errors
+- TypeScript errors
+- console errors
+- failed API requests
+- failed database writes
+
+When errors are found:
+
+1. Identify the source.
+2. Fix the issue.
+3. Rerun the specific failed test.
+4. Then rerun the full workflow if the fix touches shared logic.
+
+STEP 11 DEBUG + TEST
+
+Before moving on:
+
+1. Run type checking.
+2. Run the app.
+3. Run the folder creation workflow.
+4. Run workbook generation.
+5. Confirm logs are clean.
+6. Confirm no frontend console errors.
+7. Confirm no backend errors.
+8. Confirm no runtime PDF lookup.
+
+Do not move to Step 12 until the feature is stable.
+
+STEP 12 — SUCCESS CRITERIA
+
+This feature is complete when:
+
+1. A user can create a folder and select a grade level.
+2. The selected grade level is saved to the folder metadata.
+3. The folder receives the correct standards profile.
+4. Every document generated inside that folder uses the folder’s saved grade level.
+5. The standards are retrieved from the TypeScript standards module.
+6. The PDF is used only as a build-time reference.
+7. The PDF is not embedded in the app.
+8. The PDF is not searched during runtime.
+9. The same Heidi chapter generates different workbook outputs for grades 3, 4, 5, 6, 7, and 8.
+10. The backend logs confirm the correct grade and standards are being used.
+11. The interface workflow works from folder creation through workbook generation.
+12. The app handles missing or unexpected metadata gracefully and continues running.
+
+STEP 12 FINAL TEST REPORT
+
+After implementation and testing, provide a short report with:
+
+- where the standards data lives
+- where the TypeScript types live
+- where the folder standards profile is created
+- where folder metadata was extended
+- where document generation now retrieves folder-level standards
+- where the prompt integration was added
+- which PDF sections were used as the standards source
+- confirmation that the PDF is not used at runtime
+- folders created during testing
+- grade level selected for each folder
+- standards reference used for each folder
+- backend confirmation that folder metadata was saved
+- backend confirmation that document generation used folder-level standards
+- notes on whether each grade-level workbook output changed appropriately
+- errors found
+- how each error was fixed
+- remaining issues, if any
+- how to add or edit standards later

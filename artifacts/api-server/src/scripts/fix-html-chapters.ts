@@ -21,9 +21,12 @@
 
 import { db, booksTable, chaptersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { enrichVocabularyForTeacherGuide, extractVocabulary } from "../lib/vocabularyExtractor.js";
-import { generateStudentWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
-import type { PageText } from "../lib/textExtractor.js";
+import { generateStudentWorkbook } from "../generation/studentWorkbook.js";
+import { generateTeacherGuide } from "../generation/teacherGuide.js";
+import {
+  enrichVocabularyForTeacherGuide,
+  selectAndEnrichVocabulary,
+} from "../vocabulary/index.js";
 
 function isLegacyHtml(content: string | null): boolean {
   if (!content) return false;
@@ -48,12 +51,7 @@ async function regenerateChapter(chapterId: number, bookId: number): Promise<voi
     extractedText: chapter.extractedText,
   };
 
-  const chapterPages: PageText[] = chapter.extractedText
-    .split("\n\n---PAGE---\n\n")
-    .map((text: string, index: number) => ({ page_number: index + 1, text }))
-    .filter((page: PageText) => page.text.trim().length > 0);
-
-  const baseVocabulary = extractVocabulary(chapterPages, book.grade);
+  const baseVocabulary = selectAndEnrichVocabulary(chapter.extractedText, book.grade);
   const vocabulary = await enrichVocabularyForTeacherGuide(baseVocabulary, book.grade, chapter.extractedText);
   const workbookResult = await generateStudentWorkbook(meta, vocabulary);
   const teacherGuideResult = await generateTeacherGuide(meta, workbookResult, vocabulary);

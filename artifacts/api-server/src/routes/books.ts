@@ -1,15 +1,57 @@
 import { Router, type IRouter } from "express";
 import multer from "multer";
-import { db, booksTable, chaptersTable, insertBookSchema } from "@workspace/db";
-import { and, eq, sql } from "drizzle-orm";
+import { insertBookSchema } from "@workspace/db";
+import { buildCharacterDatabase } from "../ai/characterDatabase.js";
+import { createStandardsProfileForFolder } from "../standards/index.js";
+import type { GradeLevel } from "../standards/types.js";
+import { generateStudentWorkbook } from "../generation/studentWorkbook.js";
+import { generateTeacherGuide } from "../generation/teacherGuide.js";
+import { extractTextFromBuffer, serializeChapterPages } from "../pdf/textExtractor.js";
 import {
-  extractTextFromBuffer,
-  serializeChapterPages,
-} from "../lib/textExtractor.js";
-import { enrichVocabularyForTeacherGuide } from "../lib/vocabularyExtractor.js";
-import { generateStudentWorkbook, generateTeacherGuide } from "../lib/workbookGenerator.js";
+  enrichVocabularyForTeacherGuide,
+  selectAndEnrichVocabulary,
+} from "../vocabulary/index.js";
 import { logger } from "../lib/logger.js";
-import { selectAndEnrichVocabulary } from "../lib/pythonVocabularySelector.js";
+import {
+  countChapters,
+  deleteBook,
+  getBookById,
+  insertBook,
+  listBooks,
+  updateBook,
+} from "../storage/books.js";
+import {
+  chapterToResponse,
+  deleteChapter,
+  getChapterById,
+  insertChapter,
+  listChaptersForBook,
+  saveGeneratedContent,
+  setChapterError,
+  setChapterGenerating,
+  setChapterStatus,
+  updateChapterFields,
+} from "../storage/chapters.js";
+/**
+ * Maps internal generation errors to a teacher-facing message. Falls back to
+ * the raw message so we never hide useful diagnostic information.
+ */
+function friendlyGenerationError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/missing the ".*" delimiter|delimiters are out of order/i.test(raw)) {
+    return "The AI returned an incomplete response (a section delimiter was missing). This is usually a transient issue — try again.";
+  }
+  if (/validation failed/i.test(raw)) {
+    return "The generated content didn't match the required structure. Try again, or report this if it keeps happening.";
+  }
+  if (/words_to_know must output/i.test(raw)) {
+    return "The AI didn't format the Words to Know section correctly. Try again — this usually resolves on a retry.";
+  }
+  if (/(rate.?limit|429|overloaded|timeout|ECONNRESET|fetch failed|network)/i.test(raw)) {
+    return "Couldn't reach the AI service. Wait a moment and try again.";
+  }
+  return `Generation failed: ${raw}`;
+}
 
 const router: IRouter = Router();
 
@@ -18,52 +60,29 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 },
 });
 
-function chapterToResponse(c: typeof chaptersTable.$inferSelect) {
-  return {
-    id: c.id,
-    bookId: c.bookId,
-    num: c.num,
-    title: c.title,
-    pages: c.pages,
-    status: c.status,
-    date: c.date,
-    file: c.file,
-    hasWorkbook: !!c.workbookContent,
-    hasTeacherGuide: !!c.teacherGuideContent,
-    createdAt: c.createdAt,
+async function triggerGeneration(chapterId: number, bookId: number): Promise<void> {
+  let chapterLogContext: { chapterNum: number | null; chapterTitle: string | null } = {
+    chapterNum: null,
+    chapterTitle: null,
   };
-}
-
-async function triggerGeneration(
-  chapterId: number,
-  bookId: number,
-): Promise<void> {
+  let bookLogContext: { bookTitle: string | null } = { bookTitle: null };
   try {
-    const [chapter] = await db
-      .select()
-      .from(chaptersTable)
-      .where(eq(chaptersTable.id, chapterId));
-
+    const chapter = await getChapterById(chapterId);
     if (!chapter || !chapter.extractedText) {
-      await db
-        .update(chaptersTable)
-        .set({ status: "ready" })
-        .where(eq(chaptersTable.id, chapterId));
+      await setChapterStatus(chapterId, "ready");
       return;
     }
+    chapterLogContext = { chapterNum: chapter.num, chapterTitle: chapter.title };
 
-    const [book] = await db
-      .select()
-      .from(booksTable)
-      .where(eq(booksTable.id, bookId));
-
+    const book = await getBookById(bookId);
     if (!book) {
-      await db
-        .update(chaptersTable)
-        .set({ status: "ready" })
-        .where(eq(chaptersTable.id, chapterId));
+      await setChapterStatus(chapterId, "ready");
       return;
     }
+    bookLogContext = { bookTitle: book.title };
+
+    const characterDatabase =
+      book.characterData ?? (await buildCharacterDatabase(book.title, book.author, book.grade));
 
     const meta = {
       bookTitle: book.title,
@@ -73,18 +92,19 @@ async function triggerGeneration(
       pages: chapter.pages,
       grade: book.grade,
       extractedText: chapter.extractedText,
+      characterDatabase,
     };
 
     logger.info({ chapterId, bookId }, "Starting AI generation");
 
-    const baseVocabulary = await selectAndEnrichVocabulary(chapter.extractedText, book.grade);
-    const vocabulary = await enrichVocabularyForTeacherGuide(baseVocabulary, book.grade, chapter.extractedText);
-    const workbookResult = await generateStudentWorkbook(meta, vocabulary);
-    const teacherGuideResult = await generateTeacherGuide(
-      meta,
-      workbookResult,
-      vocabulary,
+    const baseVocabulary = selectAndEnrichVocabulary(chapter.extractedText, book.grade);
+    const vocabulary = await enrichVocabularyForTeacherGuide(
+      baseVocabulary,
+      book.grade,
+      chapter.extractedText,
     );
+    const workbookHtml = await generateStudentWorkbook(meta, vocabulary);
+    const teacherGuideHtml = await generateTeacherGuide(meta, workbookHtml, vocabulary);
 
     const today = new Date().toLocaleDateString("en-US", {
       month: "short",
@@ -92,42 +112,28 @@ async function triggerGeneration(
       year: "numeric",
     });
 
-    await db
-      .update(chaptersTable)
-      .set({
-        status: "ready",
-        content: workbookResult,
-        workbookContent: workbookResult,
-        teacherGuideContent: teacherGuideResult,
-        date: today,
-      })
-      .where(eq(chaptersTable.id, chapterId));
+    await saveGeneratedContent(chapterId, { workbookHtml, teacherGuideHtml, date: today });
 
     logger.info({ chapterId }, "AI generation complete");
   } catch (err) {
-    logger.error({ chapterId, err }, "AI generation failed");
-    await db
-      .update(chaptersTable)
-      .set({ status: "error" })
-      .where(eq(chaptersTable.id, chapterId));
+    const friendlyMessage = friendlyGenerationError(err);
+    logger.error(
+      {
+        chapterId,
+        bookId,
+        chapterNum: chapterLogContext.chapterNum,
+        chapterTitle: chapterLogContext.chapterTitle,
+        bookTitle: bookLogContext.bookTitle,
+        err,
+      },
+      "AI generation failed",
+    );
+    await setChapterError(chapterId, friendlyMessage);
   }
 }
 
 router.get("/books", async (_req, res) => {
-  const books = await db
-    .select({
-      id: booksTable.id,
-      title: booksTable.title,
-      author: booksTable.author,
-      grade: booksTable.grade,
-      createdAt: booksTable.createdAt,
-      chapterCount: sql<number>`cast(count(${chaptersTable.id}) as int)`,
-    })
-    .from(booksTable)
-    .leftJoin(chaptersTable, eq(chaptersTable.bookId, booksTable.id))
-    .groupBy(booksTable.id)
-    .orderBy(booksTable.createdAt);
-  res.json(books);
+  res.json(await listBooks());
 });
 
 router.post("/books", async (req, res) => {
@@ -136,8 +142,10 @@ router.post("/books", async (req, res) => {
     res.status(400).json({ error: parsed.error.issues });
     return;
   }
-  const [book] = await db.insert(booksTable).values(parsed.data).returning();
-  res.status(201).json({ ...book, chapterCount: 0 });
+  const characterData = await buildCharacterDatabase(parsed.data.title, parsed.data.author, parsed.data.grade);
+  const book = await insertBook({ ...parsed.data, characterData });
+  const standardsProfile = createStandardsProfileForFolder(parsed.data.grade as GradeLevel);
+  res.status(201).json({ ...book, chapterCount: 0, standardsProfile });
 });
 
 router.patch("/books/:bookId", async (req, res) => {
@@ -162,15 +170,12 @@ router.patch("/books/:bookId", async (req, res) => {
     res.status(400).json({ error: "No valid fields to update" });
     return;
   }
-  const [book] = await db.update(booksTable).set(updates).where(eq(booksTable.id, bookId)).returning();
+  const book = await updateBook(bookId, updates);
   if (!book) {
     res.status(404).json({ error: "Book not found" });
     return;
   }
-  const [{ chapterCount }] = await db
-    .select({ chapterCount: sql<number>`cast(count(${chaptersTable.id}) as int)` })
-    .from(chaptersTable)
-    .where(eq(chaptersTable.bookId, bookId));
+  const chapterCount = await countChapters(bookId);
   res.json({ ...book, chapterCount });
 });
 
@@ -180,7 +185,7 @@ router.delete("/books/:bookId", async (req, res) => {
     res.status(400).json({ error: "Invalid bookId" });
     return;
   }
-  await db.delete(booksTable).where(eq(booksTable.id, bookId));
+  await deleteBook(bookId);
   res.status(204).send();
 });
 
@@ -211,11 +216,7 @@ router.patch("/books/:bookId/chapters/:chapterId", async (req, res) => {
     res.status(400).json({ error: "No valid fields to update" });
     return;
   }
-  const [chapter] = await db
-    .update(chaptersTable)
-    .set(updates)
-    .where(and(eq(chaptersTable.id, chapterId), eq(chaptersTable.bookId, bookId)))
-    .returning();
+  const chapter = await updateChapterFields(bookId, chapterId, updates);
   if (!chapter) {
     res.status(404).json({ error: "Chapter not found" });
     return;
@@ -230,9 +231,7 @@ router.delete("/books/:bookId/chapters/:chapterId", async (req, res) => {
     res.status(400).json({ error: "Invalid bookId or chapterId" });
     return;
   }
-  await db.delete(chaptersTable).where(
-    and(eq(chaptersTable.id, chapterId), eq(chaptersTable.bookId, bookId))
-  );
+  await deleteChapter(bookId, chapterId);
   res.status(204).send();
 });
 
@@ -242,158 +241,113 @@ router.get("/books/:bookId/chapters", async (req, res) => {
     res.status(400).json({ error: "Invalid bookId" });
     return;
   }
-  const chapters = await db
-    .select()
-    .from(chaptersTable)
-    .where(eq(chaptersTable.bookId, bookId))
-    .orderBy(chaptersTable.createdAt);
+  const chapters = await listChaptersForBook(bookId);
   res.json(chapters.map(chapterToResponse));
 });
 
-router.post(
-  "/books/:bookId/chapters",
-  upload.single("file"),
-  async (req, res) => {
-    const bookId = Number(req.params.bookId);
-    if (isNaN(bookId)) {
-      res.status(400).json({ error: "Invalid bookId" });
-      return;
+router.post("/books/:bookId/chapters", upload.single("file"), async (req, res) => {
+  const bookId = Number(req.params.bookId);
+  if (isNaN(bookId)) {
+    res.status(400).json({ error: "Invalid bookId" });
+    return;
+  }
+
+  const { title, pages, num, date } = req.body;
+  if (!title || !pages) {
+    res.status(400).json({ error: "title and pages are required" });
+    return;
+  }
+
+  const file = req.file;
+  let extractedText: string | null = null;
+  if (file) {
+    try {
+      const extractedPages = await extractTextFromBuffer(file.buffer, file.mimetype, file.originalname);
+      extractedText = serializeChapterPages(extractedPages);
+    } catch (err) {
+      logger.warn({ err }, "Text extraction failed, continuing without text");
     }
+  }
 
-    const { title, pages, num, date } = req.body;
-    if (!title || !pages) {
-      res.status(400).json({ error: "title and pages are required" });
-      return;
-    }
+  const hasText = !!extractedText && extractedText.length > 50;
+  const initialStatus = hasText ? "generating" : "ready";
 
-    const file = req.file;
-    let extractedText: string | null = null;
-    if (file) {
-      try {
-        const pages = await extractTextFromBuffer(
-          file.buffer,
-          file.mimetype,
-          file.originalname,
-        );
-        extractedText = serializeChapterPages(pages);
-      } catch (err) {
-        logger.warn({ err }, "Text extraction failed, continuing without text");
-      }
-    }
+  const chapter = await insertChapter({
+    bookId,
+    title: String(title).trim(),
+    pages: String(pages),
+    num: num ? Number(num) : null,
+    date: date ? String(date) : null,
+    file: file ? file.originalname : null,
+    extractedText,
+    status: initialStatus,
+  });
 
-    const hasText = !!extractedText && extractedText.length > 50;
-    const initialStatus = hasText ? "generating" : "ready";
+  res.status(201).json(chapterToResponse(chapter));
 
-    const [chapter] = await db
-      .insert(chaptersTable)
-      .values({
-        bookId,
-        title: String(title).trim(),
-        pages: String(pages),
-        num: num ? Number(num) : null,
-        date: date ? String(date) : null,
-        file: file ? file.originalname : null,
-        extractedText,
-        status: initialStatus,
-      })
-      .returning();
+  if (hasText) {
+    setImmediate(() => triggerGeneration(chapter.id, bookId));
+  }
+});
 
-    res.status(201).json(chapterToResponse(chapter));
+router.get("/books/:bookId/chapters/:chapterId/workbook", async (req, res) => {
+  const chapterId = Number(req.params.chapterId);
+  if (isNaN(chapterId)) {
+    res.status(400).json({ error: "Invalid chapterId" });
+    return;
+  }
+  const chapter = await getChapterById(chapterId);
+  if (!chapter || !chapter.workbookContent) {
+    res.status(404).json({ error: "Workbook not yet generated" });
+    return;
+  }
+  res.json({ content: chapter.workbookContent, chapterId, type: "workbook" });
+});
 
-    if (hasText) {
-      setImmediate(() => triggerGeneration(chapter.id, bookId));
-    }
-  },
-);
+router.get("/books/:bookId/chapters/:chapterId/teacher-guide", async (req, res) => {
+  const chapterId = Number(req.params.chapterId);
+  if (isNaN(chapterId)) {
+    res.status(400).json({ error: "Invalid chapterId" });
+    return;
+  }
+  const chapter = await getChapterById(chapterId);
+  if (!chapter || !chapter.teacherGuideContent) {
+    res.status(404).json({ error: "Teacher guide not yet generated" });
+    return;
+  }
+  res.json({ content: chapter.teacherGuideContent, chapterId, type: "teacher-guide" });
+});
 
-router.get(
-  "/books/:bookId/chapters/:chapterId/workbook",
-  async (req, res) => {
-    const chapterId = Number(req.params.chapterId);
-    if (isNaN(chapterId)) {
-      res.status(400).json({ error: "Invalid chapterId" });
-      return;
-    }
-    const [chapter] = await db
-      .select()
-      .from(chaptersTable)
-      .where(eq(chaptersTable.id, chapterId));
-    if (!chapter || !chapter.workbookContent) {
-      res.status(404).json({ error: "Workbook not yet generated" });
-      return;
-    }
-    res.json({
-      content: chapter.workbookContent,
-      chapterId,
-      type: "workbook",
-    });
-  },
-);
+router.post("/books/:bookId/chapters/:chapterId/regenerate", async (req, res) => {
+  const bookId = Number(req.params.bookId);
+  const chapterId = Number(req.params.chapterId);
+  if (isNaN(bookId) || isNaN(chapterId)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
 
-router.get(
-  "/books/:bookId/chapters/:chapterId/teacher-guide",
-  async (req, res) => {
-    const chapterId = Number(req.params.chapterId);
-    if (isNaN(chapterId)) {
-      res.status(400).json({ error: "Invalid chapterId" });
-      return;
-    }
-    const [chapter] = await db
-      .select()
-      .from(chaptersTable)
-      .where(eq(chaptersTable.id, chapterId));
-    if (!chapter || !chapter.teacherGuideContent) {
-      res.status(404).json({ error: "Teacher guide not yet generated" });
-      return;
-    }
-    res.json({
-      content: chapter.teacherGuideContent,
-      chapterId,
-      type: "teacher-guide",
-    });
-  },
-);
+  const chapter = await getChapterById(chapterId);
+  if (!chapter) {
+    res.status(404).json({ error: "Chapter not found" });
+    return;
+  }
 
-router.post(
-  "/books/:bookId/chapters/:chapterId/regenerate",
-  async (req, res) => {
-    const bookId = Number(req.params.bookId);
-    const chapterId = Number(req.params.chapterId);
-    if (isNaN(bookId) || isNaN(chapterId)) {
-      res.status(400).json({ error: "Invalid id" });
-      return;
-    }
+  if (chapter.status === "generating") {
+    res.status(409).json({ error: "Chapter is already generating" });
+    return;
+  }
 
-    const [chapter] = await db
-      .select()
-      .from(chaptersTable)
-      .where(eq(chaptersTable.id, chapterId));
+  if (!chapter.extractedText || chapter.extractedText.length < 50) {
+    res.status(422).json({ error: "No chapter text available for regeneration. Please re-upload the file." });
+    return;
+  }
 
-    if (!chapter) {
-      res.status(404).json({ error: "Chapter not found" });
-      return;
-    }
+  await setChapterGenerating(chapterId);
 
-    if (chapter.status === "generating") {
-      res.status(409).json({ error: "Chapter is already generating" });
-      return;
-    }
+  const updated = { ...chapter, status: "generating", errorMessage: null };
+  res.status(202).json(chapterToResponse(updated));
 
-    if (!chapter.extractedText || chapter.extractedText.length < 50) {
-      res.status(422).json({ error: "No chapter text available for regeneration. Please re-upload the file." });
-      return;
-    }
-
-    await db
-      .update(chaptersTable)
-      .set({ status: "generating" })
-      .where(eq(chaptersTable.id, chapterId));
-
-    const updated = { ...chapter, status: "generating" };
-    res.status(202).json(chapterToResponse(updated));
-
-    setImmediate(() => triggerGeneration(chapterId, bookId));
-  },
-);
+  setImmediate(() => triggerGeneration(chapterId, bookId));
+});
 
 export default router;
