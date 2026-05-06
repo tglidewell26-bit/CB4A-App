@@ -159,9 +159,7 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
   "workedWord": "scrambled",
   "workedQuote": "She scrambled up the path.",
   "workedPage": 12,
-  "contextClueStrategy": "Use the verbs around the word and the action in the sentence.",
-  "studentDefinition": "moved quickly using hands and feet",
-  "vocabularyTip": "Have students gesture the word and explain the clue."
+  "contextClueStrategy": "Use the verbs around the word and the action in the sentence."
 }
 
 Rules:

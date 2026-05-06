@@ -204,8 +204,6 @@ export function parseWordsToKnowMiniLesson(raw: string): WordsToKnowMiniLessonDa
     workedQuote: asString(sectionKey, root.workedQuote, "workedQuote"),
     workedPage: asNumber(sectionKey, root.workedPage, "workedPage"),
     contextClueStrategy: asString(sectionKey, root.contextClueStrategy, "contextClueStrategy"),
-    studentDefinition: asString(sectionKey, root.studentDefinition, "studentDefinition"),
-    vocabularyTip: asString(sectionKey, root.vocabularyTip, "vocabularyTip"),
   };
 }
 

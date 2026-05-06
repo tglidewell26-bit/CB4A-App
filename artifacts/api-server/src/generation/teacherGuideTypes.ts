@@ -44,10 +44,6 @@ export interface WordsToKnowMiniLessonData {
   workedPage: number;
   /** How a student would use surrounding text to figure out the meaning. */
   contextClueStrategy: string;
-  /** Student-friendly definition. */
-  studentDefinition: string;
-  /** Short pedagogical extension idea (morphology, figurative-language tie-in, etc.). */
-  vocabularyTip: string;
 }
 
 export type QuestionType =
