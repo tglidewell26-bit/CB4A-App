@@ -356,10 +356,10 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
 }
 
 Rules:
-- Copy each question EXACTLY as it appears in the workbook context — do not reword, reorder, or omit any questions. The number of items in each array must match the number of questions in the workbook.
-- For each "page" field: scan the chapter text for the page marker (e.g. [p. 5]) nearest to where the answer or quote appears, and use that number. Every entry must have its own correct page number — never repeat the same page for every entry.
-- For multipleChoice, read the full question + options from the workbook context and return the correct letter plus a short rationale.
-- drawItDetails must be 3–5 concrete visual details a student could draw based on the chapter.
+- The "question" field in every readingBetweenTheLines item must be copied exactly word-for-word from readingBetweenTheLinesQuestions. Use every question, in the same order. Do not rephrase, reorder, or omit any question.
+- The "question" field in every digDeeper item must be copied exactly word-for-word from digDeeperQuestions. Use every question, in the same order. Do not rephrase, reorder, or omit any question.
+- For multipleChoice, read the full question + options and return the correct letter plus a short rationale.
+- drawItDetails must be 3–5 concrete visual details.
 
 Return ONLY the JSON object. No markdown fences, no commentary.`;
 

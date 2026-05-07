@@ -113,7 +113,9 @@ function workbookContextForTeacherSection(sectionKey: string, slices: ParsedWork
     case "answer_key":
       return {
         readingBetweenTheLines: slices.readingBetweenTheLines,
+        readingBetweenTheLinesQuestions: extractQuestionTexts(slices.readingBetweenTheLines),
         digDeeper: slices.digDeeper,
+        digDeeperQuestions: extractQuestionTexts(slices.digDeeper),
         multipleChoice: slices.multipleChoice,
         evidenceFromTheStory: slices.evidenceFromTheStory,
         characterChart: slices.characterChart,
