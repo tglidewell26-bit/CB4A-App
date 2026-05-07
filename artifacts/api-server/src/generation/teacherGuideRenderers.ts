@@ -92,10 +92,10 @@ ${data.objectives
 </ul>`;
 }
 
-export function renderGetReadyToRead(data: GetReadyToReadData): string {
+export function renderGetReadyToRead(data: GetReadyToReadData, focusQuestion: string): string {
   return `<div class="tg-get-ready">
   <h4>Quick-write prompt</h4>
-  <p>"${escapeHtml(data.quickWritePrompt)}"</p>
+  <p>"${escapeHtml(focusQuestion)}"</p>
   <h4>Implementation</h4>
   <ul class="tg-impl-steps">
 ${data.implementationSteps.map((s) => `    <li>${escapeHtml(s)}</li>`).join("\n")}

@@ -135,7 +135,6 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
       return `Return a JSON object with this exact shape and nothing else:
 
 {
-  "quickWritePrompt": "What might a character think or feel in this situation?",
   "implementationSteps": [
     "Display the prompt.",
     "Give students 2–3 quiet writing minutes.",
@@ -145,7 +144,6 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
 }
 
 Rules:
-- quickWritePrompt must be a single open-ended question.
 - implementationSteps must have 4–5 short steps.
 - connectionTip must be one concise sentence.
 - Never use the phrase "turn-and-talk"; always say "turn to your neighbor" or "share with their neighbor" when describing partner sharing.
@@ -202,7 +200,7 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
 
 {
   "answers": [
-    { "question": "Who is the main character?", "answer": "...", "page": 3 }
+    { "question": "...", "answer": "...", "page": 3 }
   ],
   "inferentialPrompts": [
     "Why do you think ...?",
@@ -219,7 +217,7 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
 }
 
 Rules:
-- answers must mirror the workbook questions.
+- The "question" field in every answers item must be copied exactly word-for-word from the numbered list in thinkAboutTheStoryQuestions. Use every question, in the same order. Do not rephrase, reorder, or omit any question.
 - inferentialPrompts should push beyond literal recall.
 - tieredDiscussion must include all four tiers.
 - analyticalThinking and personalConnection should each have 2–3 items.
