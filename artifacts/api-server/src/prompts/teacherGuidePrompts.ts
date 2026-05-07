@@ -334,19 +334,23 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
 
 {
   "readingBetweenTheLines": [
-    { "question": "...", "answer": "...", "page": 4 }
+    { "question": "...", "answer": "...", "page": 3 },
+    { "question": "...", "answer": "...", "page": 11 }
   ],
   "digDeeper": [
-    { "question": "...", "answer": "...", "page": 5 }
+    { "question": "...", "answer": "...", "page": 6 },
+    { "question": "...", "answer": "...", "page": 14 }
   ],
   "multipleChoice": [
     { "question": "...", "correctLetter": "B", "rationale": "..." }
   ],
   "evidenceFromTheStory": [
-    { "question": "...", "sampleAnswer": "...", "quote": "...", "page": 6 }
+    { "question": "...", "sampleAnswer": "...", "quote": "...", "page": 8 },
+    { "question": "...", "sampleAnswer": "...", "quote": "...", "page": 2 }
   ],
   "characterChart": [
-    { "characterName": "...", "description": "...", "whatThisShows": "...", "quote": "...", "page": 7 }
+    { "characterName": "...", "description": "...", "whatThisShows": "...", "quote": "...", "page": 5 },
+    { "characterName": "...", "description": "...", "whatThisShows": "...", "quote": "...", "page": 13 }
   ],
   "drawItDetails": ["...", "...", "..."]
 }

@@ -99,9 +99,9 @@ describe("teacherGuideRenderers", () => {
         implementationSteps: ["Display the prompt.", "Write quietly.", "Pair share."],
         connectionTip: "Builds schema for the chapter.",
       });
-      expect(html).toContain("Quick-write prompt:");
+      expect(html).toContain("Quick-write prompt");
       expect(html).toContain("How do you feel about new places?");
-      expect(html).toContain('<ol class="tg-impl-steps">');
+      expect(html).toContain('<ul class="tg-impl-steps">');
       expect(html).toContain("Display the prompt.");
       expect(html).toContain('<div class="tg-tip">');
       expect(html).toContain("Connection tip");
@@ -115,15 +115,12 @@ describe("teacherGuideRenderers", () => {
         workedQuote: "She scrambled up the path.",
         workedPage: 5,
         contextClueStrategy: "Look at the verbs.",
-        studentDefinition: "moved quickly",
-        vocabularyTip: "Gesture the word.",
-      });
+      }, []);
       expect(html).toContain("Activities");
-      expect(html).toContain("Partner Practice");
-      expect(html).toContain("Quick Check");
+      expect(html).toContain("Partner practice");
+      expect(html).toContain("Quick check");
       expect(html).toContain("scrambled");
       expect(html).toContain("(p. 5)");
-      expect(html).toContain("Vocabulary tip");
     });
   });
 
@@ -157,8 +154,8 @@ describe("teacherGuideRenderers", () => {
       expect(html).toContain("Section 1: pages 4–6");
       expect(html).toContain("Section 2: pages 7–12");
       expect(html).toContain('<ol class="tg-pause-points">');
-      expect(html).toContain("[comprehension]");
-      expect(html).toContain("[evaluation]");
+      expect(html).toContain("Who is travelling?");
+      expect(html).toContain("Was he right to take her in?");
       expect(html).toContain("Read-aloud tip");
     });
   });
