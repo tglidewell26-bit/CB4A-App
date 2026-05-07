@@ -27,8 +27,6 @@ export interface StandardsData {
 }
 
 export interface GetReadyToReadData {
-  /** Single short open-ended question text (no quote marks). */
-  quickWritePrompt: string;
   /** 4–5 implementation steps. */
   implementationSteps: string[];
   /** One-sentence pedagogical rationale shown as the connection tip callout. */

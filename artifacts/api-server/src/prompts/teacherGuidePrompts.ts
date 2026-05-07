@@ -135,7 +135,6 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
       return `Return a JSON object with this exact shape and nothing else:
 
 {
-  "quickWritePrompt": "What might a character think or feel in this situation?",
   "implementationSteps": [
     "Display the prompt.",
     "Give students 2–3 quiet writing minutes.",
@@ -145,7 +144,6 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
 }
 
 Rules:
-- quickWritePrompt must be a single open-ended question.
 - implementationSteps must have 4–5 short steps.
 - connectionTip must be one concise sentence.
 - Never use the phrase "turn-and-talk"; always say "turn to your neighbor" or "share with their neighbor" when describing partner sharing.

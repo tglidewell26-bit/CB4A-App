@@ -189,7 +189,6 @@ export function parseGetReadyToRead(raw: string): GetReadyToReadData {
   const data = parseJson(sectionKey, raw);
   const root = asObject(sectionKey, data, "(root)");
   return {
-    quickWritePrompt: asString(sectionKey, root.quickWritePrompt, "quickWritePrompt"),
     implementationSteps: asStringArray(sectionKey, root.implementationSteps, "implementationSteps"),
     connectionTip: asString(sectionKey, root.connectionTip, "connectionTip"),
   };
