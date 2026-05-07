@@ -200,7 +200,7 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
 
 {
   "answers": [
-    { "question": "Who is the main character?", "answer": "...", "page": 3 }
+    { "question": "...", "answer": "...", "page": 3 }
   ],
   "inferentialPrompts": [
     "Why do you think ...?",
@@ -217,7 +217,7 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
 }
 
 Rules:
-- answers must mirror the workbook questions.
+- The "question" field in every answers item must be copied exactly word-for-word from the numbered list in thinkAboutTheStoryQuestions. Use every question, in the same order. Do not rephrase, reorder, or omit any question.
 - inferentialPrompts should push beyond literal recall.
 - tieredDiscussion must include all four tiers.
 - analyticalThinking and personalConnection should each have 2–3 items.

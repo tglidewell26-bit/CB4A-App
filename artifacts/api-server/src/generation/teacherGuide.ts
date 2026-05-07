@@ -76,6 +76,12 @@ export function extractMultipleChoiceItems(sectionHtml: string): string {
   return extractQuestionOnlySection(sectionHtml);
 }
 
+function extractQuestionTexts(sectionHtml: string): string {
+  const questions = [...sectionHtml.matchAll(/<div class="question">([\s\S]*?)<\/div>/g)]
+    .map((m) => m[1].replace(/<[^>]+>/g, "").trim());
+  return questions.map((q, i) => `${i + 1}. ${q}`).join("\n");
+}
+
 function extractFocusQuestion(sectionHtml: string): string {
   const match = sectionHtml.match(/<div class="focus-question">[\s\S]*?<p>([\s\S]*?)<\/p>/);
   return match?.[1]?.replace(/<[^>]+>/g, "").trim() ?? "";
@@ -100,7 +106,10 @@ function workbookContextForTeacherSection(sectionKey: string, slices: ParsedWork
     case "words_to_know_mini_lesson":
       return { wordsToKnow: slices.wordsToKnow };
     case "think_about_the_story_answers":
-      return { thinkAboutTheStory: slices.thinkAboutTheStory };
+      return {
+        thinkAboutTheStory: slices.thinkAboutTheStory,
+        thinkAboutTheStoryQuestions: extractQuestionTexts(slices.thinkAboutTheStory),
+      };
     case "answer_key":
       return {
         readingBetweenTheLines: slices.readingBetweenTheLines,
