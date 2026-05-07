@@ -352,7 +352,8 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
 }
 
 Rules:
-- Use the workbook context provided to answer only the questions that appear in the workbook.
+- The "question" field in every readingBetweenTheLines item must be copied exactly word-for-word from readingBetweenTheLinesQuestions. Use every question, in the same order. Do not rephrase, reorder, or omit any question.
+- The "question" field in every digDeeper item must be copied exactly word-for-word from digDeeperQuestions. Use every question, in the same order. Do not rephrase, reorder, or omit any question.
 - For multipleChoice, read the full question + options and return the correct letter plus a short rationale.
 - drawItDetails must be 3–5 concrete visual details.
 
