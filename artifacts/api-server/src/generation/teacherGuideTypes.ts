@@ -27,8 +27,6 @@ export interface StandardsData {
 }
 
 export interface GetReadyToReadData {
-  /** Single short open-ended question text (no quote marks). */
-  quickWritePrompt: string;
   /** 4–5 implementation steps. */
   implementationSteps: string[];
   /** One-sentence pedagogical rationale shown as the connection tip callout. */
@@ -44,10 +42,6 @@ export interface WordsToKnowMiniLessonData {
   workedPage: number;
   /** How a student would use surrounding text to figure out the meaning. */
   contextClueStrategy: string;
-  /** Student-friendly definition. */
-  studentDefinition: string;
-  /** Short pedagogical extension idea (morphology, figurative-language tie-in, etc.). */
-  vocabularyTip: string;
 }
 
 export type QuestionType =

@@ -189,7 +189,6 @@ export function parseGetReadyToRead(raw: string): GetReadyToReadData {
   const data = parseJson(sectionKey, raw);
   const root = asObject(sectionKey, data, "(root)");
   return {
-    quickWritePrompt: asString(sectionKey, root.quickWritePrompt, "quickWritePrompt"),
     implementationSteps: asStringArray(sectionKey, root.implementationSteps, "implementationSteps"),
     connectionTip: asString(sectionKey, root.connectionTip, "connectionTip"),
   };
@@ -204,8 +203,6 @@ export function parseWordsToKnowMiniLesson(raw: string): WordsToKnowMiniLessonDa
     workedQuote: asString(sectionKey, root.workedQuote, "workedQuote"),
     workedPage: asNumber(sectionKey, root.workedPage, "workedPage"),
     contextClueStrategy: asString(sectionKey, root.contextClueStrategy, "contextClueStrategy"),
-    studentDefinition: asString(sectionKey, root.studentDefinition, "studentDefinition"),
-    vocabularyTip: asString(sectionKey, root.vocabularyTip, "vocabularyTip"),
   };
 }
 

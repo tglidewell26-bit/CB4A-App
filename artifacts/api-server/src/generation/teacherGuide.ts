@@ -51,6 +51,7 @@ interface ParsedWorkbookSlices {
   characterChart: string;
   drawIt: string;
   wordsToKnow: string;
+  getReadyToRead: string;
 }
 
 function extractWorkbookSection(studentWorkbookHtml: string, key: string): string {
@@ -75,6 +76,17 @@ export function extractMultipleChoiceItems(sectionHtml: string): string {
   return extractQuestionOnlySection(sectionHtml);
 }
 
+function extractQuestionTexts(sectionHtml: string): string {
+  const questions = [...sectionHtml.matchAll(/<div class="question">([\s\S]*?)<\/div>/g)]
+    .map((m) => m[1].replace(/<[^>]+>/g, "").trim());
+  return questions.map((q, i) => `${i + 1}. ${q}`).join("\n");
+}
+
+function extractFocusQuestion(sectionHtml: string): string {
+  const match = sectionHtml.match(/<div class="focus-question">[\s\S]*?<p>([\s\S]*?)<\/p>/);
+  return match?.[1]?.replace(/<[^>]+>/g, "").trim() ?? "";
+}
+
 function parseWorkbookSlices(studentWorkbookHtml: string): ParsedWorkbookSlices {
   return {
     thinkAboutTheStory: extractQuestionOnlySection(extractWorkbookSection(studentWorkbookHtml, "think_about_the_story")),
@@ -85,6 +97,7 @@ function parseWorkbookSlices(studentWorkbookHtml: string): ParsedWorkbookSlices 
     characterChart: extractWorkbookSection(studentWorkbookHtml, "character_chart"),
     drawIt: extractWorkbookSection(studentWorkbookHtml, "draw_it"),
     wordsToKnow: extractWorkbookSection(studentWorkbookHtml, "words_to_know"),
+    getReadyToRead: extractWorkbookSection(studentWorkbookHtml, "get_ready_to_read"),
   };
 }
 
@@ -93,7 +106,10 @@ function workbookContextForTeacherSection(sectionKey: string, slices: ParsedWork
     case "words_to_know_mini_lesson":
       return { wordsToKnow: slices.wordsToKnow };
     case "think_about_the_story_answers":
-      return { thinkAboutTheStory: slices.thinkAboutTheStory };
+      return {
+        thinkAboutTheStory: slices.thinkAboutTheStory,
+        thinkAboutTheStoryQuestions: extractQuestionTexts(slices.thinkAboutTheStory),
+      };
     case "answer_key":
       return {
         readingBetweenTheLines: slices.readingBetweenTheLines,
@@ -161,7 +177,7 @@ async function generateSectionBody(
     case "standards":
       return renderStandards(parseStandards(rawJson), meta.grade as GradeLevel);
     case "get_ready_to_read":
-      return renderGetReadyToRead(parseGetReadyToRead(rawJson));
+      return renderGetReadyToRead(parseGetReadyToRead(rawJson), extractFocusQuestion(slices.getReadyToRead));
     case "words_to_know_mini_lesson":
       return renderWordsToKnowMiniLesson(parseWordsToKnowMiniLesson(rawJson), vocabulary);
     case "guided_reading":
