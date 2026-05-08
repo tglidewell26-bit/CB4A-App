@@ -196,6 +196,7 @@ export async function generateStudentWorkbook(
 
   const generatedSections: GeneratedSection[] = [];
   let focusQuestion = "";
+  let bonusChallengeChronological: string[] = [];
 
   for (const section of STUDENT_WORKBOOK_SECTIONS) {
     const standingSubheader = section.standing_subheader
@@ -254,6 +255,19 @@ export async function generateStudentWorkbook(
         : sanitized.cleaned;
     const sentenceSafeBody = enforceSingleSentenceItems(section.key, normalizedBody);
 
+    if (section.key === "bonus_challenge") {
+      // Scope strictly to the <ol class="timeline-list"> block produced by the
+      // LLM so we never pick up <li> elements from unexpected surrounding HTML.
+      const timelineMatch = sentenceSafeBody.match(
+        /<ol class="timeline-list">([\s\S]*?)<\/ol>/,
+      );
+      if (timelineMatch) {
+        bonusChallengeChronological = [...timelineMatch[1].matchAll(/<li>([\s\S]*?)<\/li>/g)]
+          .map((m) => m[1].trim())
+          .slice(0, 7);
+      }
+    }
+
     const bodyHtml =
       section.body_source === "template"
         ? buildTemplateSectionBody(
@@ -278,6 +292,9 @@ export async function generateStudentWorkbook(
   // the persisted payload. This ensures delayed teacher-guide generation from
   // DB state has the focus question without re-parsing the workbook HTML.
   const workbookAnswers = parseWorkbookAnswers(coreResponse.answersJsonRaw, focusQuestion);
+  if (bonusChallengeChronological.length === 7) {
+    workbookAnswers.answerKey.bonusChallenge = bonusChallengeChronological;
+  }
   validateAnswerKeyQuestionsMatchHtml(coreResponse.questions, workbookAnswers);
   validateMultipleChoiceAnswerLetters(
     coreResponse.questions.multiple_choice_questions,

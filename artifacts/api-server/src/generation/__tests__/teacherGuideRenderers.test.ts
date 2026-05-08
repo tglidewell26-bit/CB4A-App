@@ -293,19 +293,38 @@ describe("teacherGuideRenderers", () => {
   });
 
   describe("renderAnswerKey", () => {
-    it("renders all six answer-key sub-blocks with the character chart table", () => {
-      const html = renderAnswerKey({
-        readingBetweenTheLines: [{ question: "Q1", answer: "A1", page: 5 }],
-        digDeeper: [{ question: "Q2", answer: "A2", page: 6 }],
-        multipleChoice: [{ question: "Q3", correctLetter: "B", rationale: "R" }],
-        evidenceFromTheStory: [
-          { question: "Q4", sampleAnswer: "S", quote: "Quote", page: 7 },
-        ],
-        characterChart: [
-          { characterName: "Heidi", description: "Curious", whatThisShows: "Adapts", quote: "Q", page: 8 },
-        ],
-        drawItDetails: ["mountain", "goats", "hut"],
-      });
+    const sampleVocab = [
+      {
+        word: "alm",
+        page_number: 1,
+        book_quote: "the Alm rose above her",
+        grade_band: "4",
+        score: 1,
+        kid_friendly_definition: "a high mountain pasture",
+        example_sentence: "The cows graze on the alm in summer.",
+      },
+    ];
+
+    it("renders all sub-blocks including the words-to-know table and bonus challenge answer key", () => {
+      const html = renderAnswerKey(
+        {
+          readingBetweenTheLines: [{ question: "Q1", answer: "A1", page: 5 }],
+          digDeeper: [{ question: "Q2", answer: "A2", page: 6 }],
+          multipleChoice: [{ question: "Q3", correctLetter: "B", rationale: "R" }],
+          evidenceFromTheStory: [
+            { question: "Q4", sampleAnswer: "S", quote: "Quote", page: 7 },
+          ],
+          characterChart: [
+            { characterName: "Heidi", description: "Curious", whatThisShows: "Adapts", quote: "Q", page: 8 },
+          ],
+          drawItDetails: ["mountain", "goats", "hut"],
+          bonusChallenge: ["E1", "E2", "E3", "E4", "E5", "E6", "E7"],
+        },
+        sampleVocab,
+      );
+      expect(html).toContain("Words to Know — Answer Key");
+      expect(html).toContain("a high mountain pasture");
+      expect(html).toContain("alm");
       expect(html).toContain("Reading Between the Lines — Answers");
       expect(html).toContain("Dig Deeper — Answers");
       expect(html).toContain("Multiple Choice — Answers");
@@ -315,18 +334,25 @@ describe("teacherGuideRenderers", () => {
       expect(html).toContain("Heidi");
       expect(html).toContain("Draw It! — Suggested Details");
       expect(html).toContain("mountain");
+      expect(html).toContain("Bonus Challenge — Answer Key");
+      expect(html).toContain("E1");
+      expect(html).toContain("E7");
     });
 
-    it("handles empty workbook sections gracefully", () => {
-      const html = renderAnswerKey({
-        readingBetweenTheLines: [],
-        digDeeper: [],
-        multipleChoice: [],
-        evidenceFromTheStory: [],
-        characterChart: [],
-        drawItDetails: [],
-      });
+    it("omits bonus challenge block when not provided (backward compatibility)", () => {
+      const html = renderAnswerKey(
+        {
+          readingBetweenTheLines: [],
+          digDeeper: [],
+          multipleChoice: [],
+          evidenceFromTheStory: [],
+          characterChart: [],
+          drawItDetails: [],
+        },
+        sampleVocab,
+      );
       expect(html).toContain('<table class="tg-character-key">');
+      expect(html).not.toContain("Bonus Challenge — Answer Key");
     });
   });
 });

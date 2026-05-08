@@ -178,7 +178,7 @@ async function generateSectionBody(
     return renderThinkAboutTheStoryAnswers(answers.thinkAboutTheStory);
   }
   if (sectionKey === "answer_key") {
-    return renderAnswerKey(answers.answerKey);
+    return renderAnswerKey(answers.answerKey, vocabulary);
   }
 
   const promptInputs = {

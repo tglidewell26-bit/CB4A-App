@@ -84,7 +84,7 @@ describe("workbook answers persistence round-trip", () => {
 
   it("renders answer_key HTML from persisted answers (no Claude call)", () => {
     const answers = parseWorkbookAnswers(MINIMAL_ANSWERS_JSON, "Focus question here.");
-    const html = renderAnswerKey(answers.answerKey);
+    const html = renderAnswerKey(answers.answerKey, []);
     expect(typeof html).toBe("string");
     expect(html.length).toBeGreaterThan(0);
   });

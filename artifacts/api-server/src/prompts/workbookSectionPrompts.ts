@@ -260,7 +260,7 @@ Do not include: vocabulary lists, definitions, example sentences, fill-in exerci
     case "reflect_on_your_drawing":
       return "Exactly 3 sentence stems for reflection.";
     case "bonus_challenge":
-      return '<ol class="timeline-list"><li>...</li></ol> with exactly 7 scrambled events.';
+      return '<ol class="timeline-list"><li>...</li></ol> with exactly 7 events in CHRONOLOGICAL order (item 1 = earliest event in the chapter, item 7 = latest event). The system will shuffle them before displaying to students; the chronological order you provide becomes the teacher answer key.';
     case "thinking_deeper":
       return "Output exactly two lines with the prediction frame and no additional prompt text.";
     default:

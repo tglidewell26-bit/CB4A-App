@@ -329,6 +329,33 @@ describe("teacherGuideJsonParsers", () => {
       });
       expect(() => parseAnswerKey(json)).toThrow(/correctLetter must be A\/B\/C\/D/);
     });
+
+    it("parses optional bonusChallenge string array when present", () => {
+      const json = JSON.stringify({
+        readingBetweenTheLines: [],
+        digDeeper: [],
+        multipleChoice: [],
+        evidenceFromTheStory: [],
+        characterChart: [],
+        drawItDetails: [],
+        bonusChallenge: ["E1", "E2", "E3", "E4", "E5", "E6", "E7"],
+      });
+      const data = parseAnswerKey(json);
+      expect(data.bonusChallenge).toEqual(["E1", "E2", "E3", "E4", "E5", "E6", "E7"]);
+    });
+
+    it("leaves bonusChallenge undefined for legacy answer keys without the field", () => {
+      const json = JSON.stringify({
+        readingBetweenTheLines: [],
+        digDeeper: [],
+        multipleChoice: [],
+        evidenceFromTheStory: [],
+        characterChart: [],
+        drawItDetails: [],
+      });
+      const data = parseAnswerKey(json);
+      expect(data.bonusChallenge).toBeUndefined();
+    });
   });
 
   describe("validateMultipleChoiceAnswerLetters", () => {

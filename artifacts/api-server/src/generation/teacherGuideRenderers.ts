@@ -249,8 +249,34 @@ ${data.successCriteria.map((s) => `    <li>${escapeHtml(s)}</li>`).join("\n")}
 </div>`;
 }
 
-export function renderAnswerKey(data: AnswerKeyData): string {
+export function renderAnswerKey(data: AnswerKeyData, vocabulary: VocabularyWord[]): string {
+  const wordsToKnowRows = vocabulary
+    .map(
+      (v) => `      <tr>
+        <td><strong>${escapeHtml(v.word)}</strong></td>
+        <td>${escapeHtml(v.kid_friendly_definition ?? "—")}</td>
+        <td>"${escapeHtml(v.book_quote)}" (p. ${v.page_number})</td>
+        <td>${escapeHtml(v.example_sentence ?? "—")}</td>
+      </tr>`,
+    )
+    .join("\n");
+
+  const bonusChallengeHtml =
+    data.bonusChallenge && data.bonusChallenge.length === 7
+      ? `<h4 class="tg-emphasis-heading">Bonus Challenge — Answer Key (Correct Order)</h4>
+  <ol class="tg-bonus-key">
+${data.bonusChallenge.map((event) => `    <li>${escapeHtml(event)}</li>`).join("\n")}
+  </ol>`
+      : "";
+
   return `<div class="tg-answer-key">
+  <h4 class="tg-emphasis-heading">Words to Know — Answer Key</h4>
+  <table class="tg-words-key">
+    <thead><tr><th>Word</th><th>Definition</th><th>Sentence from book (page)</th><th>Example sentence</th></tr></thead>
+    <tbody>
+${wordsToKnowRows}
+    </tbody>
+  </table>
   <h4 class="tg-emphasis-heading">Reading Between the Lines — Answers</h4>
   <ul>
 ${data.readingBetweenTheLines.map((a) => `    <li><strong>${escapeHtml(a.question)}</strong>: ${escapeHtml(a.answer)} (p. ${a.page})</li>`).join("\n")}
@@ -278,5 +304,6 @@ ${data.characterChart.map((a) => `      <tr><td>${escapeHtml(a.characterName)}</
   <ul>
 ${data.drawItDetails.map((d) => `    <li>${escapeHtml(d)}</li>`).join("\n")}
   </ul>
+  ${bonusChallengeHtml}
 </div>`;
 }

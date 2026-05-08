@@ -118,8 +118,9 @@ body {
   font-style: italic;
 }
 
-/* Character chart answer key */
-.teacher-guide .tg-character-key {
+/* Character chart, words to know, and bonus challenge answer keys */
+.teacher-guide .tg-character-key,
+.teacher-guide .tg-words-key {
   width: 100%;
   border-collapse: collapse;
   margin: 8px 0;
@@ -127,16 +128,27 @@ body {
 }
 
 .teacher-guide .tg-character-key th,
-.teacher-guide .tg-character-key td {
+.teacher-guide .tg-character-key td,
+.teacher-guide .tg-words-key th,
+.teacher-guide .tg-words-key td {
   border: 1px solid #D6D3CC;
   padding: 6px 10px;
   vertical-align: top;
   text-align: left;
 }
 
-.teacher-guide .tg-character-key thead th {
+.teacher-guide .tg-character-key thead th,
+.teacher-guide .tg-words-key thead th {
   background: #EFEBE2;
   font-weight: 600;
+}
+
+.teacher-guide .tg-bonus-key {
+  margin: 8px 0 14px 24px;
+}
+
+.teacher-guide .tg-bonus-key li {
+  margin: 4px 0;
 }
 
 /* Guided Reading section block */

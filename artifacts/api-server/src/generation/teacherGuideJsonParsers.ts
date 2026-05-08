@@ -557,6 +557,11 @@ export function parseAnswerKey(raw: string): AnswerKeyData {
 
   const drawItDetails = asStringArray(sectionKey, root.drawItDetails, "drawItDetails");
 
+  const bonusChallenge =
+    root.bonusChallenge === undefined || root.bonusChallenge === null
+      ? undefined
+      : asStringArray(sectionKey, root.bonusChallenge, "bonusChallenge");
+
   return {
     readingBetweenTheLines,
     digDeeper,
@@ -564,5 +569,6 @@ export function parseAnswerKey(raw: string): AnswerKeyData {
     evidenceFromTheStory,
     characterChart,
     drawItDetails,
+    bonusChallenge,
   };
 }
