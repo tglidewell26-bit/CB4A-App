@@ -31,6 +31,28 @@ import {
 import { validateSections } from "./workbookValidators.js";
 
 export type { BookCharacterDatabase, ChapterMeta } from "./templateRenderers.js";
+export type { ParsedCoreQuestions };
+
+/**
+ * The result of generating a student workbook. Returns the rendered HTML plus
+ * the co-generated structured data needed by the Teacher Guide so it does not
+ * have to re-derive them from the HTML via fragile regex extraction.
+ */
+export interface StudentWorkbookResult {
+  /** Fully rendered student workbook HTML. */
+  html: string;
+  /**
+   * Raw HTML body for each core question section (think_about_the_story,
+   * reading_between_the_lines, dig_deeper). The Teacher Guide reads question
+   * text directly from these strings instead of parsing the full workbook HTML.
+   */
+  coreQuestions: ParsedCoreQuestions;
+  /**
+   * The plain-text focus question from the get_ready_to_read section. Passed
+   * directly to the Teacher Guide to avoid regex extraction from the workbook.
+   */
+  focusQuestion: string;
+}
 
 const CORE_QUESTION_KEY_SET: ReadonlySet<string> = new Set(CORE_QUESTION_SECTION_KEYS);
 
@@ -68,10 +90,20 @@ async function generateCoreQuestionsCombined(
   return parseCoreQuestionsResponse(raw);
 }
 
+/**
+ * Extracts the plain-text focus question from the raw get_ready_to_read body
+ * HTML returned by the LLM. Returns an empty string if the expected structure
+ * is not found (the Teacher Guide handles empty gracefully with a fallback).
+ */
+function extractFocusQuestionText(rawBodyHtml: string): string {
+  const match = rawBodyHtml.match(/<div class="focus-question">[\s\S]*?<p>([\s\S]*?)<\/p>/);
+  return match?.[1]?.replace(/<[^>]+>/g, "").trim() ?? "";
+}
+
 export async function generateStudentWorkbook(
   meta: ChapterMeta,
   vocabulary: VocabularyWord[],
-): Promise<string> {
+): Promise<StudentWorkbookResult> {
   const chapterText = truncateText(meta.extractedText);
   const chapterLabel = getChapterLabel(meta);
   const wordsToKnowTableHtml = buildWordsToKnowTableHtml(vocabulary);
@@ -84,6 +116,7 @@ export async function generateStudentWorkbook(
   );
 
   const generatedSections: GeneratedSection[] = [];
+  let focusQuestion = "";
 
   for (const section of STUDENT_WORKBOOK_SECTIONS) {
     const standingSubheader = section.standing_subheader
@@ -118,6 +151,10 @@ export async function generateStudentWorkbook(
         buildStudentSectionSystemPrompt(promptInputs),
         buildStudentSectionUserPrompt(promptInputs),
       );
+    }
+
+    if (section.key === "get_ready_to_read" && rawBodyHtml) {
+      focusQuestion = extractFocusQuestionText(rawBodyHtml);
     }
 
     const runSanitizer = shouldCallLlm || isCoreQuestionSection;
@@ -164,5 +201,7 @@ export async function generateStudentWorkbook(
 </div>`;
 
   const sectionHtml = generatedSections.map(renderStudentWorkbookSection).join("\n");
-  return stripLeadingQuestionNumbers(`<div class="workbook">\n${headerHtml}\n${sectionHtml}\n</div>`);
+  const html = stripLeadingQuestionNumbers(`<div class="workbook">\n${headerHtml}\n${sectionHtml}\n</div>`);
+
+  return { html, coreQuestions, focusQuestion };
 }

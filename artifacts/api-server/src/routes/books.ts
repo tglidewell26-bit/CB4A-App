@@ -103,8 +103,8 @@ async function triggerGeneration(chapterId: number, bookId: number): Promise<voi
       book.grade,
       chapter.extractedText,
     );
-    const workbookHtml = await generateStudentWorkbook(meta, vocabulary);
-    const teacherGuideHtml = await generateTeacherGuide(meta, workbookHtml, vocabulary);
+    const workbookResult = await generateStudentWorkbook(meta, vocabulary);
+    const teacherGuideHtml = await generateTeacherGuide(meta, workbookResult, vocabulary);
 
     const today = new Date().toLocaleDateString("en-US", {
       month: "short",
@@ -112,7 +112,7 @@ async function triggerGeneration(chapterId: number, bookId: number): Promise<voi
       year: "numeric",
     });
 
-    await saveGeneratedContent(chapterId, { workbookHtml, teacherGuideHtml, date: today });
+    await saveGeneratedContent(chapterId, { workbookHtml: workbookResult.html, teacherGuideHtml, date: today });
 
     logger.info({ chapterId }, "AI generation complete");
   } catch (err) {

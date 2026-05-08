@@ -67,7 +67,7 @@ async function regenerateChapter(chapterId: number, bookId: number): Promise<voi
     .set({
       status: "ready",
       date: today,
-      workbookContent: workbookResult,
+      workbookContent: workbookResult.html,
       teacherGuideContent: teacherGuideResult,
     })
     .where(eq(chaptersTable.id, chapterId));
