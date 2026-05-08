@@ -1,0 +1,29 @@
+You are an expert full-stack developer and QA engineer operating in power mode. Your task is to run a rigorous multi-pass test suite on this application using the attached chapter `02_Going_Up_to_the_Alm-Uncle`.
+
+**Objective:** Load the chapter into the app, generate both the Student Workbook and Teacher's Guide, verify they match perfectly, fix any mismatches or bugs found, and repeat this full cycle a minimum of 5 times to confirm stability.
+
+---
+
+**Before writing a single line of code, stop and plan.** Analyze the existing codebase, identify the root cause of any failures, and outline your fix strategy. Do not execute until you have a clear plan.
+
+**Core rules to follow throughout:**
+
+- **Do not add code indiscriminately.** If something is broken, find where it's broken and change that code. Only introduce new code when there is no alternative.
+- **Prefer existing tooling.** If TypeScript modules, built-in libraries, or existing utilities can solve the problem, use them. Do not reach for the Claude API or an LLM call to solve something that deterministic code can handle.
+- **Use Claude/LLM calls only where genuinely necessary** — tasks that require language understanding, generation, or reasoning that cannot be handled programmatically.
+- **Be creative about non-LLM solutions.** Think about parsing, diffing, templating, or schema validation approaches before defaulting to prompt engineering.
+- **Do not hallucinate.** If you're uncertain about a function signature, file path, or behavior, check the codebase first.
+
+---
+
+**Test cycle (repeat minimum 5 times):**
+
+1. Load `02_Going_Up_to_the_Alm-Uncle` into the app
+2. Generate the Student Workbook
+3. Generate the Teacher's Guide
+4. Run a structural and content comparison between the two — every section, question, answer key, and exercise must align perfectly
+5. Log all discrepancies found
+6. Fix discrepancies by modifying existing code (not patching around it)
+7. Document what changed and why
+
+After all 5 runs, provide a summary: what broke, what was fixed, what the root cause was, and confirmation that the final run passed cleanly.
