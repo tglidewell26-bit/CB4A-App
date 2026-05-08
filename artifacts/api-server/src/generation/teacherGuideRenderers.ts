@@ -17,7 +17,6 @@ import type { ChapterMeta, GeneratedSection } from "./templateRenderers.js";
 import { sanitizeLlmBodyHtml } from "./htmlSanitizer.js";
 import type { VocabularyWord } from "../vocabulary/types.js";
 
-
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -95,9 +94,9 @@ ${data.objectives
 export function renderGetReadyToRead(data: GetReadyToReadData, focusQuestion: string): string {
   const promptText = focusQuestion.trim() || "What do you think this chapter will be about?";
   return `<div class="tg-get-ready">
-  <h4>Quick-write prompt</h4>
+  <h4 class="tg-emphasis-heading">Quick-write prompt</h4>
   <p>"${escapeHtml(promptText)}"</p>
-  <h4>Implementation</h4>
+  <h4 class="tg-emphasis-heading">Implementation</h4>
   <ul class="tg-impl-steps">
 ${data.implementationSteps.map((s) => `    <li>${escapeHtml(s)}</li>`).join("\n")}
   </ul>
@@ -110,11 +109,11 @@ export function renderWordsToKnowMiniLesson(data: WordsToKnowMiniLessonData, voc
     .map((v, i) => `    <li>${escapeHtml(v.word)} <em>(page ${v.page_number})</em></li>`)
     .join("\n");
   return `<div class="tg-words">
-  <h4>Mini-lesson</h4>
+  <h4 class="tg-emphasis-heading">Mini-lesson</h4>
   <ol>
 ${wordList}
   </ol>
-  <h4>Activities</h4>
+  <h4 class="tg-emphasis-heading">Activities</h4>
   <p><strong>Introduce words with context</strong></p>
   <ul>
     <li>Write each word on the board.</li>
@@ -168,20 +167,20 @@ ${data.answers
 </div>`,
   )
   .join("\n")}
-  <h3>Inferential Thinking</h3>
+  <h3 class="tg-emphasis-heading">Inferential Thinking</h3>
   <ul>
 ${data.inferentialPrompts.map((p) => `    <li>${escapeHtml(p)}</li>`).join("\n")}
   </ul>
-  <h3>Tiered Discussion Prompts</h3>
+  <h3 class="tg-emphasis-heading">Tiered Discussion Prompts</h3>
   <p><strong>Literal:</strong> ${escapeHtml(data.tieredDiscussion.literal.join(" | "))}</p>
   <p><strong>Inference:</strong> ${escapeHtml(data.tieredDiscussion.inference.join(" | "))}</p>
   <p><strong>Analysis:</strong> ${escapeHtml(data.tieredDiscussion.analysis.join(" | "))}</p>
   <p><strong>Evaluation:</strong> ${escapeHtml(data.tieredDiscussion.evaluation.join(" | "))}</p>
-  <h3>Analytical Thinking</h3>
+  <h3 class="tg-emphasis-heading">Analytical Thinking</h3>
   <ul>
 ${data.analyticalThinking.map((p) => `    <li>${escapeHtml(p)}</li>`).join("\n")}
   </ul>
-  <h3>Personal Connection</h3>
+  <h3 class="tg-emphasis-heading">Personal Connection</h3>
   <ul>
 ${data.personalConnection.map((p) => `    <li>${escapeHtml(p)}</li>`).join("\n")}
   </ul>
@@ -191,7 +190,7 @@ ${data.personalConnection.map((p) => `    <li>${escapeHtml(p)}</li>`).join("\n")
 export function renderDifferentiatedSupports(data: DifferentiatedSupportsData): string {
   const renderGroup = (title: string, phases: { before: string[]; during: string[]; after: string[] }) =>
     `<div class="tg-support-group">
-  <h4>${escapeHtml(title)}</h4>
+  <h4 class="tg-emphasis-heading">${escapeHtml(title)}</h4>
   <p><strong>Before reading:</strong> ${escapeHtml(phases.before.join(" | "))}</p>
   <p><strong>During reading:</strong> ${escapeHtml(phases.during.join(" | "))}</p>
   <p><strong>After reading:</strong> ${escapeHtml(phases.after.join(" | "))}</p>
@@ -227,7 +226,7 @@ export function renderCreativeResponseErrors(data: CreativeResponseErrorsData): 
 ${errors
   .map(
     ([heading, body]) => `<div class="tg-error-block">
-  <h4>${escapeHtml(heading)}</h4>
+  <h4 class="tg-emphasis-heading tg-no-italic">${escapeHtml(heading)}</h4>
   <p>${escapeHtml(body.paragraph)}</p>
   <p><strong>Weak example:</strong> ${escapeHtml(body.weakExample)}</p>
   <p><strong>How to fix:</strong> ${escapeHtml(body.howToFix)}</p>
@@ -252,30 +251,30 @@ ${data.successCriteria.map((s) => `    <li>${escapeHtml(s)}</li>`).join("\n")}
 
 export function renderAnswerKey(data: AnswerKeyData): string {
   return `<div class="tg-answer-key">
-  <h4>Reading Between the Lines — Answers</h4>
+  <h4 class="tg-emphasis-heading">Reading Between the Lines — Answers</h4>
   <ul>
 ${data.readingBetweenTheLines.map((a) => `    <li><strong>${escapeHtml(a.question)}</strong>: ${escapeHtml(a.answer)} (p. ${a.page})</li>`).join("\n")}
   </ul>
-  <h4>Dig Deeper — Answers</h4>
+  <h4 class="tg-emphasis-heading">Dig Deeper — Answers</h4>
   <ul>
 ${data.digDeeper.map((a) => `    <li><strong>${escapeHtml(a.question)}</strong>: ${escapeHtml(a.answer)} (p. ${a.page})</li>`).join("\n")}
   </ul>
-  <h4>Multiple Choice — Answers</h4>
+  <h4 class="tg-emphasis-heading">Multiple Choice — Answers</h4>
   <ul>
 ${data.multipleChoice.map((a) => `    <li><strong>${escapeHtml(a.question)}</strong>: ${escapeHtml(a.correctLetter)} — ${escapeHtml(a.rationale)}</li>`).join("\n")}
   </ul>
-  <h4>Evidence from the Story — Sample Answers</h4>
+  <h4 class="tg-emphasis-heading">Evidence from the Story — Sample Answers</h4>
   <ul>
 ${data.evidenceFromTheStory.map((a) => `    <li><strong>${escapeHtml(a.question)}</strong>: ${escapeHtml(a.sampleAnswer)} <em>${escapeHtml(a.quote)}</em> (p. ${a.page})</li>`).join("\n")}
   </ul>
-  <h4>Character Chart — Answer Key</h4>
+  <h4 class="tg-emphasis-heading">Character Chart — Answer Key</h4>
   <table class="tg-character-key">
     <thead><tr><th>Character</th><th>Description</th><th>What This Shows</th><th>Quote</th><th>Page</th></tr></thead>
     <tbody>
 ${data.characterChart.map((a) => `      <tr><td>${escapeHtml(a.characterName)}</td><td>${escapeHtml(a.description)}</td><td>${escapeHtml(a.whatThisShows)}</td><td>${escapeHtml(a.quote)}</td><td>${a.page}</td></tr>`).join("\n")}
     </tbody>
   </table>
-  <h4>Draw It! — Suggested Details</h4>
+  <h4 class="tg-emphasis-heading">Draw It! — Suggested Details</h4>
   <ul>
 ${data.drawItDetails.map((d) => `    <li>${escapeHtml(d)}</li>`).join("\n")}
   </ul>
