@@ -44,8 +44,13 @@ export type { ParsedCoreQuestions };
  * creation. The Teacher Guide renders both sections directly from this data —
  * no second Claude call is needed for think_about_the_story_answers or
  * answer_key.
+ *
+ * focusQuestion is included so that this entire payload can be round-tripped
+ * through the persisted answers_json column and used to regenerate the Teacher
+ * Guide without needing to re-parse the workbook HTML.
  */
 export interface StudentWorkbookAnswers {
+  focusQuestion: string;
   thinkAboutTheStory: ThinkAboutTheStoryAnswersData;
   answerKey: AnswerKeyData;
 }
@@ -66,13 +71,14 @@ export interface StudentWorkbookResult {
    */
   coreQuestions: ParsedCoreQuestions;
   /**
-   * The plain-text focus question from the get_ready_to_read section. Passed
-   * directly to the Teacher Guide to avoid regex extraction from the workbook.
+   * The plain-text focus question from the get_ready_to_read section. Also
+   * stored inside answers.focusQuestion for persistence durability.
    */
   focusQuestion: string;
   /**
    * Pre-generated answers for the Teacher Guide. Eliminates Claude calls for
    * think_about_the_story_answers and answer_key in the teacher guide pipeline.
+   * Persisted to answers_json in the DB so delayed regeneration is deterministic.
    */
   answers: StudentWorkbookAnswers;
 }
@@ -117,8 +123,15 @@ async function generateCoreQuestionsCombined(
  * Parses the raw answers JSON string from the combined core questions call
  * into typed StudentWorkbookAnswers. Re-uses the existing Teacher Guide JSON
  * parsers for full field-level validation.
+ *
+ * focusQuestion is passed separately (it is extracted from get_ready_to_read
+ * after the combined call) and included in the returned struct so it is
+ * persisted alongside the other answers.
  */
-function parseWorkbookAnswers(answersJsonRaw: string): StudentWorkbookAnswers {
+export function parseWorkbookAnswers(
+  answersJsonRaw: string,
+  focusQuestion: string,
+): StudentWorkbookAnswers {
   const cleaned = answersJsonRaw.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
 
   let root: Record<string, unknown>;
@@ -150,7 +163,7 @@ function parseWorkbookAnswers(answersJsonRaw: string): StudentWorkbookAnswers {
     }),
   );
 
-  return { thinkAboutTheStory, answerKey };
+  return { focusQuestion, thinkAboutTheStory, answerKey };
 }
 
 /**
@@ -178,7 +191,6 @@ export async function generateStudentWorkbook(
     chapterText,
   );
   const coreQuestions = coreResponse.questions;
-  const workbookAnswers = parseWorkbookAnswers(coreResponse.answersJsonRaw);
 
   const generatedSections: GeneratedSection[] = [];
   let focusQuestion = "";
@@ -259,6 +271,11 @@ export async function generateStudentWorkbook(
   }
 
   validateSections(generatedSections, STUDENT_WORKBOOK_SECTIONS, meta);
+
+  // Parse answers after the loop so focusQuestion is available to include in
+  // the persisted payload. This ensures delayed teacher-guide generation from
+  // DB state has the focus question without re-parsing the workbook HTML.
+  const workbookAnswers = parseWorkbookAnswers(coreResponse.answersJsonRaw, focusQuestion);
 
   const headerHtml = `<div class="wb-header">
   <div class="wb-title">Student Workbook</div>
