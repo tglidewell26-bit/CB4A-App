@@ -48,6 +48,15 @@ body {
   margin: 12px 0 4px 0;
 }
 
+.teacher-guide .tg-section .tg-emphasis-heading {
+  color: DarkGreen;
+  font-size: calc(1em + 2pt);
+}
+
+.teacher-guide .tg-section .tg-no-italic {
+  font-style: normal;
+}
+
 .teacher-guide p,
 .teacher-guide li {
   margin: 6px 0;
