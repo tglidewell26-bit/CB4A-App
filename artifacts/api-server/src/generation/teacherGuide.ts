@@ -42,13 +42,19 @@ import {
 import type { StudentWorkbookResult, StudentWorkbookAnswers, ParsedCoreQuestions } from "./studentWorkbook.js";
 
 /**
- * HTML slices extracted from the rendered workbook HTML. Used only for
- * sections that still need HTML context (words_to_know_mini_lesson).
- * The answer-key sections (think_about_the_story_answers, answer_key)
- * now render directly from pre-generated data — no Claude call needed.
+ * HTML slices extracted from the rendered workbook HTML plus the raw core
+ * question HTML from the combined generation call.
+ *
+ * wordsToKnow — used by words_to_know_mini_lesson (still calls Claude).
+ * coreQuestions — used by think_about_the_story_answers and answer_key so
+ *   their workbook contexts carry correctly numbered question text. Even though
+ *   those two sections currently render directly from pre-generated data (no
+ *   Claude call), the context is kept accurate so the function remains
+ *   testable and correct if the architecture changes.
  */
 interface ParsedWorkbookSlices {
   wordsToKnow: string;
+  coreQuestions: ParsedCoreQuestions;
 }
 
 function extractWorkbookSection(studentWorkbookHtml: string, key: string): string {
@@ -58,24 +64,73 @@ function extractWorkbookSection(studentWorkbookHtml: string, key: string): strin
   return studentWorkbookHtml.match(rx)?.[1]?.trim() ?? "";
 }
 
-function parseWorkbookSlices(workbookHtml: string): ParsedWorkbookSlices {
+function parseWorkbookSlices(workbookHtml: string, coreQuestions: ParsedCoreQuestions): ParsedWorkbookSlices {
   return {
     wordsToKnow: extractWorkbookSection(workbookHtml, "words_to_know"),
+    coreQuestions,
   };
 }
 
 /**
- * Builds the workbookContext record for teacher guide sections that still call
- * Claude. The two answer-key sections (think_about_the_story_answers and
- * answer_key) are handled via direct render from pre-generated data instead.
+ * Extracts plain-text question strings from a core question HTML section.
+ * Matches every `<div class="question">...</div>` element in order and strips
+ * any inner HTML tags, returning the bare question text for each item.
+ *
+ * Used to surface question text from ParsedCoreQuestions HTML so that callers
+ * can verify or reference the questions that were generated for the workbook.
+ * Returns an empty array when no questions are found (e.g. empty or malformed
+ * HTML).
  */
-function workbookContextForTeacherSection(
+export function extractQuestionTexts(coreQuestionHtml: string): string[] {
+  const questions: string[] = [];
+  const pattern = /<div class="question">([\s\S]*?)<\/div>/g;
+  let match;
+  while ((match = pattern.exec(coreQuestionHtml)) !== null) {
+    const text = match[1].replace(/<[^>]+>/g, "").trim();
+    if (text) questions.push(text);
+  }
+  return questions;
+}
+
+/**
+ * Formats an array of question strings as a numbered list for use as Claude
+ * prompt context (e.g. "1. Q1\n2. Q2\n3. Q3").
+ */
+function formatNumberedQuestions(questions: string[]): string {
+  return questions.map((q, i) => `${i + 1}. ${q}`).join("\n");
+}
+
+/**
+ * Builds the workbookContext record for teacher guide sections.
+ *
+ * - words_to_know_mini_lesson: passes the rendered words-to-know table HTML.
+ * - think_about_the_story_answers: returns the numbered TATS question list so
+ *   Claude (or any caller) can copy questions exactly. Currently this section
+ *   renders directly from pre-generated data (no Claude call), but the context
+ *   is kept accurate for testability and forward compatibility.
+ * - answer_key: returns numbered RBTL and Dig Deeper question lists so answers
+ *   can be matched exactly to question text. Same note on direct rendering.
+ * - All other sections: return an empty context object.
+ */
+export function workbookContextForTeacherSection(
   sectionKey: string,
   slices: ParsedWorkbookSlices,
 ): Record<string, string> {
   switch (sectionKey) {
     case "words_to_know_mini_lesson":
       return { wordsToKnow: slices.wordsToKnow };
+    case "think_about_the_story_answers": {
+      const questions = extractQuestionTexts(slices.coreQuestions.think_about_the_story);
+      return { thinkAboutTheStoryQuestions: formatNumberedQuestions(questions) };
+    }
+    case "answer_key": {
+      const rbtlQuestions = extractQuestionTexts(slices.coreQuestions.reading_between_the_lines);
+      const ddQuestions = extractQuestionTexts(slices.coreQuestions.dig_deeper);
+      return {
+        readingBetweenTheLinesQuestions: formatNumberedQuestions(rbtlQuestions),
+        digDeeperQuestions: formatNumberedQuestions(ddQuestions),
+      };
+    }
     default:
       return {};
   }
@@ -169,7 +224,7 @@ export async function generateTeacherGuide(
 ): Promise<string> {
   const chapterText = truncateText(meta.extractedText);
   const chapterLabel = getChapterLabel(meta);
-  const workbookSlices = parseWorkbookSlices(workbookResult.html);
+  const workbookSlices = parseWorkbookSlices(workbookResult.html, workbookResult.coreQuestions);
 
   const generatedSections: GeneratedSection[] = [];
 

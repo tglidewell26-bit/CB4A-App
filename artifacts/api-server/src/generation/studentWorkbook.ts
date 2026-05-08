@@ -171,7 +171,7 @@ export function parseWorkbookAnswers(
  * HTML returned by the LLM. Returns an empty string if the expected structure
  * is not found (the Teacher Guide handles empty gracefully with a fallback).
  */
-function extractFocusQuestionText(rawBodyHtml: string): string {
+export function extractFocusQuestionText(rawBodyHtml: string): string {
   const match = rawBodyHtml.match(/<div class="focus-question">[\s\S]*?<p>([\s\S]*?)<\/p>/);
   return match?.[1]?.replace(/<[^>]+>/g, "").trim() ?? "";
 }
