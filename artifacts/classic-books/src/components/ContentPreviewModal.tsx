@@ -253,6 +253,13 @@ const PRINT_STYLES = `
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
+  .tg-emphasis-heading {
+    color: DarkGreen;
+    font-size: calc(1em + 2pt);
+  }
+  .tg-no-italic {
+    font-style: normal;
+  }
 
   /* ── Print ── */
   @media print {
@@ -302,6 +309,8 @@ const PREVIEW_STYLES = `
   .diff-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 8px; }
   .diff-card { background: #F8F6F1; border: 1px solid #E8E0D4; border-radius: 8px; padding: 12px; }
   .diff-card h3 { font-size: 11px; font-weight: 700; color: #92400E; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .tg-emphasis-heading { color: DarkGreen; font-size: calc(1em + 2pt); }
+  .tg-no-italic { font-style: normal; }
 `;
 
 interface ContentPreviewModalProps {
