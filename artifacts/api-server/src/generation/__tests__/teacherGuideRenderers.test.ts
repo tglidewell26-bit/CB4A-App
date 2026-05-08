@@ -95,10 +95,9 @@ describe("teacherGuideRenderers", () => {
   describe("renderGetReadyToRead", () => {
     it("renders quick-write prompt, ordered impl steps, and connection tip", () => {
       const html = renderGetReadyToRead({
-        quickWritePrompt: "How do you feel about new places?",
         implementationSteps: ["Display the prompt.", "Write quietly.", "Pair share."],
         connectionTip: "Builds schema for the chapter.",
-      });
+      }, "How do you feel about new places?");
       expect(html).toContain("Quick-write prompt");
       expect(html).toContain("How do you feel about new places?");
       expect(html).toContain('<ul class="tg-impl-steps">');

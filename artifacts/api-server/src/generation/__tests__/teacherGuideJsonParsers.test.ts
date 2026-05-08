@@ -88,18 +88,15 @@ describe("teacherGuideJsonParsers", () => {
   describe("parseGetReadyToRead", () => {
     it("parses valid get_ready_to_read", () => {
       const json = JSON.stringify({
-        quickWritePrompt: "How do you feel about new places?",
         implementationSteps: ["a", "b", "c", "d"],
         connectionTip: "Builds schema.",
       });
       const data = parseGetReadyToRead(json);
-      expect(data.quickWritePrompt).toContain("new places");
       expect(data.implementationSteps).toHaveLength(4);
     });
 
     it("throws on missing connectionTip", () => {
       const json = JSON.stringify({
-        quickWritePrompt: "Q",
         implementationSteps: ["a"],
       });
       expect(() => parseGetReadyToRead(json)).toThrow(/connectionTip/);
