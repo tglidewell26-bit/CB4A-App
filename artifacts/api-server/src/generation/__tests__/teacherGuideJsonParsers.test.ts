@@ -11,8 +11,10 @@ import {
   parseStandards,
   parseThinkAboutTheStoryAnswers,
   parseWordsToKnowMiniLesson,
+  validateAnswerKeyQuestionsMatchHtml,
   validateMultipleChoiceAnswerLetters,
 } from "../teacherGuideJsonParsers.js";
+import type { ParsedCoreQuestions } from "../../prompts/workbookSectionPrompts.js";
 
 describe("teacherGuideJsonParsers", () => {
   describe("parseMeasurableObjectives", () => {
@@ -374,6 +376,181 @@ describe("teacherGuideJsonParsers", () => {
       expect(() =>
         validateMultipleChoiceAnswerLetters(noOptionsHtml, [{ correctLetter: "A" }]),
       ).toThrow(/found: none/);
+    });
+  });
+
+  describe("validateAnswerKeyQuestionsMatchHtml", () => {
+    const TATS_QS = [
+      "Who takes Heidi up the mountain?",
+      "What does Heidi do with her extra clothes?",
+      "Where does Grandfather live?",
+      "What does Deta tell Peter about Grandfather?",
+      "When does Heidi first smile?",
+      "What animals does Peter tend?",
+    ];
+    const RBTL_QS = [
+      "Why might Heidi feel nervous meeting Grandfather?",
+      "What clues show that Heidi is adventurous?",
+      "Why does Deta walk quickly up the path?",
+    ];
+    const DD_QS = [
+      "How does the mountain symbolize Heidi's freedom?",
+      "Compare how Deta and the villagers view Grandfather.",
+      "What does this chapter suggest about adapting to change?",
+    ];
+    const MC_QS = [
+      "Who takes Heidi to Grandfather?",
+      "What does Heidi remove on the way up?",
+      "Where does Grandfather live?",
+    ];
+    const ETS_QS = [
+      "Find evidence that Heidi enjoys the mountain.",
+      "Find evidence of Deta's hurry.",
+      "Find evidence that Grandfather is isolated.",
+    ];
+
+    function listHtml(questions: string[]): string {
+      return `<ol class="question-list">${questions
+        .map(
+          (q) =>
+            `<li class="question-item"><div class="question">${q}</div><div class="answer-space"></div></li>`,
+        )
+        .join("")}</ol>`;
+    }
+
+    function mcHtml(questions: string[]): string {
+      return questions
+        .map(
+          (q) =>
+            `<div class="mc-item"><div class="question">${q}</div><ul class="mc-options"><li>A. x</li><li>B. y</li><li>C. z</li><li>D. w</li></ul></div>`,
+        )
+        .join("\n");
+    }
+
+    function makeCoreQuestions(overrides: Partial<ParsedCoreQuestions> = {}): ParsedCoreQuestions {
+      return {
+        think_about_the_story: listHtml(TATS_QS),
+        reading_between_the_lines: listHtml(RBTL_QS),
+        dig_deeper: listHtml(DD_QS),
+        multiple_choice_questions: mcHtml(MC_QS),
+        evidence_from_the_story: listHtml(ETS_QS),
+        ...overrides,
+      };
+    }
+
+    function makeAnswers(overrides: {
+      tats?: string[];
+      rbtl?: string[];
+      dd?: string[];
+      mc?: string[];
+      ets?: string[];
+    } = {}) {
+      const tats = overrides.tats ?? TATS_QS;
+      const rbtl = overrides.rbtl ?? RBTL_QS;
+      const dd = overrides.dd ?? DD_QS;
+      const mc = overrides.mc ?? MC_QS;
+      const ets = overrides.ets ?? ETS_QS;
+      return {
+        thinkAboutTheStory: {
+          answers: tats.map((q, i) => ({ question: q, answer: "a", page: i + 1 })),
+        },
+        answerKey: {
+          readingBetweenTheLines: rbtl.map((q, i) => ({ question: q, answer: "a", page: i + 1 })),
+          digDeeper: dd.map((q, i) => ({ question: q, answer: "a", page: i + 1 })),
+          multipleChoice: mc.map((q) => ({
+            question: q,
+            correctLetter: "A" as const,
+            rationale: "r",
+          })),
+          evidenceFromTheStory: ets.map((q, i) => ({
+            question: q,
+            sampleAnswer: "s",
+            quote: "q",
+            page: i + 1,
+          })),
+        },
+      };
+    }
+
+    it("passes when every section's answer questions exactly match the workbook HTML questions", () => {
+      expect(() =>
+        validateAnswerKeyQuestionsMatchHtml(makeCoreQuestions(), makeAnswers()),
+      ).not.toThrow();
+    });
+
+    it("tolerates whitespace differences (leading/trailing/internal collapse) and inner HTML tags", () => {
+      const tatsWithTags = TATS_QS.map((q, i) =>
+        i === 0 ? `<em>${q}</em>` : i === 1 ? `  ${q}  ` : q,
+      );
+      const answers = makeAnswers({
+        tats: TATS_QS.map((q, i) => (i === 1 ? q.replace(/ /g, "  ") : q)),
+      });
+      expect(() =>
+        validateAnswerKeyQuestionsMatchHtml(
+          makeCoreQuestions({ think_about_the_story: listHtml(tatsWithTags) }),
+          answers,
+        ),
+      ).not.toThrow();
+    });
+
+    it("fails loudly when Claude paraphrases a TATS question in the answers JSON", () => {
+      const answers = makeAnswers({
+        tats: [
+          "Who is the person taking Heidi up the mountain?", // paraphrased
+          ...TATS_QS.slice(1),
+        ],
+      });
+      expect(() =>
+        validateAnswerKeyQuestionsMatchHtml(makeCoreQuestions(), answers),
+      ).toThrow(/thinkAboutTheStory\[0\] question text does not match/);
+    });
+
+    it("fails loudly when Claude reorders RBTL questions in the answers JSON (swap indices)", () => {
+      const answers = makeAnswers({
+        rbtl: [RBTL_QS[1], RBTL_QS[0], RBTL_QS[2]],
+      });
+      expect(() =>
+        validateAnswerKeyQuestionsMatchHtml(makeCoreQuestions(), answers),
+      ).toThrow(/readingBetweenTheLines\[0\] question text does not match/);
+    });
+
+    it("fails when an MC answer question text does not match the workbook MC HTML", () => {
+      const answers = makeAnswers({
+        mc: [MC_QS[0], "What does Heidi take off on the way up?", MC_QS[2]],
+      });
+      expect(() =>
+        validateAnswerKeyQuestionsMatchHtml(makeCoreQuestions(), answers),
+      ).toThrow(/multipleChoice\[1\] question text does not match/);
+    });
+
+    it("fails when an Evidence-from-the-Story question is paraphrased", () => {
+      const answers = makeAnswers({
+        ets: [ETS_QS[0], ETS_QS[1], "Show that Grandfather lives alone."],
+      });
+      expect(() =>
+        validateAnswerKeyQuestionsMatchHtml(makeCoreQuestions(), answers),
+      ).toThrow(/evidenceFromTheStory\[2\] question text does not match/);
+    });
+
+    it("fails when a Dig Deeper question count is different between HTML and answers JSON", () => {
+      const answers = makeAnswers({ dd: DD_QS.slice(0, 2) });
+      expect(() =>
+        validateAnswerKeyQuestionsMatchHtml(makeCoreQuestions(), answers),
+      ).toThrow(/digDeeper has 2 answer\(s\) but the workbook HTML has 3 question\(s\)/);
+    });
+
+    it("error message includes both the workbook and answers-JSON snippets so the offending pair is visible", () => {
+      const answers = makeAnswers({
+        rbtl: ["Totally different question?", RBTL_QS[1], RBTL_QS[2]],
+      });
+      try {
+        validateAnswerKeyQuestionsMatchHtml(makeCoreQuestions(), answers);
+        throw new Error("expected validator to throw");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        expect(msg).toContain('Workbook: "Why might Heidi feel nervous meeting Grandfather?"');
+        expect(msg).toContain('Answers JSON: "Totally different question?"');
+      }
     });
   });
 });

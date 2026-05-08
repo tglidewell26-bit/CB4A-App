@@ -33,6 +33,7 @@ import type {
   ThinkAboutTheStoryAnswersData,
   WordsToKnowMiniLessonData,
 } from "./teacherGuideTypes.js";
+import type { ParsedCoreQuestions } from "../prompts/workbookSectionPrompts.js";
 
 const QUESTION_TYPES: ReadonlyArray<QuestionType> = [
   "comprehension",
@@ -389,6 +390,109 @@ export function validateMultipleChoiceAnswerLetters(
       );
     }
   });
+}
+
+/**
+ * Cross-checks the question text in the parsed answers JSON against the
+ * question text actually rendered in the workbook HTML for all five core
+ * sections (think_about_the_story, reading_between_the_lines, dig_deeper,
+ * multiple_choice_questions, evidence_from_the_story).
+ *
+ * Claude is told to copy each question verbatim from the HTML into the answers
+ * JSON, but it can paraphrase, reorder, or drop items. Because the answer key
+ * (and the MC letter validator) pair questions and answers by index, any
+ * mismatch silently lines up the wrong question with the wrong answer. This
+ * validator catches that immediately and fails generation loudly with the
+ * offending section, index, and a snippet of both texts.
+ *
+ * Matching is by index after normalizing whitespace (trim + collapse runs of
+ * whitespace) and stripping any inner HTML tags from the workbook side.
+ */
+export function validateAnswerKeyQuestionsMatchHtml(
+  coreQuestions: ParsedCoreQuestions,
+  answers: {
+    thinkAboutTheStory: Pick<ThinkAboutTheStoryAnswersData, "answers">;
+    answerKey: Pick<
+      AnswerKeyData,
+      "readingBetweenTheLines" | "digDeeper" | "multipleChoice" | "evidenceFromTheStory"
+    >;
+  },
+): void {
+  const sectionKey = "answer_key";
+  const checks: ReadonlyArray<{
+    label: string;
+    htmlField: keyof ParsedCoreQuestions;
+    jsonQuestions: string[];
+  }> = [
+    {
+      label: "thinkAboutTheStory",
+      htmlField: "think_about_the_story",
+      jsonQuestions: answers.thinkAboutTheStory.answers.map((a) => a.question),
+    },
+    {
+      label: "readingBetweenTheLines",
+      htmlField: "reading_between_the_lines",
+      jsonQuestions: answers.answerKey.readingBetweenTheLines.map((a) => a.question),
+    },
+    {
+      label: "digDeeper",
+      htmlField: "dig_deeper",
+      jsonQuestions: answers.answerKey.digDeeper.map((a) => a.question),
+    },
+    {
+      label: "multipleChoice",
+      htmlField: "multiple_choice_questions",
+      jsonQuestions: answers.answerKey.multipleChoice.map((a) => a.question),
+    },
+    {
+      label: "evidenceFromTheStory",
+      htmlField: "evidence_from_the_story",
+      jsonQuestions: answers.answerKey.evidenceFromTheStory.map((a) => a.question),
+    },
+  ];
+
+  for (const { label, htmlField, jsonQuestions } of checks) {
+    const htmlQuestions = extractQuestionTextsFromHtml(coreQuestions[htmlField]);
+    if (htmlQuestions.length !== jsonQuestions.length) {
+      throw new TgParseError(
+        sectionKey,
+        `${label} has ${jsonQuestions.length} answer(s) but the workbook HTML has ${htmlQuestions.length} question(s). Counts must match so answers and questions pair by index.`,
+      );
+    }
+    for (let i = 0; i < htmlQuestions.length; i += 1) {
+      const htmlNorm = normalizeQuestionText(htmlQuestions[i]);
+      const jsonNorm = normalizeQuestionText(jsonQuestions[i]);
+      if (htmlNorm !== jsonNorm) {
+        throw new TgParseError(
+          sectionKey,
+          `${label}[${i}] question text does not match the workbook HTML. ` +
+            `Workbook: "${truncateForError(htmlQuestions[i])}". ` +
+            `Answers JSON: "${truncateForError(jsonQuestions[i])}". ` +
+            `Claude must copy each question verbatim from the HTML into the answers JSON.`,
+        );
+      }
+    }
+  }
+}
+
+function extractQuestionTextsFromHtml(coreQuestionHtml: string): string[] {
+  const questions: string[] = [];
+  const pattern = /<div class="question">([\s\S]*?)<\/div>/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(coreQuestionHtml)) !== null) {
+    const text = match[1].replace(/<[^>]+>/g, "").trim();
+    if (text) questions.push(text);
+  }
+  return questions;
+}
+
+function normalizeQuestionText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function truncateForError(value: string): string {
+  const collapsed = value.replace(/\s+/g, " ").trim();
+  return collapsed.length > 120 ? `${collapsed.slice(0, 117)}...` : collapsed;
 }
 
 export function parseAnswerKey(raw: string): AnswerKeyData {
