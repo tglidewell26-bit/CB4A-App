@@ -11,6 +11,7 @@ import {
   parseStandards,
   parseThinkAboutTheStoryAnswers,
   parseWordsToKnowMiniLesson,
+  validateMultipleChoiceAnswerLetters,
 } from "../teacherGuideJsonParsers.js";
 
 describe("teacherGuideJsonParsers", () => {
@@ -325,6 +326,54 @@ describe("teacherGuideJsonParsers", () => {
         drawItDetails: [],
       });
       expect(() => parseAnswerKey(json)).toThrow(/correctLetter must be A\/B\/C\/D/);
+    });
+  });
+
+  describe("validateMultipleChoiceAnswerLetters", () => {
+    const mcHtml = [
+      '<div class="mc-item"><div class="question">Who takes Heidi up the mountain?</div><ul class="mc-options"><li>A. Grandfather</li><li>B. Deta</li><li>C. Peter</li><li>D. Grandmother</li></ul></div>',
+      '<div class="mc-item"><div class="question">What does Heidi remove on the way up?</div><ul class="mc-options"><li>A. Hat</li><li>B. Shoes</li><li>C. Coat</li><li>D. Dress</li></ul></div>',
+      '<div class="mc-item"><div class="question">Where does Grandfather live?</div><ul class="mc-options"><li>A. Village</li><li>B. Mountain</li><li>C. City</li><li>D. Farm</li></ul></div>',
+    ].join("\n");
+
+    it("passes when every correctLetter matches an option in the matching MC item", () => {
+      expect(() =>
+        validateMultipleChoiceAnswerLetters(mcHtml, [
+          { correctLetter: "B" },
+          { correctLetter: "C" },
+          { correctLetter: "B" },
+        ]),
+      ).not.toThrow();
+    });
+
+    it("throws when correctLetter points to a letter not present in that MC item", () => {
+      const truncatedHtml = mcHtml.replace(
+        '<li>A. Hat</li><li>B. Shoes</li><li>C. Coat</li><li>D. Dress</li>',
+        '<li>A. Hat</li><li>B. Shoes</li><li>C. Coat</li>',
+      );
+      expect(() =>
+        validateMultipleChoiceAnswerLetters(truncatedHtml, [
+          { correctLetter: "B" },
+          { correctLetter: "D" },
+          { correctLetter: "B" },
+        ]),
+      ).toThrow(/multipleChoice\[1\]\.correctLetter "D" is not one of the options/);
+    });
+
+    it("throws when the MC HTML and the answers JSON have different item counts", () => {
+      expect(() =>
+        validateMultipleChoiceAnswerLetters(mcHtml, [
+          { correctLetter: "B" },
+          { correctLetter: "C" },
+        ]),
+      ).toThrow(/2 answer\(s\) but the workbook HTML has 3 multiple choice item\(s\)/);
+    });
+
+    it("throws when an MC item is missing its options entirely", () => {
+      const noOptionsHtml = '<div class="mc-item"><div class="question">Q?</div><ul class="mc-options"></ul></div>';
+      expect(() =>
+        validateMultipleChoiceAnswerLetters(noOptionsHtml, [{ correctLetter: "A" }]),
+      ).toThrow(/found: none/);
     });
   });
 });

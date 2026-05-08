@@ -33,6 +33,7 @@ import { validateSections } from "./workbookValidators.js";
 import {
   parseThinkAboutTheStoryAnswers,
   parseAnswerKey,
+  validateMultipleChoiceAnswerLetters,
 } from "./teacherGuideJsonParsers.js";
 import type { ThinkAboutTheStoryAnswersData, AnswerKeyData } from "./teacherGuideTypes.js";
 
@@ -276,6 +277,10 @@ export async function generateStudentWorkbook(
   // the persisted payload. This ensures delayed teacher-guide generation from
   // DB state has the focus question without re-parsing the workbook HTML.
   const workbookAnswers = parseWorkbookAnswers(coreResponse.answersJsonRaw, focusQuestion);
+  validateMultipleChoiceAnswerLetters(
+    coreResponse.questions.multiple_choice_questions,
+    workbookAnswers.answerKey.multipleChoice,
+  );
 
   const headerHtml = `<div class="wb-header">
   <div class="wb-title">Student Workbook</div>

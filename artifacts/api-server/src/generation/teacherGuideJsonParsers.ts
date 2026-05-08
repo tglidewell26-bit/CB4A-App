@@ -339,6 +339,58 @@ export function parseExitTicket(raw: string): ExitTicketData {
   };
 }
 
+/**
+ * Cross-checks the parsed multiple-choice answer key against the workbook MC
+ * HTML so a teacher never sees an answer letter (e.g. "A") that does not refer
+ * to a real option in the corresponding question.
+ *
+ * Claude is instructed to copy the chosen letter from the MC HTML into the
+ * answers JSON, but it can mis-label the letter (write "A" while the option it
+ * meant is shown as "B"), drop or duplicate options, or output a different
+ * count of MC items in the HTML vs the JSON. Any of those silently produce a
+ * wrong answer key. This validator surfaces them as a loud parse-style error.
+ *
+ * Matching is by index — the prompt requires exactly 3 MC items in both the
+ * HTML block and the answers JSON, in the same order.
+ */
+export function validateMultipleChoiceAnswerLetters(
+  mcHtml: string,
+  answers: ReadonlyArray<Pick<MultipleChoiceAnswer, "correctLetter">>,
+): void {
+  const sectionKey = "answer_key";
+  const ulRegex = /<ul\b[^>]*\bclass="[^"]*\bmc-options\b[^"]*"[^>]*>([\s\S]*?)<\/ul>/gi;
+
+  const itemOptions: string[][] = [];
+  let ulMatch: RegExpExecArray | null;
+  while ((ulMatch = ulRegex.exec(mcHtml)) !== null) {
+    const inner = ulMatch[1];
+    const optionLetterRegex = /<li\b[^>]*>\s*([A-Za-z])\s*[.):\-]/g;
+    const letters: string[] = [];
+    let optMatch: RegExpExecArray | null;
+    while ((optMatch = optionLetterRegex.exec(inner)) !== null) {
+      letters.push(optMatch[1].toUpperCase());
+    }
+    itemOptions.push(letters);
+  }
+
+  if (itemOptions.length !== answers.length) {
+    throw new TgParseError(
+      sectionKey,
+      `multipleChoice has ${answers.length} answer(s) but the workbook HTML has ${itemOptions.length} multiple choice item(s)`,
+    );
+  }
+
+  answers.forEach((answer, i) => {
+    const letters = itemOptions[i];
+    if (!letters.includes(answer.correctLetter)) {
+      throw new TgParseError(
+        sectionKey,
+        `multipleChoice[${i}].correctLetter "${answer.correctLetter}" is not one of the options in the workbook HTML for this question (found: ${letters.join(", ") || "none"})`,
+      );
+    }
+  });
+}
+
 export function parseAnswerKey(raw: string): AnswerKeyData {
   const sectionKey = "answer_key";
   const data = parseJson(sectionKey, raw);
