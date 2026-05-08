@@ -108,8 +108,11 @@ function formatNumberedQuestions(questions: string[]): string {
  *   Claude (or any caller) can copy questions exactly. Currently this section
  *   renders directly from pre-generated data (no Claude call), but the context
  *   is kept accurate for testability and forward compatibility.
- * - answer_key: returns numbered RBTL and Dig Deeper question lists so answers
- *   can be matched exactly to question text. Same note on direct rendering.
+ * - answer_key: returns numbered question lists for all four question-bearing
+ *   sub-sections — RBTL, Dig Deeper, Multiple Choice, and Evidence from the
+ *   Story — so answers can be matched exactly to question text. Character Chart
+ *   and Draw It are reliably covered by the pre-generated answers.answerKey
+ *   data (no question extraction needed). Same note on direct rendering.
  * - All other sections: return an empty context object.
  */
 export function workbookContextForTeacherSection(
@@ -126,9 +129,13 @@ export function workbookContextForTeacherSection(
     case "answer_key": {
       const rbtlQuestions = extractQuestionTexts(slices.coreQuestions.reading_between_the_lines);
       const ddQuestions = extractQuestionTexts(slices.coreQuestions.dig_deeper);
+      const mcQuestions = extractQuestionTexts(slices.coreQuestions.multiple_choice_questions);
+      const etsQuestions = extractQuestionTexts(slices.coreQuestions.evidence_from_the_story);
       return {
         readingBetweenTheLinesQuestions: formatNumberedQuestions(rbtlQuestions),
         digDeeperQuestions: formatNumberedQuestions(ddQuestions),
+        multipleChoiceQuestions: formatNumberedQuestions(mcQuestions),
+        evidenceFromTheStoryQuestions: formatNumberedQuestions(etsQuestions),
       };
     }
     default:

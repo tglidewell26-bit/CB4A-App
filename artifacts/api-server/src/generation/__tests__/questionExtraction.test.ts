@@ -285,11 +285,13 @@ describe("workbookContextForTeacherSection", () => {
     });
   });
 
-  describe("answer_key — returns numbered RBTL and Dig Deeper question lists", () => {
-    it("returns readingBetweenTheLinesQuestions and digDeeperQuestions keys", () => {
+  describe("answer_key — returns numbered question lists for RBTL, Dig Deeper, Multiple Choice, and Evidence", () => {
+    it("returns all four expected context keys", () => {
       const ctx = workbookContextForTeacherSection("answer_key", MOCK_SLICES);
       expect(ctx).toHaveProperty("readingBetweenTheLinesQuestions");
       expect(ctx).toHaveProperty("digDeeperQuestions");
+      expect(ctx).toHaveProperty("multipleChoiceQuestions");
+      expect(ctx).toHaveProperty("evidenceFromTheStoryQuestions");
     });
 
     it("readingBetweenTheLinesQuestions contains all 3 RBTL questions numbered", () => {
@@ -306,6 +308,18 @@ describe("workbookContextForTeacherSection", () => {
       expect(q).toContain("1. How does Heidi's journey up the mountain show a change in how she feels about her new life?");
       expect(q).toContain("2. Compare how Deta and the villagers describe Grandfather — what does this reveal about rumors?");
       expect(q).toContain("3. What does this chapter suggest about children's ability to adapt to difficult changes?");
+    });
+
+    it("multipleChoiceQuestions contains the MC question numbered", () => {
+      const ctx = workbookContextForTeacherSection("answer_key", MOCK_SLICES);
+      const q = ctx.multipleChoiceQuestions;
+      expect(q).toContain("1. Who takes Heidi up the mountain?");
+    });
+
+    it("evidenceFromTheStoryQuestions contains the Evidence question numbered", () => {
+      const ctx = workbookContextForTeacherSection("answer_key", MOCK_SLICES);
+      const q = ctx.evidenceFromTheStoryQuestions;
+      expect(q).toContain("1. Find evidence that Heidi enjoys nature.");
     });
 
     it("formats RBTL questions as a 3-line numbered list", () => {
@@ -399,6 +413,24 @@ describe("question count alignment between HTML and answers", () => {
     }
     for (const q of extractQuestionTexts(DIG_DEEPER_HTML)) {
       expect(ctx.digDeeperQuestions).toContain(q);
+    }
+  });
+
+  it("numbered context from answer_key covers MC question texts", () => {
+    const ctx = workbookContextForTeacherSection("answer_key", MOCK_SLICES);
+    const mcQuestions = extractQuestionTexts(MOCK_CORE_QUESTIONS.multiple_choice_questions);
+    expect(mcQuestions.length).toBeGreaterThan(0);
+    for (const q of mcQuestions) {
+      expect(ctx.multipleChoiceQuestions).toContain(q);
+    }
+  });
+
+  it("numbered context from answer_key covers Evidence question texts", () => {
+    const ctx = workbookContextForTeacherSection("answer_key", MOCK_SLICES);
+    const etsQuestions = extractQuestionTexts(MOCK_CORE_QUESTIONS.evidence_from_the_story);
+    expect(etsQuestions.length).toBeGreaterThan(0);
+    for (const q of etsQuestions) {
+      expect(ctx.evidenceFromTheStoryQuestions).toContain(q);
     }
   });
 });
