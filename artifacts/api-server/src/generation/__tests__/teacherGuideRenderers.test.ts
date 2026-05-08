@@ -105,6 +105,36 @@ describe("teacherGuideRenderers", () => {
       expect(html).toContain('<div class="tg-tip">');
       expect(html).toContain("Connection tip");
     });
+
+    it("places the focus question text inside the quick-write prompt block", () => {
+      const focusQuestion = "Why does Heidi cry when she leaves the mountain?";
+      const html = renderGetReadyToRead({
+        implementationSteps: ["Show the prompt."],
+        connectionTip: "Connects to chapter themes.",
+      }, focusQuestion);
+      expect(html).toContain(focusQuestion);
+      const promptIndex = html.indexOf("Quick-write prompt");
+      const questionIndex = html.indexOf(focusQuestion);
+      expect(promptIndex).toBeGreaterThanOrEqual(0);
+      expect(questionIndex).toBeGreaterThan(promptIndex);
+    });
+
+    it("falls back to a placeholder when focusQuestion is empty", () => {
+      const html = renderGetReadyToRead({
+        implementationSteps: ["Show the prompt."],
+        connectionTip: "Connects to chapter themes.",
+      }, "");
+      expect(html).not.toMatch(/""\s*<\/p>/);
+      expect(html).toContain("What do you think this chapter will be about?");
+    });
+
+    it("falls back to a placeholder when focusQuestion is only whitespace", () => {
+      const html = renderGetReadyToRead({
+        implementationSteps: ["Show the prompt."],
+        connectionTip: "Connects to chapter themes.",
+      }, "   ");
+      expect(html).toContain("What do you think this chapter will be about?");
+    });
   });
 
   describe("renderWordsToKnowMiniLesson", () => {

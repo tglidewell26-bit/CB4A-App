@@ -93,9 +93,10 @@ ${data.objectives
 }
 
 export function renderGetReadyToRead(data: GetReadyToReadData, focusQuestion: string): string {
+  const promptText = focusQuestion.trim() || "What do you think this chapter will be about?";
   return `<div class="tg-get-ready">
   <h4>Quick-write prompt</h4>
-  <p>"${escapeHtml(focusQuestion)}"</p>
+  <p>"${escapeHtml(promptText)}"</p>
   <h4>Implementation</h4>
   <ul class="tg-impl-steps">
 ${data.implementationSteps.map((s) => `    <li>${escapeHtml(s)}</li>`).join("\n")}
