@@ -112,7 +112,12 @@ async function triggerGeneration(chapterId: number, bookId: number): Promise<voi
       year: "numeric",
     });
 
-    await saveGeneratedContent(chapterId, { workbookHtml: workbookResult.html, teacherGuideHtml, date: today });
+    await saveGeneratedContent(chapterId, {
+      workbookHtml: workbookResult.html,
+      teacherGuideHtml,
+      date: today,
+      answersJson: JSON.stringify(workbookResult.answers),
+    });
 
     logger.info({ chapterId }, "AI generation complete");
   } catch (err) {

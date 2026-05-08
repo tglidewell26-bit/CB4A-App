@@ -18,6 +18,7 @@ export const chaptersTable = pgTable("chapters", {
   content: text("content"),
   workbookContent: text("workbook_content"),
   teacherGuideContent: text("teacher_guide_content"),
+  answersJson: text("answers_json"),
   errorMessage: text("error_message"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

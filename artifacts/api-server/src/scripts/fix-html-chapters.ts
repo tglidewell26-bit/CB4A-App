@@ -69,6 +69,7 @@ async function regenerateChapter(chapterId: number, bookId: number): Promise<voi
       date: today,
       workbookContent: workbookResult.html,
       teacherGuideContent: teacherGuideResult,
+      answersJson: JSON.stringify(workbookResult.answers),
     })
     .where(eq(chaptersTable.id, chapterId));
 }

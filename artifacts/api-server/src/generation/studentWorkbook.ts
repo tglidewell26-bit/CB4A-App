@@ -8,6 +8,7 @@ import {
   parseCoreQuestionsResponse,
   type CoreQuestionSectionKey,
   type ParsedCoreQuestions,
+  type ParsedCoreQuestionsResponse,
 } from "../prompts/workbookSectionPrompts.js";
 import type { VocabularyWord } from "../vocabulary/types.js";
 import {
@@ -29,9 +30,25 @@ import {
   type GeneratedSection,
 } from "./templateRenderers.js";
 import { validateSections } from "./workbookValidators.js";
+import {
+  parseThinkAboutTheStoryAnswers,
+  parseAnswerKey,
+} from "./teacherGuideJsonParsers.js";
+import type { ThinkAboutTheStoryAnswersData, AnswerKeyData } from "./teacherGuideTypes.js";
 
 export type { BookCharacterDatabase, ChapterMeta } from "./templateRenderers.js";
 export type { ParsedCoreQuestions };
+
+/**
+ * Pre-generated teacher-facing answers co-produced during student workbook
+ * creation. The Teacher Guide renders both sections directly from this data —
+ * no second Claude call is needed for think_about_the_story_answers or
+ * answer_key.
+ */
+export interface StudentWorkbookAnswers {
+  thinkAboutTheStory: ThinkAboutTheStoryAnswersData;
+  answerKey: AnswerKeyData;
+}
 
 /**
  * The result of generating a student workbook. Returns the rendered HTML plus
@@ -43,8 +60,9 @@ export interface StudentWorkbookResult {
   html: string;
   /**
    * Raw HTML body for each core question section (think_about_the_story,
-   * reading_between_the_lines, dig_deeper). The Teacher Guide reads question
-   * text directly from these strings instead of parsing the full workbook HTML.
+   * reading_between_the_lines, dig_deeper, multiple_choice_questions,
+   * evidence_from_the_story). The Teacher Guide reads question text directly
+   * from these strings instead of parsing the full workbook HTML.
    */
   coreQuestions: ParsedCoreQuestions;
   /**
@@ -52,6 +70,11 @@ export interface StudentWorkbookResult {
    * directly to the Teacher Guide to avoid regex extraction from the workbook.
    */
   focusQuestion: string;
+  /**
+   * Pre-generated answers for the Teacher Guide. Eliminates Claude calls for
+   * think_about_the_story_answers and answer_key in the teacher guide pipeline.
+   */
+  answers: StudentWorkbookAnswers;
 }
 
 const CORE_QUESTION_KEY_SET: ReadonlySet<string> = new Set(CORE_QUESTION_SECTION_KEYS);
@@ -73,7 +96,7 @@ async function generateCoreQuestionsCombined(
   vocabulary: VocabularyWord[],
   chapterLabel: string,
   chapterText: string,
-): Promise<ParsedCoreQuestions> {
+): Promise<ParsedCoreQuestionsResponse> {
   const promptInputs = {
     bookTitle: meta.bookTitle,
     author: meta.author,
@@ -88,6 +111,46 @@ async function generateCoreQuestionsCombined(
     buildCoreQuestionsCombinedUserPrompt(promptInputs),
   );
   return parseCoreQuestionsResponse(raw);
+}
+
+/**
+ * Parses the raw answers JSON string from the combined core questions call
+ * into typed StudentWorkbookAnswers. Re-uses the existing Teacher Guide JSON
+ * parsers for full field-level validation.
+ */
+function parseWorkbookAnswers(answersJsonRaw: string): StudentWorkbookAnswers {
+  const cleaned = answersJsonRaw.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+
+  let root: Record<string, unknown>;
+  try {
+    const data = JSON.parse(cleaned);
+    if (typeof data !== "object" || data === null || Array.isArray(data)) {
+      throw new Error("root must be a JSON object");
+    }
+    root = data as Record<string, unknown>;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `Failed to parse workbook answers JSON: ${message}. First 300 chars: ${cleaned.slice(0, 300)}`,
+    );
+  }
+
+  const thinkAboutTheStory = parseThinkAboutTheStoryAnswers(
+    JSON.stringify(root.thinkAboutTheStory ?? {}),
+  );
+
+  const answerKey = parseAnswerKey(
+    JSON.stringify({
+      readingBetweenTheLines: root.readingBetweenTheLines,
+      digDeeper: root.digDeeper,
+      multipleChoice: root.multipleChoice,
+      evidenceFromTheStory: root.evidenceFromTheStory,
+      characterChart: root.characterChart,
+      drawItDetails: root.drawItDetails,
+    }),
+  );
+
+  return { thinkAboutTheStory, answerKey };
 }
 
 /**
@@ -108,12 +171,14 @@ export async function generateStudentWorkbook(
   const chapterLabel = getChapterLabel(meta);
   const wordsToKnowTableHtml = buildWordsToKnowTableHtml(vocabulary);
 
-  const coreQuestions = await generateCoreQuestionsCombined(
+  const coreResponse = await generateCoreQuestionsCombined(
     meta,
     vocabulary,
     chapterLabel,
     chapterText,
   );
+  const coreQuestions = coreResponse.questions;
+  const workbookAnswers = parseWorkbookAnswers(coreResponse.answersJsonRaw);
 
   const generatedSections: GeneratedSection[] = [];
   let focusQuestion = "";
@@ -203,5 +268,5 @@ export async function generateStudentWorkbook(
   const sectionHtml = generatedSections.map(renderStudentWorkbookSection).join("\n");
   const html = stripLeadingQuestionNumbers(`<div class="workbook">\n${headerHtml}\n${sectionHtml}\n</div>`);
 
-  return { html, coreQuestions, focusQuestion };
+  return { html, coreQuestions, focusQuestion, answers: workbookAnswers };
 }

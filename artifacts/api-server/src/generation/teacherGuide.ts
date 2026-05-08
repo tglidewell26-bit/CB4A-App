@@ -7,7 +7,6 @@ import type { VocabularyWord } from "../vocabulary/types.js";
 import type { GradeLevel } from "../standards/types.js";
 import { TEACHER_GUIDE_SECTIONS } from "./sectionSchema.js";
 import {
-  parseAnswerKey,
   parseCommonStudentQuestions,
   parseCreativeResponseErrors,
   parseDifferentiatedSupports,
@@ -16,7 +15,6 @@ import {
   parseGuidedReading,
   parseMeasurableObjectives,
   parseStandards,
-  parseThinkAboutTheStoryAnswers,
   parseWordsToKnowMiniLesson,
 } from "./teacherGuideJsonParsers.js";
 import {
@@ -41,19 +39,15 @@ import {
   type ChapterMeta,
   type GeneratedSection,
 } from "./templateRenderers.js";
-import type { StudentWorkbookResult, ParsedCoreQuestions } from "./studentWorkbook.js";
+import type { StudentWorkbookResult, StudentWorkbookAnswers, ParsedCoreQuestions } from "./studentWorkbook.js";
 
 /**
  * HTML slices extracted from the rendered workbook HTML. Used only for
- * sections not covered by the co-generated coreQuestions (MC, ETS, char
- * chart, draw-it). The three core question sections (TATS, RBTL, DD) are
- * read directly from coreQuestions to avoid fragile regex extraction.
+ * sections that still need HTML context (words_to_know_mini_lesson).
+ * The answer-key sections (think_about_the_story_answers, answer_key)
+ * now render directly from pre-generated data — no Claude call needed.
  */
 interface ParsedWorkbookSlices {
-  multipleChoice: string;
-  evidenceFromTheStory: string;
-  characterChart: string;
-  drawIt: string;
   wordsToKnow: string;
 }
 
@@ -64,75 +58,24 @@ function extractWorkbookSection(studentWorkbookHtml: string, key: string): strin
   return studentWorkbookHtml.match(rx)?.[1]?.trim() ?? "";
 }
 
-function extractQuestionOnlySection(sectionHtml: string): string {
-  if (!sectionHtml) return "";
-  const questions = [...sectionHtml.matchAll(/<div class="question">[\s\S]*?<\/div>/g)].map((m) => m[0]);
-  return questions.length > 0 ? questions.join("\n") : sectionHtml;
-}
-
-export function extractMultipleChoiceItems(sectionHtml: string): string {
-  if (!sectionHtml) return "";
-  const items = [
-    ...sectionHtml.matchAll(/<div[^>]*class="[^"]*\bmc-item\b[^"]*"[^>]*>[\s\S]*?<\/ul>\s*<\/div>/g),
-  ].map((m) => m[0]);
-  if (items.length > 0) return items.join("\n");
-  return extractQuestionOnlySection(sectionHtml);
-}
-
-/**
- * Extracts plain-text question strings from a core question section's raw HTML.
- * Each <div class="question">...</div> becomes a numbered line.
- */
-function extractQuestionTexts(sectionHtml: string): string {
-  const questions = [...sectionHtml.matchAll(/<div class="question">([\s\S]*?)<\/div>/g)]
-    .map((m) => m[1].replace(/<[^>]+>/g, "").trim());
-  return questions.map((q, i) => `${i + 1}. ${q}`).join("\n");
-}
-
 function parseWorkbookSlices(workbookHtml: string): ParsedWorkbookSlices {
   return {
-    multipleChoice: extractMultipleChoiceItems(extractWorkbookSection(workbookHtml, "multiple_choice_questions")),
-    evidenceFromTheStory: extractQuestionOnlySection(extractWorkbookSection(workbookHtml, "evidence_from_the_story")),
-    characterChart: extractWorkbookSection(workbookHtml, "character_chart"),
-    drawIt: extractWorkbookSection(workbookHtml, "draw_it"),
     wordsToKnow: extractWorkbookSection(workbookHtml, "words_to_know"),
   };
 }
 
 /**
- * Builds the workbookContext record for a given teacher guide section key.
- *
- * Core question sections (TATS, RBTL, DD) use the co-generated coreQuestions
- * HTML directly — this avoids the fragile regex extraction that caused empty
- * answer keys and blank focus questions.
- *
- * Template sections (MC, ETS, char chart, draw-it) still come from the
- * HTML-extracted slices, which are simpler and more reliably structured.
+ * Builds the workbookContext record for teacher guide sections that still call
+ * Claude. The two answer-key sections (think_about_the_story_answers and
+ * answer_key) are handled via direct render from pre-generated data instead.
  */
 function workbookContextForTeacherSection(
   sectionKey: string,
   slices: ParsedWorkbookSlices,
-  coreQuestions: ParsedCoreQuestions,
 ): Record<string, string> {
   switch (sectionKey) {
     case "words_to_know_mini_lesson":
       return { wordsToKnow: slices.wordsToKnow };
-    case "think_about_the_story_answers":
-      return {
-        thinkAboutTheStory: coreQuestions.think_about_the_story,
-        thinkAboutTheStoryQuestions: extractQuestionTexts(coreQuestions.think_about_the_story),
-      };
-    case "answer_key":
-      return {
-        readingBetweenTheLines: coreQuestions.reading_between_the_lines,
-        readingBetweenTheLinesQuestions: extractQuestionTexts(coreQuestions.reading_between_the_lines),
-        digDeeper: coreQuestions.dig_deeper,
-        digDeeperQuestions: extractQuestionTexts(coreQuestions.dig_deeper),
-        multipleChoice: slices.multipleChoice,
-        evidenceFromTheStory: slices.evidenceFromTheStory,
-        characterChart: slices.characterChart,
-        drawIt: slices.drawIt,
-      };
     default:
       return {};
   }
@@ -157,15 +100,23 @@ async function generateSectionBody(
   chapterLabel: string,
   vocabulary: VocabularyWord[],
   slices: ParsedWorkbookSlices,
-  coreQuestions: ParsedCoreQuestions,
   focusQuestion: string,
   sectionDisplayTitle: string,
+  answers: StudentWorkbookAnswers,
 ): Promise<string> {
   if (sectionKey === "lesson_overview") {
     return renderLessonOverview();
   }
   if (sectionKey === "materials_needed") {
     return renderMaterialsNeeded(meta);
+  }
+
+  // Direct render from pre-generated data — no Claude call.
+  if (sectionKey === "think_about_the_story_answers") {
+    return renderThinkAboutTheStoryAnswers(answers.thinkAboutTheStory);
+  }
+  if (sectionKey === "answer_key") {
+    return renderAnswerKey(answers.answerKey);
   }
 
   const promptInputs = {
@@ -177,7 +128,7 @@ async function generateSectionBody(
     grade: meta.grade as 3 | 4 | 5 | 6 | 7 | 8,
     vocabulary,
     sectionDisplayTitle,
-    workbookContext: workbookContextForTeacherSection(sectionKey, slices, coreQuestions),
+    workbookContext: workbookContextForTeacherSection(sectionKey, slices),
     chapterText,
   };
   const systemPrompt = buildTeacherSectionSystemPrompt(promptInputs);
@@ -198,10 +149,6 @@ async function generateSectionBody(
       return renderWordsToKnowMiniLesson(parseWordsToKnowMiniLesson(rawJson), vocabulary);
     case "guided_reading":
       return renderGuidedReading(parseGuidedReading(rawJson));
-    case "think_about_the_story_answers":
-      return renderThinkAboutTheStoryAnswers(parseThinkAboutTheStoryAnswers(rawJson));
-    case "answer_key":
-      return renderAnswerKey(parseAnswerKey(rawJson));
     case "differentiated_supports":
       return renderDifferentiatedSupports(parseDifferentiatedSupports(rawJson));
     case "common_student_questions":
@@ -234,9 +181,9 @@ export async function generateTeacherGuide(
       chapterLabel,
       vocabulary,
       workbookSlices,
-      workbookResult.coreQuestions,
       workbookResult.focusQuestion,
       section.display_title,
+      workbookResult.answers,
     );
 
     generatedSections.push({

@@ -86,7 +86,7 @@ export async function setChapterError(chapterId: number, errorMessage: string): 
 
 export async function saveGeneratedContent(
   chapterId: number,
-  content: { workbookHtml: string; teacherGuideHtml: string; date: string },
+  content: { workbookHtml: string; teacherGuideHtml: string; date: string; answersJson: string },
 ): Promise<void> {
   await db
     .update(chaptersTable)
@@ -95,6 +95,7 @@ export async function saveGeneratedContent(
       content: content.workbookHtml,
       workbookContent: content.workbookHtml,
       teacherGuideContent: content.teacherGuideHtml,
+      answersJson: content.answersJson,
       date: content.date,
       errorMessage: null,
     })

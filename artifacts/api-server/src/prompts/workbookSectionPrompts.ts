@@ -348,18 +348,21 @@ ${input.chapterText}`;
 }
 
 // ---------------------------------------------------------------------------
-// Combined core question sections (Task #35)
+// Combined core question sections (Task #35 / Task #41)
 //
-// Think About the Story, Reading Between the Lines, and Dig Deeper are
-// generated together in a single Claude call so that Claude can deliberately
-// escalate cognitive demand across the three sections (literal -> inference
-// -> analysis) and avoid repeating the same question at the same level.
+// Five question sections are generated together in a single Claude call so
+// that Claude can deliberately escalate cognitive demand across the sections
+// and avoid repeating the same question at the same level. The combined call
+// also produces a structured JSON answers block so the Teacher Guide can
+// render answer key sections directly — eliminating fragile HTML extraction.
 // ---------------------------------------------------------------------------
 
 export const CORE_QUESTION_SECTION_KEYS = [
   "think_about_the_story",
   "reading_between_the_lines",
   "dig_deeper",
+  "multiple_choice_questions",
+  "evidence_from_the_story",
 ] as const;
 
 export type CoreQuestionSectionKey = (typeof CORE_QUESTION_SECTION_KEYS)[number];
@@ -392,19 +395,23 @@ function formatWordingGuideBlock(): string {
 - Dig Deeper starters: ${dd}`;
 }
 
+export const ANSWERS_JSON_DELIMITER = "<!-- SECTION:answers_json -->";
+
 export function buildCoreQuestionsCombinedSystemPrompt(input: CoreQuestionsPromptInputs): string {
   const tatsDelim = delimiterFor("think_about_the_story");
   const rbtlDelim = delimiterFor("reading_between_the_lines");
   const ddDelim = delimiterFor("dig_deeper");
+  const mcDelim = delimiterFor("multiple_choice_questions");
+  const etsDelim = delimiterFor("evidence_from_the_story");
 
-  return `You are creating three connected question sections of a CB4A Student Workbook as HTML, generated together in a single pass so each section is aware of the others.
+  return `You are creating five connected question sections of a CB4A Student Workbook as HTML, generated together in a single pass so each section is aware of the others. After the five HTML sections you will output a JSON answers block for the Teacher Guide.
 
-Output ONLY the body HTML for the three sections, separated by the delimiter comments shown below. Do not include section titles, standing subheaders, wrapper divs, intros, summaries, headings, or any other text outside the three delimited blocks.
+Output ONLY the body HTML for the five sections followed by the JSON block, each separated by the delimiter comments shown below. Do not include section titles, standing subheaders, wrapper divs, intros, summaries, headings, or any other text outside the delimited blocks.
 Question text must not start with numbering prefixes. Never use emojis.
 
 Grade calibration: ${gradeGuidanceFor(input.grade)}
 
-The three sections, in order:
+The five sections, in order:
 
 1. Think About the Story (LITERAL recall) — exactly 6 questions
    Cognitive test: "Can the answer be found directly in one place in the chapter?"
@@ -428,8 +435,20 @@ The three sections, in order:
    - Questions should NOT be answerable in a single sentence.
    - Do NOT ask simple inference or direct factual questions.
 
-Layered questioning is ENCOURAGED, not blocked. The same event in the chapter MAY appear in more than one section IF examined at a different cognitive level. For example, a literal "what did character X do?" in section 1, an inference "what does that action suggest about character X?" in section 2, and an analytical "how does that action reveal a theme?" in section 3 is the desired pattern.
-What is NOT allowed: the same question repeated at the same cognitive level, or near-duplicate phrasings within a single section.
+4. Multiple Choice Questions (APPLICATION) — exactly 3 questions
+   Each question tests whether students can identify key events, characters, or details.
+   - Questions should be story-based and natural — do NOT force vocabulary words into questions.
+   - Each question has exactly 4 options: A, B, C, D. Exactly one option is correct.
+   - Distractors should be plausible to a careless reader but clearly wrong to a careful one.
+   - Do NOT repeat questions already covered at the same cognitive level in sections 1–3.
+
+5. Evidence From the Story (QUOTATION EVIDENCE) — exactly 3 questions
+   Each question prompts students to find and record a direct quote from the text.
+   - Questions should direct students to a specific moment, action, or feeling.
+   - Answers must be supportable with a real, findable quote from the chapter.
+   - Do NOT repeat questions already covered in sections 1–4.
+
+Layered questioning is ENCOURAGED across sections 1–3. The same event MAY appear at a different cognitive level in a later section. What is NOT allowed: the same question repeated at the same cognitive level, or near-duplicate phrasings within a single section.
 
 Wording guide (use these as starter phrases, mix and match — do not use any single starter twice in one section):
 ${formatWordingGuideBlock()}
@@ -450,14 +469,27 @@ ${formatExampleBlock(`Grade ${input.grade} examples — Reading Between the Line
 
 ${formatExampleBlock(`Grade ${input.grade} examples — Dig Deeper`, getGradeQuestionExamples(input.grade, "dig_deeper"))}
 
-Per-item rules:
+Per-item rules for HTML sections:
 - Use only chapter text and the provided vocabulary words.
 - Do not force vocabulary words into questions.
 - Think About the Story and Reading Between the Lines questions must each be ONE sentence under 22 words.
 - Dig Deeper questions must each be ONE sentence (no length cap, but keep them concise).
-- Each <li class="question-item"> must contain exactly one <div class="question"> followed by exactly two <div class="answer-space"></div> elements.
+- Multiple Choice and Evidence From the Story questions must each be ONE sentence under 35 words.
+- Each <li class="question-item"> must contain exactly one <div class="question"> followed by the correct number of <div class="answer-space"></div> elements (2 for sections 1–3, 3 for section 5).
 
-Output format (exactly this, with the three delimiter comments and nothing else outside the three <ol> blocks):
+Answers JSON rules:
+- Output raw JSON — NO markdown fences, NO extra text outside the delimited block.
+- Copy the "question" value for each entry EXACTLY as written in the HTML sections above (word for word).
+- For thinkAboutTheStory.answers: the "answer" must cite the specific text evidence; "page" is the actual page number.
+- For readingBetweenTheLines and digDeeper: the "answer" includes the inference or analysis reasoning.
+- For multipleChoice: "correctLetter" must be exactly A, B, C, or D (the option you wrote as correct above).
+- For evidenceFromTheStory: "sampleAnswer" is 1–2 sentences; "quote" is verbatim text from the chapter.
+- For characterChart: include one entry per significant named character from this chapter (typically 3–5 entries).
+- For drawItDetails: 3–5 specific visual elements the student should include in their drawing of the chapter.
+- inferentialPrompts, analyticalThinking, personalConnection: 2–3 items each.
+- tieredDiscussion: 2–3 items per tier (literal, inference, analysis, evaluation).
+
+Output format (EXACTLY this structure — all six delimiter comments, nothing else outside the blocks):
 
 ${tatsDelim}
 <ol class="question-list">
@@ -473,7 +505,31 @@ ${ddDelim}
 <ol class="question-list">
   <li class="question-item"><div class="question">...</div>${ANSWER_SPACE}${ANSWER_SPACE}</li>
   ... (3 items total)
-</ol>`;
+</ol>
+${mcDelim}
+<div class="mc-item"><div class="question">...</div><ul class="mc-options"><li>A. ...</li><li>B. ...</li><li>C. ...</li><li>D. ...</li></ul></div>
+... (3 items total)
+${etsDelim}
+<ol class="question-list">
+  <li class="question-item"><div class="question">...</div>${ANSWER_SPACE}${ANSWER_SPACE}${ANSWER_SPACE}</li>
+  ... (3 items total)
+</ol>
+${ANSWERS_JSON_DELIMITER}
+{
+  "thinkAboutTheStory": {
+    "answers": [ { "question": "<copy EXACTLY from TATS above>", "answer": "...", "page": N }, ... (6 items) ],
+    "inferentialPrompts": [ "...", "..." ],
+    "tieredDiscussion": { "literal": [ "..." ], "inference": [ "..." ], "analysis": [ "..." ], "evaluation": [ "..." ] },
+    "analyticalThinking": [ "...", "..." ],
+    "personalConnection": [ "...", "..." ]
+  },
+  "readingBetweenTheLines": [ { "question": "<copy EXACTLY from RBTL above>", "answer": "...", "page": N }, ... (3 items) ],
+  "digDeeper": [ { "question": "<copy EXACTLY from DD above>", "answer": "...", "page": N }, ... (3 items) ],
+  "multipleChoice": [ { "question": "<copy EXACTLY from MC above>", "correctLetter": "A or B or C or D", "rationale": "..." }, ... (3 items) ],
+  "evidenceFromTheStory": [ { "question": "<copy EXACTLY from ETS above>", "sampleAnswer": "...", "quote": "...", "page": N }, ... (3 items) ],
+  "characterChart": [ { "characterName": "...", "description": "...", "whatThisShows": "...", "quote": "...", "page": N }, ... (3–5 entries) ],
+  "drawItDetails": [ "...", "...", "..." ]
+}`;
 }
 
 export function buildCoreQuestionsCombinedUserPrompt(input: CoreQuestionsPromptInputs): string {
@@ -493,21 +549,40 @@ ${input.chapterText}`;
 export type ParsedCoreQuestions = Record<CoreQuestionSectionKey, string>;
 
 /**
- * Splits the combined Claude response on the three section delimiter comments
- * and returns the raw HTML body for each section.
+ * The structured return value from parseCoreQuestionsResponse.
+ *
+ * - questions: raw HTML body for each of the five student workbook sections.
+ * - answersJsonRaw: the raw JSON string from the answers_json delimiter block,
+ *   ready to be parsed by parseWorkbookAnswers in studentWorkbook.ts.
+ */
+export interface ParsedCoreQuestionsResponse {
+  questions: ParsedCoreQuestions;
+  answersJsonRaw: string;
+}
+
+/**
+ * Splits the combined Claude response on the five HTML section delimiter
+ * comments and the trailing answers_json delimiter, returning the raw HTML
+ * body for each section plus the raw answers JSON string.
  *
  * Throws a descriptive error if any delimiter is missing or if the delimiters
  * appear out of order, so generation fails loudly rather than silently
- * producing empty sections.
+ * producing empty sections or answer keys.
  */
-export function parseCoreQuestionsResponse(raw: string): ParsedCoreQuestions {
-  const positions = CORE_QUESTION_SECTION_KEYS.map((key) => {
+export function parseCoreQuestionsResponse(raw: string): ParsedCoreQuestionsResponse {
+  const htmlPositions = CORE_QUESTION_SECTION_KEYS.map((key) => {
     const delimiter = delimiterFor(key);
     const index = raw.indexOf(delimiter);
     return { key, delimiter, index };
   });
+  const answersPos = {
+    key: "answers_json" as const,
+    delimiter: ANSWERS_JSON_DELIMITER,
+    index: raw.indexOf(ANSWERS_JSON_DELIMITER),
+  };
+  const allPositions = [...htmlPositions, answersPos];
 
-  for (const { key, delimiter, index } of positions) {
+  for (const { key, delimiter, index } of allPositions) {
     if (index === -1) {
       throw new Error(
         `Combined core-questions response is missing the "${delimiter}" delimiter for section "${key}".`,
@@ -515,20 +590,24 @@ export function parseCoreQuestionsResponse(raw: string): ParsedCoreQuestions {
     }
   }
 
-  for (let i = 1; i < positions.length; i += 1) {
-    if (positions[i].index <= positions[i - 1].index) {
+  for (let i = 1; i < allPositions.length; i += 1) {
+    if (allPositions[i].index <= allPositions[i - 1].index) {
       throw new Error(
-        `Combined core-questions response delimiters are out of order: "${positions[i - 1].delimiter}" must appear before "${positions[i].delimiter}".`,
+        `Combined core-questions response delimiters are out of order: "${allPositions[i - 1].delimiter}" must appear before "${allPositions[i].delimiter}".`,
       );
     }
   }
 
-  const result = {} as ParsedCoreQuestions;
-  for (let i = 0; i < positions.length; i += 1) {
-    const { key, delimiter, index } = positions[i];
+  const questions = {} as ParsedCoreQuestions;
+  for (let i = 0; i < htmlPositions.length; i += 1) {
+    const { key, delimiter, index } = htmlPositions[i];
     const start = index + delimiter.length;
-    const end = i + 1 < positions.length ? positions[i + 1].index : raw.length;
-    result[key] = raw.slice(start, end).trim();
+    const end = allPositions[i + 1].index;
+    questions[key as CoreQuestionSectionKey] = raw.slice(start, end).trim();
   }
-  return result;
+
+  const answersStart = answersPos.index + answersPos.delimiter.length;
+  const answersJsonRaw = raw.slice(answersStart).trim();
+
+  return { questions, answersJsonRaw };
 }
