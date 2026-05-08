@@ -260,7 +260,9 @@ Do not include: vocabulary lists, definitions, example sentences, fill-in exerci
     case "reflect_on_your_drawing":
       return "Exactly 3 sentence stems for reflection.";
     case "bonus_challenge":
-      return '<ol class="timeline-list"><li>...</li></ol> with exactly 7 events in CHRONOLOGICAL order (item 1 = earliest event in the chapter, item 7 = latest event). The system will shuffle them before displaying to students; the chronological order you provide becomes the teacher answer key.';
+      return `<ol class="timeline-list"><li data-page="N">...</li></ol> with exactly 7 events from the chapter, each one a single sentence.
+For EACH <li>, include a data-page="N" attribute set to the chapter page number where that event happens (use the earliest page if the event spans multiple pages).
+You do NOT need to pre-sort the events — the system sorts them by data-page to produce the chronological answer key, then shuffles them for the student. Just make sure each data-page value accurately reflects where the event appears in the chapter text provided.`;
     case "thinking_deeper":
       return "Output exactly two lines with the prediction frame and no additional prompt text.";
     default:

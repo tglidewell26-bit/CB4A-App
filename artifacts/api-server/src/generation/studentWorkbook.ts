@@ -262,9 +262,26 @@ export async function generateStudentWorkbook(
         /<ol class="timeline-list">([\s\S]*?)<\/ol>/,
       );
       if (timelineMatch) {
-        bonusChallengeChronological = [...timelineMatch[1].matchAll(/<li>([\s\S]*?)<\/li>/g)]
-          .map((m) => m[1].trim())
+        // Capture data-page="N" plus the event text for each <li>. The teacher
+        // answer key is the events sorted ASCENDING by page number — much more
+        // reliable than asking Claude to reason about narrative time. Ties are
+        // broken by the LLM's original order so multiple events on the same
+        // page stay in a stable, plausible sequence.
+        const items = [
+          ...timelineMatch[1].matchAll(
+            /<li\b[^>]*?(?:data-page="(\d+)")?[^>]*>([\s\S]*?)<\/li>/g,
+          ),
+        ]
+          .map((m, originalIdx) => ({
+            page: m[1] ? Number.parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER,
+            originalIdx,
+            text: m[2].trim(),
+          }))
           .slice(0, 7);
+        const sorted = [...items].sort(
+          (a, b) => a.page - b.page || a.originalIdx - b.originalIdx,
+        );
+        bonusChallengeChronological = sorted.map((s) => s.text);
       }
     }
 

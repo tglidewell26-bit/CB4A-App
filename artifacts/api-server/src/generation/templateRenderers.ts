@@ -152,7 +152,12 @@ export function buildTemplateSectionBody(
       return `<p>I predict that ________________________________________________</p>
 <p>because _____________________________________________________.</p>`;
     case "bonus_challenge": {
-      const events = [...llmBodyHtml.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1].trim()).slice(0, 7);
+      // Allow optional attributes on <li> (notably data-page="N") so the
+      // upstream chronological-sort step can annotate events without breaking
+      // this regex. The attribute is stripped here — students don't see it.
+      const events = [...llmBodyHtml.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)]
+        .map((m) => m[1].trim())
+        .slice(0, 7);
       const shuffled = shuffleArray(events);
       if (shuffled.length !== 7) {
         throw new Error("Student Workbook validation failed: bonus_challenge requires exactly 7 events from LLM.");
