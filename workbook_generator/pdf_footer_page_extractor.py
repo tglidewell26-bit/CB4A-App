@@ -62,6 +62,15 @@ def _extract_page_number_candidates(words: Sequence[Word], page_width: float, pa
     return candidates
 
 
+def _is_footer_page_number_word(word: Word, page_height: float) -> bool:
+    """A word in the bottom 14% of the page that is a bare 1–4 digit number
+    (optionally preceded by 'Page'). Used to strip footer page numbers from
+    the body text so they don't leak into LLM-quoted sentences."""
+    if word.y0 < page_height * 0.86:
+        return False
+    return re.fullmatch(r"(?:page\s*)?\d{1,4}", word.text.strip(), flags=re.IGNORECASE) is not None
+
+
 def _extract_words(page: fitz.Page) -> List[Word]:
     raw_words = page.get_text("words")
     words: List[Word] = []
@@ -90,10 +99,14 @@ def extract_pages(pdf_path: Path) -> List[dict]:
 
         candidates = _extract_page_number_candidates(words, width, height)
 
+        # Strip footer page-number words from the body so they don't appear
+        # mid-sentence in LLM-quoted text (e.g. "the material was 18").
+        body_words = [w for w in words if not _is_footer_page_number_word(w, height)]
+
         if len(candidates) >= 2 and (candidates[-1][1] - candidates[0][1]) > (width * 0.35):
             mid_x = width / 2
-            left_words = [w for w in words if ((w.x0 + w.x1) / 2) < mid_x]
-            right_words = [w for w in words if ((w.x0 + w.x1) / 2) >= mid_x]
+            left_words = [w for w in body_words if ((w.x0 + w.x1) / 2) < mid_x]
+            right_words = [w for w in body_words if ((w.x0 + w.x1) / 2) >= mid_x]
 
             left_num = candidates[0][0]
             right_num = candidates[-1][0]
@@ -110,7 +123,7 @@ def extract_pages(pdf_path: Path) -> List[dict]:
             continue
 
         detected_page = candidates[0][0] if candidates else fallback_page_number
-        page_text = _line_text(words)
+        page_text = _line_text(body_words)
         if page_text:
             output_pages.append({"page_number": detected_page, "text": page_text})
             fallback_page_number = detected_page + 1

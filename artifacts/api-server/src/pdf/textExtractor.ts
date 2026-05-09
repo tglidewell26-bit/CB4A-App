@@ -12,7 +12,19 @@ export interface PageText {
   text: string;
 }
 
-const PAGE_SEPARATOR = "\n\n---PAGE---\n\n";
+/**
+ * Visual separator inserted between pages when serializing for the LLM.
+ * MUST NOT contain any sentinel string (like "---PAGE---") because the LLM
+ * has been observed quoting such markers verbatim into its outputs.
+ * Page boundaries are carried by the inline `[PAGE N]` headers instead.
+ */
+const PAGE_SEPARATOR = "\n\n";
+
+/**
+ * Legacy separator used by chapters serialized before the marker-only format.
+ * Kept here so `parseStoredChapterPages` can still parse old DB rows.
+ */
+const LEGACY_PAGE_SEPARATOR = "\n\n---PAGE---\n\n";
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -37,20 +49,34 @@ export function serializeChapterPages(pages: PageText[]): string {
 }
 
 export function parseStoredChapterPages(extractedText: string): PageText[] {
+  // Primary path: split on inline `[PAGE N]` markers (the canonical form).
+  // Anchored to start-of-line (multiline) so accidental in-body occurrences
+  // of "[PAGE 12]" inside narrative text never split the chapter.
+  const markerRegex = /^\[PAGE\s+(\d+)\]\s*\n?/gim;
+  const matches = [...extractedText.matchAll(markerRegex)];
+  if (matches.length > 0) {
+    const pages: PageText[] = [];
+    for (let i = 0; i < matches.length; i += 1) {
+      const m = matches[i];
+      const start = (m.index ?? 0) + m[0].length;
+      const end = i + 1 < matches.length ? (matches[i + 1].index ?? extractedText.length) : extractedText.length;
+      const text = extractedText.slice(start, end).trim();
+      if (text.length > 0) {
+        pages.push({ page_number: Number(m[1]), text });
+      }
+    }
+    if (pages.length > 0) return pages;
+  }
+  // Legacy fallback: chapters serialized with the old `---PAGE---` separator
+  // and no inline `[PAGE N]` markers.
   return extractedText
-    .split(PAGE_SEPARATOR)
+    .split(LEGACY_PAGE_SEPARATOR)
     .map((segment) => segment.trim())
     .filter(Boolean)
-    .map((segment, index) => {
-      const markerMatch = segment.match(/^\[PAGE\s+(\d+)\]\s*\n?/i);
-      const parsedPage = markerMatch ? Number(markerMatch[1]) : index + 1;
-      const text = markerMatch ? segment.replace(/^\[PAGE\s+\d+\]\s*\n?/i, "") : segment;
-      return {
-        page_number: Number.isFinite(parsedPage) ? parsedPage : index + 1,
-        text: text.trim(),
-      };
-    })
-    .filter((page) => page.text.length > 0);
+    .map((segment, index) => ({
+      page_number: index + 1,
+      text: segment,
+    }));
 }
 
 function splitIntoPages(rawText: string): PageText[] {
@@ -137,6 +163,20 @@ type PositionedToken = {
   y: number;
   width: number;
 };
+
+/**
+ * Returns true if the positioned token is a footer page-number candidate
+ * (bottom 14% of page, value parses as a bare 1–4 digit number with optional
+ * "Page" prefix). Used to strip footer numbers from body text in the JS
+ * fallback extraction path so they don't leak into LLM-quoted sentences,
+ * mirroring the PyMuPDF extractor's stripping behavior.
+ */
+function isFooterPageNumberToken(token: PositionedToken, pageHeight: number): boolean {
+  if (pageHeight <= 0) return false;
+  // pdf.js Y origin is bottom-left, so the footer is where y is small.
+  if (token.y > pageHeight * 0.14) return false;
+  return parseFooterToken(token.str) !== null;
+}
 
 function detectBottomCenterFooterPageNumber(
   items: PositionedToken[],
@@ -231,10 +271,11 @@ async function extractPdfPagesByFooterLayout(buffer: Buffer): Promise<PageText[]
         })
         .filter((item): item is PositionedToken => item !== null);
 
-      const pageText = buildTextFromPositionedItems(tokens);
+      const detectedFooterPage = detectBottomCenterFooterPageNumber(tokens, viewport.width, viewport.height);
+      const bodyTokens = tokens.filter((t) => !isFooterPageNumberToken(t, viewport.height));
+      const pageText = buildTextFromPositionedItems(bodyTokens);
       if (!pageText) return "";
 
-      const detectedFooterPage = detectBottomCenterFooterPageNumber(tokens, viewport.width, viewport.height);
       const pageNumber = typeof detectedFooterPage === "number" ? detectedFooterPage : fallbackPage;
       fallbackPage = pageNumber + 1;
 
