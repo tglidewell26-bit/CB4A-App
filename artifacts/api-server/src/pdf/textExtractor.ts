@@ -16,9 +16,23 @@ const PAGE_SEPARATOR = "\n\n---PAGE---\n\n";
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
+/**
+ * Dehyphenates words broken across line ends by the source PDF's typesetting,
+ * e.g. "Bar- bara" → "Barbara" and "car- pentry" → "carpentry". The trigger is
+ * a hyphen followed by whitespace (a line break or space) — real compound
+ * words like "five-penny" have NO space after the hyphen and are left alone.
+ * The lowercase-second-half guard avoids accidentally merging proper-noun
+ * pairs ("Mary- John") and constructs like "self- Inflicted".
+ */
+function dehyphenateLineBreaks(text: string): string {
+  return text
+    .replace(/\u00ad/g, "")
+    .replace(/([A-Za-z]+)-\s+([a-z]+)/g, "$1$2");
+}
+
 export function serializeChapterPages(pages: PageText[]): string {
   return pages
-    .map((page) => `[PAGE ${page.page_number}]\n${page.text}`)
+    .map((page) => `[PAGE ${page.page_number}]\n${dehyphenateLineBreaks(page.text)}`)
     .join(PAGE_SEPARATOR);
 }
 
