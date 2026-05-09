@@ -109,20 +109,41 @@ export function buildTemplateSectionBody(
   meta: ChapterMeta,
 ): string {
   switch (sectionKey) {
-    case "creative_response":
+    case "creative_response": {
+      const promptBlock = llmBodyHtml.trim()
+        ? `<div class="creative-prompt">${llmBodyHtml}</div>\n  `
+        : "";
       return `<div class="creative-template">
-  <p>Dear [recipient],</p>
+  ${promptBlock}<p>Dear [recipient],</p>
   ${blankWritingLines(12)}
   <p>Sincerely,</p>
   <p>[name]</p>
 </div>`;
-    case "writing_rubric":
+    }
+    case "writing_rubric": {
+      const chapterRef =
+        typeof meta.chapterNum === "number" && Number.isFinite(meta.chapterNum)
+          ? `Chapter ${meta.chapterNum}`
+          : "the chapter";
+      const criteria: Array<{ name: string; desc: string }> = [
+        { name: "Prompt response", desc: "I answered what the prompt asked." },
+        { name: "Details from the chapter", desc: `I included at least three details from ${chapterRef}.` },
+        { name: "Character voice", desc: "I wrote in the voice of the character from the prompt." },
+        { name: "Spelling and grammar", desc: "I checked my spelling and grammar." },
+      ];
+      const rows = criteria
+        .map(
+          (c) =>
+            `<tr><td><strong>${c.name}</strong><br/>${c.desc}</td><td></td><td></td><td></td><td></td><td></td></tr>`,
+        )
+        .join("\n    ");
       return `<table class="rubric-table">
   <thead><tr><th>Category</th><th>4 Points</th><th>3 Points</th><th>2 Points</th><th>1 Point</th><th>My Score</th></tr></thead>
   <tbody>
-    ${Array(6).fill("<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>").join("\n    ")}
+    ${rows}
   </tbody>
 </table>`;
+    }
     case "character_chart": {
       const names = getChapterCharacterNames(meta);
       const rows = names.length > 0

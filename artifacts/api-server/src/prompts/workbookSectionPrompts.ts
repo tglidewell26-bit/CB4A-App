@@ -253,6 +253,21 @@ Do not include: vocabulary lists, definitions, example sentences, fill-in exerci
     case "evidence_from_the_story":
       return "Do not force vocabulary words into the questions. Write natural story-based questions that match the section purpose.\n" +
         `<ol class="question-list"><li class="question-item"><div class="question">...</div>${answerLines(3)}</li></ol> with exactly 3 questions.`;
+    case "creative_response":
+      return `Write a 2–3 sentence letter-writing prompt for the student that is rooted in THIS chapter.
+
+Format: a single <p>...</p> block. Output ONLY the <p> block — no other HTML, no surrounding text.
+
+Required structure of the prompt sentences:
+1. "Imagine you are <name of the chapter's main character>."
+2. "Write a letter to <a fitting recipient — pick a real character from this chapter or earlier in the book who would naturally hear about what just happened>."
+3. One short sentence telling the student what to write about — name something concrete that happens in THIS chapter (a place, an event, a person they meet).
+4. End with: "Include at least three details from the chapter."
+
+Example for a different book where a boy named Sam is rescued from the river by a stranger named Mr. Hale:
+<p>Imagine you are Sam. Write a letter to your mother telling her about the day you fell into the river and how Mr. Hale pulled you out. Include at least three details from the chapter.</p>
+
+Do NOT copy that example. Do NOT include vocabulary words. Do NOT include any letter template (no "Dear", no "Sincerely") — only the prompt instructions.`;
     case "writing_rubric":
       return "Checklist table with exactly 4 criteria rows: I answered the prompt; I included details from Chapter 1; I wrote in Heidi's voice; I checked my spelling and grammar.";
     case "character_chart":

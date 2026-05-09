@@ -80,7 +80,7 @@ export const STUDENT_WORKBOOK_SECTIONS: SectionSchemaEntry[] = [
   {
     key: "writing_rubric",
     display_title: "Writing Rubric",
-    standing_subheader: "Use the rubric below to score your [creative response noun].",
+    standing_subheader: "Use the rubric below to score your letter.",
     body_source: "template",
     required: true,
   },

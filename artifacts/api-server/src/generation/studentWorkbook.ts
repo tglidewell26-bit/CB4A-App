@@ -207,7 +207,8 @@ export async function generateStudentWorkbook(
     const shouldCallLlm =
       !isCoreQuestionSection &&
       (section.body_source === "llm" ||
-        (section.body_source === "template" && ["draw_it", "bonus_challenge"].includes(section.key)));
+        (section.body_source === "template" &&
+          ["draw_it", "bonus_challenge", "creative_response"].includes(section.key)));
 
     let rawBodyHtml: string;
     if (isCoreQuestionSection) {
@@ -289,7 +290,9 @@ export async function generateStudentWorkbook(
       section.body_source === "template"
         ? buildTemplateSectionBody(
             section.key,
-            section.key === "draw_it" || section.key === "bonus_challenge" ? sentenceSafeBody : "",
+            ["draw_it", "bonus_challenge", "creative_response"].includes(section.key)
+              ? sentenceSafeBody
+              : "",
             meta,
           )
         : sentenceSafeBody;

@@ -146,6 +146,11 @@ function validateTemplateStructure(section: GeneratedSection): void {
       if (!/Dear \[recipient\],/i.test(section.bodyHtml) || !/Sincerely,/i.test(section.bodyHtml)) {
         throw new Error("Student Workbook validation failed: creative_response template structure is missing.");
       }
+      if (!/<div class="creative-prompt">[\s\S]*Imagine you are/i.test(section.bodyHtml)) {
+        throw new Error(
+          "Student Workbook validation failed: creative_response is missing the chapter-specific writing prompt block.",
+        );
+      }
       break;
     case "writing_rubric":
       if (!/<table[^>]*class="rubric-table"/i.test(section.bodyHtml)) {
@@ -295,8 +300,12 @@ export function validateSections(
       if (!/Category<\/th><th>4 Points<\/th><th>3 Points<\/th><th>2 Points<\/th><th>1 Point<\/th><th>My Score<\/th>/.test(generated.bodyHtml)) {
         throw new Error("Student Workbook validation failed: writing_rubric headers do not match required structure.");
       }
-      const blankRows = (generated.bodyHtml.match(/<tr><td><\/td><td><\/td><td><\/td><td><\/td><td><\/td><td><\/td><\/tr>/g) ?? []).length;
-      if (blankRows !== 6) throw new Error("Student Workbook validation failed: writing_rubric must contain 6 blank rows.");
+      const filledRows = (generated.bodyHtml.match(/<tr><td><strong>[^<]+<\/strong>/g) ?? []).length;
+      if (filledRows !== 4) {
+        throw new Error(
+          `Student Workbook validation failed: writing_rubric must contain exactly 4 filled criteria rows (got ${filledRows}).`,
+        );
+      }
     }
     if (generated.key === "bonus_challenge" && /<\/li>\s*_____/.test(generated.bodyHtml)) {
       throw new Error("Student Workbook validation failed: bonus_challenge blanks must appear before events.");

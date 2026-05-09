@@ -9,8 +9,9 @@
  *   1. Combined core questions (5 HTML sections + answers JSON)
  *   2. get_ready_to_read body HTML
  *   3. words_to_know body HTML
- *   4. draw_it body HTML
- *   5. bonus_challenge body HTML
+ *   4. creative_response body HTML (writing-prompt sentence)
+ *   5. draw_it body HTML
+ *   6. bonus_challenge body HTML
  */
 
 import { vi, describe, it, expect, beforeEach } from "vitest";
@@ -136,6 +137,9 @@ const GET_READY_TO_READ_RESPONSE = `<div class="focus-question">
 
 const WORDS_TO_KNOW_RESPONSE = "WORDS_TO_KNOW_TABLE_PLACEHOLDER";
 
+const CREATIVE_RESPONSE_RESPONSE =
+  "<p>Imagine you are Heidi. Write a letter to your aunt Deta about meeting Grandfather. Include at least three details from the chapter.</p>";
+
 const DRAW_IT_RESPONSE = "<p>Draw Heidi arriving at Grandfather's mountain hut.</p>";
 
 const BONUS_CHALLENGE_RESPONSE = `<ol>
@@ -178,6 +182,7 @@ describe("generateStudentWorkbook — focusQuestion capture", () => {
       .mockResolvedValueOnce(makeAnthropicResponse(COMBINED_CORE_RESPONSE) as never)
       .mockResolvedValueOnce(makeAnthropicResponse(GET_READY_TO_READ_RESPONSE) as never)
       .mockResolvedValueOnce(makeAnthropicResponse(WORDS_TO_KNOW_RESPONSE) as never)
+      .mockResolvedValueOnce(makeAnthropicResponse(CREATIVE_RESPONSE_RESPONSE) as never)
       .mockResolvedValueOnce(makeAnthropicResponse(DRAW_IT_RESPONSE) as never)
       .mockResolvedValueOnce(makeAnthropicResponse(BONUS_CHALLENGE_RESPONSE) as never);
   });
@@ -232,6 +237,7 @@ describe("generateStudentWorkbook — focusQuestion capture", () => {
       .mockResolvedValueOnce(makeAnthropicResponse(COMBINED_CORE_RESPONSE) as never)
       .mockResolvedValueOnce(makeAnthropicResponse("<p>No focus question div here.</p>") as never)
       .mockResolvedValueOnce(makeAnthropicResponse(WORDS_TO_KNOW_RESPONSE) as never)
+      .mockResolvedValueOnce(makeAnthropicResponse(CREATIVE_RESPONSE_RESPONSE) as never)
       .mockResolvedValueOnce(makeAnthropicResponse(DRAW_IT_RESPONSE) as never)
       .mockResolvedValueOnce(makeAnthropicResponse(BONUS_CHALLENGE_RESPONSE) as never);
     const result = await generateStudentWorkbook(META, VOCABULARY);
