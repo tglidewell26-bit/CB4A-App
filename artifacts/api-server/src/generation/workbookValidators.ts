@@ -167,11 +167,20 @@ function validateTemplateStructure(section: GeneratedSection): void {
         throw new Error("Student Workbook validation failed: reflect_on_your_drawing template stems are missing.");
       }
       break;
-    case "bonus_challenge":
+    case "bonus_challenge": {
       if (!/<ol[^>]*class="timeline-list"/i.test(section.bodyHtml)) {
         throw new Error("Student Workbook validation failed: bonus_challenge template list is missing.");
       }
+      // 5–7 event range is enforced here (validateItemCount handles only
+      // fixed-count sections; bonus_challenge is variable).
+      const eventCount = (section.bodyHtml.match(/<li\b[^>]*>/g) ?? []).length;
+      if (eventCount < 5 || eventCount > 7) {
+        throw new Error(
+          `Student Workbook validation failed: bonus_challenge must contain 5–7 events (got ${eventCount}).`,
+        );
+      }
       break;
+    }
     default:
       break;
   }

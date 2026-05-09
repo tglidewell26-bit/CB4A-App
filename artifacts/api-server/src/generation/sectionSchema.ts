@@ -108,7 +108,7 @@ export const STUDENT_WORKBOOK_SECTIONS: SectionSchemaEntry[] = [
   {
     key: "bonus_challenge",
     display_title: "Bonus Challenge—Follow the Story",
-    standing_subheader: "Put these events from Chapter [N] in the correct order by numbering them 1-7.",
+    standing_subheader: "Put these events from Chapter [N] in the correct order by numbering them in chronological order, starting with 1.",
     body_source: "template",
     required: true,
   },

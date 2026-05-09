@@ -159,8 +159,10 @@ export function buildTemplateSectionBody(
         .map((m) => m[1].trim())
         .slice(0, 7);
       const shuffled = shuffleArray(events);
-      if (shuffled.length !== 7) {
-        throw new Error("Student Workbook validation failed: bonus_challenge requires exactly 7 events from LLM.");
+      if (shuffled.length < 5 || shuffled.length > 7) {
+        throw new Error(
+          `Student Workbook validation failed: bonus_challenge requires 5–7 events from LLM (got ${shuffled.length}).`,
+        );
       }
       return `<ol class="timeline-list">
   ${shuffled.map((event) => `<li>_____ ${event}</li>`).join("\n  ")}

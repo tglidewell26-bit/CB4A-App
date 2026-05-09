@@ -309,7 +309,7 @@ export async function generateStudentWorkbook(
   // the persisted payload. This ensures delayed teacher-guide generation from
   // DB state has the focus question without re-parsing the workbook HTML.
   const workbookAnswers = parseWorkbookAnswers(coreResponse.answersJsonRaw, focusQuestion);
-  if (bonusChallengeChronological.length === 7) {
+  if (bonusChallengeChronological.length >= 5 && bonusChallengeChronological.length <= 7) {
     workbookAnswers.answerKey.bonusChallenge = bonusChallengeChronological;
   }
   validateAnswerKeyQuestionsMatchHtml(coreResponse.questions, workbookAnswers);

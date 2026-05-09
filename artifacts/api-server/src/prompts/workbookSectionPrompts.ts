@@ -31,7 +31,9 @@ export const STUDENT_SECTION_ITEM_COUNTS: Record<string, number | null> = {
   dig_deeper: 3,
   multiple_choice_questions: 3,
   evidence_from_the_story: 3,
-  bonus_challenge: 7,
+  // bonus_challenge accepts 5–7 events; the range is enforced separately in
+  // workbookValidators.ts (validateItemCount only handles fixed counts).
+  bonus_challenge: null,
   draw_it: 1,
 };
 
@@ -260,9 +262,34 @@ Do not include: vocabulary lists, definitions, example sentences, fill-in exerci
     case "reflect_on_your_drawing":
       return "Exactly 3 sentence stems for reflection.";
     case "bonus_challenge":
-      return `<ol class="timeline-list"><li data-page="N">...</li></ol> with exactly 7 events from the chapter, each one a single sentence.
-For EACH <li>, include a data-page="N" attribute set to the chapter page number where that event happens (use the earliest page if the event spans multiple pages).
-You do NOT need to pre-sort the events — the system sorts them by data-page to produce the chronological answer key, then shuffles them for the student. Just make sure each data-page value accurately reflects where the event appears in the chapter text provided.`;
+      return `<ol class="timeline-list"><li data-page="N">...</li></ol> with 5 to 7 events from the chapter, each one a single sentence. Pick the count that best fits the chapter's real plot — never pad to reach 7 with weak events.
+
+For EACH <li>, include a data-page="N" attribute set to the chapter page number where that event happens (use the earliest page if the event spans multiple pages). You do NOT need to pre-sort the events — the system sorts them by data-page to produce the chronological answer key, then shuffles them for the student.
+
+WHAT COUNTS AS AN EVENT (selection rule):
+Each event must be a moment where SOMETHING HAPPENS OR CHANGES — a character arrives, leaves, decides, acts, or speaks the line that drives the next scene. A reader skimming your events should be able to retell the chapter's plot in order. Favor present-tense action with a clear subject and verb. The student is sequencing the chapter's PLOT, not its background.
+
+DO NOT INCLUDE these event types:
+- Backstory exposition recited by a character (e.g., "Deta tells Barbara that Tobias was a carpenter") — that's background, not present action.
+- Minor object exchanges (e.g., "Peter hands a bundle back") — only include if the exchange is itself a turning point.
+- Generic descriptions or observations (e.g., "Heidi looks at her grandfather's beard") — replace with the speaking/doing moment that surrounds it (e.g., "Heidi calls out 'Good evening, Grandfather!' as they reach the hut").
+- Restating a quote without naming the action (e.g., "Barbara says he is scary") — turn it into the action ("Barbara warns Deta that the villagers avoid the old man because he is frightening").
+
+EXAMPLE — for a different chapter where a girl named Anna runs away from school:
+GOOD events (use this style):
+  <li data-page="2">Anna hides her lunchbox under her desk so the teacher will not see it during morning lessons.</li>
+  <li data-page="3">Anna slips out the back door of the schoolhouse during recess and starts running toward the woods.</li>
+  <li data-page="5">Anna reaches the river and decides to follow it downstream toward the next village.</li>
+BAD events (do NOT do this):
+  <li data-page="2">Anna's teacher is described as strict, and her classmates are afraid of getting in trouble.</li>  ← background description, not an event
+  <li data-page="3">Anna remembers that her grandmother once told her the woods were safe in summer.</li>  ← memory/backstory, not present action
+  <li data-page="5">Anna sees the river.</li>  ← too generic; what does she DO?
+
+SELF-AUDIT — before returning, silently re-read each of your events and check:
+  1. Does it describe an action that happens IN this chapter (not backstory)?
+  2. Does the data-page value match where the event actually occurs?
+  3. Could a child retell the plot from your events alone?
+If any event fails, replace it with a stronger one from the same part of the chapter — or drop it entirely if you cannot find one (5 strong events beat 7 weak ones).`;
     case "thinking_deeper":
       return "Output exactly two lines with the prediction frame and no additional prompt text.";
     default:

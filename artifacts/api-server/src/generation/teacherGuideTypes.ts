@@ -198,7 +198,7 @@ export interface AnswerKeyData {
   /** 3–5 visual elements students should consider including in their drawing. */
   drawItDetails: string[];
   /**
-   * The 7 Bonus Challenge events in CHRONOLOGICAL order (1 = earliest, 7 = latest).
+   * The 5–7 Bonus Challenge events in CHRONOLOGICAL order (1 = earliest).
    * The student workbook displays these same events shuffled; the teacher guide
    * uses this list to show the correct ordering. Optional for backward
    * compatibility with chapters generated before this field existed.

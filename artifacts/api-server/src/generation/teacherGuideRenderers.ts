@@ -262,7 +262,7 @@ export function renderAnswerKey(data: AnswerKeyData, vocabulary: VocabularyWord[
     .join("\n");
 
   const bonusChallengeHtml =
-    data.bonusChallenge && data.bonusChallenge.length === 7
+    data.bonusChallenge && data.bonusChallenge.length >= 5 && data.bonusChallenge.length <= 7
       ? `<h4 class="tg-emphasis-heading">Bonus Challenge — Answer Key (Correct Order)</h4>
   <ol class="tg-bonus-key">
 ${data.bonusChallenge.map((event) => `    <li>${escapeHtml(event)}</li>`).join("\n")}
