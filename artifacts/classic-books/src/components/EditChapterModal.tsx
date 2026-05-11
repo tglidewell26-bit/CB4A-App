@@ -71,7 +71,7 @@ export function EditChapterModal({ chapter, onClose, onSave, loading = false }: 
           Edit chapter
         </div>
 
-        <Label>Chapter title</Label>
+        <Label>Lesson Title</Label>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -88,7 +88,7 @@ export function EditChapterModal({ chapter, onClose, onSave, loading = false }: 
           style={inputStyle}
         />
 
-        <Label mt={16}>Chapter number <span style={{ color: "#A8967E", fontWeight: 400 }}>(optional)</span></Label>
+        <Label mt={16}>Lesson # <span style={{ color: "#A8967E", fontWeight: 400 }}>(optional)</span></Label>
         <input
           value={numStr}
           onChange={(e) => setNumStr(e.target.value)}

@@ -87,7 +87,7 @@ export function AddChapterModal({ book, onClose, onSave }: AddChapterModalProps)
 
         <div style={{ display: "flex", gap: 12 }}>
           <div style={{ width: 80 }}>
-            <Label>Chapter #</Label>
+            <Label>Lesson #</Label>
             <input
               type="number"
               min="1"
@@ -98,7 +98,7 @@ export function AddChapterModal({ book, onClose, onSave }: AddChapterModalProps)
             />
           </div>
           <div style={{ flex: 1 }}>
-            <Label>Chapter title</Label>
+            <Label>Lesson Title</Label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
