@@ -249,7 +249,7 @@ async function generateSectionBody(
       const mapping = parseStandardsMapping(rawJson);
       const expectedCodes = context.chapterStandards?.standards.map((s) => s.code) ?? [];
       validateStandardsMappingCodes(expectedCodes, mapping);
-      return renderStandardsMapping(mapping, meta.grade as GradeLevel);
+      return renderStandardsMapping(mapping, meta.grade as GradeLevel, chapterLabel);
     }
     default:
       throw new Error(`Teacher Guide: no renderer registered for section "${sectionKey}".`);

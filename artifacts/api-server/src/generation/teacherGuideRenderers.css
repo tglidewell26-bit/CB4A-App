@@ -7,6 +7,79 @@
   font-style: normal;
 }
 
+/* ---- Homeschool Parent Guide ---- */
+
+.tg-homeschool {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.tg-homeschool-block {
+  background: #fbf7ef;
+  border-left: 4px solid #c9a96e;
+  padding: 0.75em 1em;
+  margin: 0.75em 0;
+  border-radius: 4px;
+  page-break-inside: avoid;
+}
+
+.tg-homeschool-block .tg-emphasis-heading {
+  margin-top: 0;
+}
+
+.tg-homeschool-qa {
+  list-style: disc;
+}
+
+.tg-homeschool-qa-answer {
+  color: #555;
+  font-style: italic;
+}
+
+.tg-homeschool-personal .tg-tip {
+  background: #fff;
+  border: 1px dashed #c9a96e;
+  padding: 0.4em 0.6em;
+  margin-top: 0.4em;
+  border-radius: 3px;
+}
+
+.tg-homeschool-bonus {
+  background: #fff;
+  border: 1px solid #e6d6b3;
+  padding: 0.4em 0.6em;
+  margin-top: 0.5em;
+  border-radius: 3px;
+}
+
+.tg-homeschool-content-awareness,
+.tg-homeschool-vocab-tips,
+.tg-homeschool-words {
+  margin: 0.5em 0;
+}
+
+.tg-homeschool-content-awareness h5,
+.tg-homeschool-vocab-tips h5,
+.tg-homeschool-words h5 {
+  margin: 0.25em 0;
+  font-size: 1em;
+  color: DarkGreen;
+}
+
+.tg-homeschool-content-awareness-item {
+  margin-bottom: 0.4em;
+}
+
+/* ---- Standards Mapping ---- */
+
+.tg-standards-mapping-chapter-label {
+  margin: 0.25em 0;
+  color: #555;
+}
+
+.tg-standards-mapping-table-label {
+  margin: 0.5em 0 0.25em;
+}
+
 .tg-standards-mapping-table {
   width: 100%;
   border-collapse: collapse;
@@ -24,6 +97,8 @@
 .tg-standards-mapping-table thead th {
   background: #f4f4f4;
 }
+
+/* ---- Next-chapter teaser placeholder ---- */
 
 .tg-next-chapter-teaser {
   margin-top: 1em;

@@ -395,44 +395,87 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
     "stoppingPoints": ["...", "..."]
   },
   "discussionQuestions": {
-    "understanding": ["...", "...", "..."],
-    "thinkingDeeper": ["...", "...", "..."],
+    "understanding": [
+      { "question": "...", "answer": "..." },
+      { "question": "...", "answer": "..." },
+      { "question": "...", "answer": "..." },
+      { "question": "...", "answer": "..." }
+    ],
+    "thinkingDeeper": [
+      { "question": "...", "answer": "..." },
+      { "question": "...", "answer": "..." },
+      { "question": "...", "answer": "..." }
+    ],
     "personalConnections": ["...", "...", "..."]
   },
   "simpleActivity": {
     "name": "...",
-    "materials": ["...", "..."],
-    "steps": ["...", "...", "..."],
-    "bonusChallenge": "..."
+    "rationale": "...",
+    "whatYouNeed": ["...", "..."],
+    "whatToDo": ["...", "...", "..."],
+    "bonusChallenge": {
+      "description": "...",
+      "reflectionPrompts": ["...", "..."]
+    }
   },
   "parentNotes": {
-    "contentAwareness": ["..."],
-    "vocabTips": ["..."],
-    "wordsToExplain": ["...", "..."]
+    "contentAwareness": [
+      { "title": "...", "paragraph": "..." }
+    ],
+    "vocabularyTips": [
+      { "strategy": "...", "example": "..." },
+      { "strategy": "...", "example": "..." },
+      { "strategy": "...", "example": "..." }
+    ],
+    "wordsToExplain": [
+      { "word": "...", "definition": "..." },
+      { "word": "...", "definition": "..." },
+      { "word": "...", "definition": "..." },
+      { "word": "...", "definition": "..." }
+    ]
   },
   "encouragement": {
-    "paragraph": "...",
-    "reminders": ["...", "..."]
+    "opening": "...",
+    "reminders": ["...", "...", "...", "...", "..."],
+    "closing": "..."
   }
 }
 
-Rules:
-- This section is written for a HOMESCHOOL PARENT, not a classroom teacher. Use warm, friendly, plain language. Avoid pedagogy jargon.
-- chapterSnapshot.synopsis: 2–4 sentences telling the parent plainly what happens in this chapter.
-- chapterSnapshot.whyThisMatters: 2–3 sentences explaining the themes and why the chapter is worth reading together.
-- pacingTips: split the chapter into a 2-day or 3-day read-aloud plan. day3 may be omitted for a short chapter.
-- pausePoints: 2–4 concrete moments to stop and check in with the child.
-- stoppingPoints: 2–3 natural breakpoints if the session needs to be cut short.
-- discussionQuestions.understanding: 3–4 literal/comprehension questions a parent can ask.
-- discussionQuestions.thinkingDeeper: 3–4 inference and analysis questions.
-- discussionQuestions.personalConnections: 3–4 questions linking the story to the child's own life.
-- simpleActivity: ONE short, hands-on activity a parent can do at home with materials commonly found in a home (paper, crayons, kitchen items, etc.). 3–5 steps. Include a bonus challenge for kids who want more.
-- parentNotes.contentAwareness: 1–3 short flags about emotional or thematic content the parent should be ready for.
-- parentNotes.vocabTips: 1–3 plain-language tips on how a parent (not a teacher) can handle hard words.
-- parentNotes.wordsToExplain: 2–4 specific words from THIS chapter the parent may need to explain.
-- encouragement.paragraph: a short, warm paragraph (2–3 sentences) reassuring the parent.
-- encouragement.reminders: 2–4 short "you're doing great" style reminders.
-- Use only details, characters, and events that are actually in the provided chapter text.
+Rules (THIS SECTION IS WRITTEN FOR A HOMESCHOOL PARENT — warm, casual, second-person tone, no pedagogy jargon):
+
+Chapter Snapshot
+- synopsis: 2–4 sentences plainly summarizing what happens in this chapter.
+- whyThisMatters: 2–3 sentences explaining the themes and why the chapter is worth reading aloud.
+
+Read-Aloud & Pacing Tips
+- day1, day2, (optional day3): suggested read-aloud schedule. Each value MUST include a page range, e.g. "Day 1: Read pages 1–6. ...".
+- pausePoints: 2–5 concrete "When to pause" moments. Each MUST mention a page number in the prose, e.g. "After page 4, ask...".
+- stoppingPoints: 2–4 natural breakpoints if a session must be cut short.
+
+Discussion Questions
+- understanding: EXACTLY 4 literal/comprehension Q&A pairs. The "answer" is a short suggested answer the parent can confirm; it will be displayed in parentheses after the question.
+- thinkingDeeper: EXACTLY 3 inferential/analysis Q&A pairs.
+- personalConnections: EXACTLY 3 open-ended prompts (no answers — these are for the child to share).
+
+Simple Activity Option
+- name: short activity name.
+- rationale: 1–2 sentence paragraph explaining why the activity reinforces the chapter.
+- whatYouNeed: 2–6 common at-home materials.
+- whatToDo: 3–8 bulleted prompts the parent can read aloud as the child works.
+- bonusChallenge.description: 1–2 sentence extension for kids who want more.
+- bonusChallenge.reflectionPrompts: EXACTLY 2 short reflection sub-prompts.
+
+Helpful Parent Notes
+- contentAwareness: 1–3 sub-blocks. Each has a short \`title\` and a one-paragraph \`paragraph\` flagging emotional, mature, or culturally-specific content. **OMIT THIS FIELD ENTIRELY (do not include the key, or set it to []) if the chapter has nothing sensitive worth flagging.**
+- vocabularyTips: EXACTLY 3 strategies. Each has a short \`strategy\` (the tip) and a one-sentence concrete \`example\`.
+- wordsToExplain: 4–6 word/definition pairs drawn from THIS chapter. Definitions must be parent-friendly, not dictionary jargon.
+
+Encouragement for Parents
+- opening: ONE pep-talk sentence.
+- reminders: 5–6 short "Here are some things to remember" items.
+- closing: ONE warm closing sentence. Do NOT include a next-chapter teaser — the renderer adds a fixed placeholder.
+
+Use only details, characters, and events that are actually in the provided chapter text.
 
 Return ONLY the JSON object. No markdown fences, no commentary.`;
 

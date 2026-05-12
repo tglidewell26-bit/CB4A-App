@@ -252,97 +252,155 @@ ${data.successCriteria.map((s) => `    <li>${escapeHtml(s)}</li>`).join("\n")}
 }
 
 /**
- * Literal "next chapter teaser" placeholder. Rendered bold + italic + ALL CAPS
- * inside parentheses so reviewers can see exactly where a teaser would go.
+ * Literal "next chapter teaser" placeholder. Rendered with parentheses OUTSIDE
+ * the bold+italic tags, in ALL CAPS, per the gold-standard reference. This
+ * exact substring is asserted by tests and must not change.
  */
 const NEXT_CHAPTER_TEASER_PLACEHOLDER =
-  `<p class="tg-next-chapter-teaser"><strong><em>(INSERT NEXT CHAPTER TEASER)</em></strong></p>`;
+  `<p class="tg-next-chapter-teaser">(<strong><em>INSERT NEXT CHAPTER TEASER</em></strong>)</p>`;
 
 export function renderHomeschoolParentGuide(data: HomeschoolParentGuideData): string {
-  const list = (items: string[]) =>
-    items.map((s) => `    <li>${escapeHtml(s)}</li>`).join("\n");
+  const ul = (items: string[]) =>
+    `<ul>\n${items.map((s) => `    <li>${escapeHtml(s)}</li>`).join("\n")}\n  </ul>`;
 
   const day3Block = data.pacingTips.day3
     ? `\n    <li><strong>Day 3:</strong> ${escapeHtml(data.pacingTips.day3)}</li>`
     : "";
 
+  const qaList = (items: ReadonlyArray<{ question: string; answer: string }>) =>
+    `<ul class="tg-homeschool-qa">\n${items
+      .map(
+        (qa) =>
+          `    <li>${escapeHtml(qa.question)} <span class="tg-homeschool-qa-answer">(${escapeHtml(qa.answer)})</span></li>`,
+      )
+      .join("\n")}\n  </ul>`;
+
+  const personalConnectionsBlock = `<div class="tg-homeschool-personal">
+  ${ul(data.discussionQuestions.personalConnections)}
+  <p class="tg-tip"><em>Tip: there are no wrong answers here — let your child lead.</em></p>
+</div>`;
+
+  const contentAwarenessBlock = data.parentNotes.contentAwareness
+    ? `<div class="tg-homeschool-content-awareness">
+  <h5>Content awareness</h5>
+${data.parentNotes.contentAwareness
+  .map(
+    (block) => `  <div class="tg-homeschool-content-awareness-item">
+    <p><strong>${escapeHtml(block.title)}</strong></p>
+    <p>${escapeHtml(block.paragraph)}</p>
+  </div>`,
+  )
+  .join("\n")}
+</div>`
+    : "";
+
+  const vocabTipsBlock = `<div class="tg-homeschool-vocab-tips">
+  <h5>Vocabulary tips</h5>
+  <ul>
+${data.parentNotes.vocabularyTips
+  .map(
+    (t) =>
+      `    <li><strong>${escapeHtml(t.strategy)}</strong> — <em>${escapeHtml(t.example)}</em></li>`,
+  )
+  .join("\n")}
+  </ul>
+</div>`;
+
+  const wordsBlock = `<div class="tg-homeschool-words">
+  <h5>Words that might need quick explanation</h5>
+  <ul>
+${data.parentNotes.wordsToExplain
+  .map(
+    (w) =>
+      `    <li><strong>${escapeHtml(w.word)}:</strong> ${escapeHtml(w.definition)}</li>`,
+  )
+  .join("\n")}
+  </ul>
+</div>`;
+
   return `<div class="tg-homeschool">
-  <h4 class="tg-emphasis-heading">Chapter Snapshot</h4>
-  <p>${escapeHtml(data.chapterSnapshot.synopsis)}</p>
-  <p><strong>Why this matters:</strong> ${escapeHtml(data.chapterSnapshot.whyThisMatters)}</p>
+  <div class="tg-homeschool-block tg-homeschool-snapshot">
+    <h4 class="tg-emphasis-heading">Chapter Snapshot</h4>
+    <p>${escapeHtml(data.chapterSnapshot.synopsis)}</p>
+    <p><strong>Why this chapter matters:</strong> ${escapeHtml(data.chapterSnapshot.whyThisMatters)}</p>
+  </div>
 
-  <h4 class="tg-emphasis-heading">Read-Aloud &amp; Pacing Tips</h4>
-  <ul>
-    <li><strong>Day 1:</strong> ${escapeHtml(data.pacingTips.day1)}</li>
-    <li><strong>Day 2:</strong> ${escapeHtml(data.pacingTips.day2)}</li>${day3Block}
-  </ul>
-  <p><strong>Pause points:</strong></p>
-  <ul>
-${list(data.pacingTips.pausePoints)}
-  </ul>
-  <p><strong>Natural stopping points:</strong></p>
-  <ul>
-${list(data.pacingTips.stoppingPoints)}
-  </ul>
+  <div class="tg-homeschool-block tg-homeschool-pacing">
+    <h4 class="tg-emphasis-heading">Read-Aloud &amp; Pacing Tips</h4>
+    <ul>
+      <li><strong>Day 1:</strong> ${escapeHtml(data.pacingTips.day1)}</li>
+      <li><strong>Day 2:</strong> ${escapeHtml(data.pacingTips.day2)}</li>${day3Block}
+    </ul>
+    <p><strong>When to pause:</strong></p>
+    ${ul(data.pacingTips.pausePoints)}
+    <p><strong>Good stopping points:</strong></p>
+    ${ul(data.pacingTips.stoppingPoints)}
+  </div>
 
-  <h4 class="tg-emphasis-heading">Discussion Questions</h4>
-  <p><strong>Understanding the story:</strong></p>
-  <ul>
-${list(data.discussionQuestions.understanding)}
-  </ul>
-  <p><strong>Thinking deeper:</strong></p>
-  <ul>
-${list(data.discussionQuestions.thinkingDeeper)}
-  </ul>
-  <p><strong>Personal connections:</strong></p>
-  <ul>
-${list(data.discussionQuestions.personalConnections)}
-  </ul>
+  <div class="tg-homeschool-block tg-homeschool-discussion">
+    <h4 class="tg-emphasis-heading">Discussion Questions</h4>
+    <p><strong>Understanding the story:</strong></p>
+    ${qaList(data.discussionQuestions.understanding)}
+    <p><strong>Thinking deeper:</strong></p>
+    ${qaList(data.discussionQuestions.thinkingDeeper)}
+    <p><strong>Making personal connections:</strong></p>
+    ${personalConnectionsBlock}
+  </div>
 
-  <h4 class="tg-emphasis-heading">Simple Activity Option</h4>
-  <p><strong>${escapeHtml(data.simpleActivity.name)}</strong></p>
-  <p><strong>Materials:</strong></p>
-  <ul>
-${list(data.simpleActivity.materials)}
-  </ul>
-  <p><strong>Steps:</strong></p>
-  <ol>
-${data.simpleActivity.steps.map((s) => `    <li>${escapeHtml(s)}</li>`).join("\n")}
-  </ol>
-  <p><strong>Bonus challenge:</strong> ${escapeHtml(data.simpleActivity.bonusChallenge)}</p>
+  <div class="tg-homeschool-block tg-homeschool-activity">
+    <h4 class="tg-emphasis-heading">Simple Activity Option</h4>
+    <p><strong>${escapeHtml(data.simpleActivity.name)}</strong></p>
+    <p>${escapeHtml(data.simpleActivity.rationale)}</p>
+    <p><strong>What you need:</strong></p>
+    ${ul(data.simpleActivity.whatYouNeed)}
+    <p><strong>What to do:</strong></p>
+    ${ul(data.simpleActivity.whatToDo)}
+    <div class="tg-homeschool-bonus">
+      <p><strong>Bonus challenge:</strong> ${escapeHtml(data.simpleActivity.bonusChallenge.description)}</p>
+      <ul>
+${data.simpleActivity.bonusChallenge.reflectionPrompts
+  .map((p) => `        <li>${escapeHtml(p)}</li>`)
+  .join("\n")}
+      </ul>
+    </div>
+  </div>
 
-  <h4 class="tg-emphasis-heading">Helpful Parent Notes</h4>
-  <p><strong>Content awareness:</strong></p>
-  <ul>
-${list(data.parentNotes.contentAwareness)}
-  </ul>
-  <p><strong>Vocabulary tips:</strong></p>
-  <ul>
-${list(data.parentNotes.vocabTips)}
-  </ul>
-  <p><strong>Words to explain:</strong></p>
-  <ul>
-${list(data.parentNotes.wordsToExplain)}
-  </ul>
+  <div class="tg-homeschool-block tg-homeschool-notes">
+    <h4 class="tg-emphasis-heading">Helpful Parent Notes</h4>
+    ${contentAwarenessBlock}
+    ${vocabTipsBlock}
+    ${wordsBlock}
+  </div>
 
-  <h4 class="tg-emphasis-heading">Encouragement for Parents</h4>
-  <p>${escapeHtml(data.encouragement.paragraph)}</p>
-  <ul>
-${list(data.encouragement.reminders)}
-  </ul>
-
-  ${NEXT_CHAPTER_TEASER_PLACEHOLDER}
+  <div class="tg-homeschool-block tg-homeschool-encouragement">
+    <h4 class="tg-emphasis-heading">Encouragement for Parents</h4>
+    <p>${escapeHtml(data.encouragement.opening)}</p>
+    <p><strong>Here are some things to remember:</strong></p>
+    ${ul(data.encouragement.reminders)}
+    <p>${escapeHtml(data.encouragement.closing)}</p>
+    ${NEXT_CHAPTER_TEASER_PLACEHOLDER}
+  </div>
 </div>`;
 }
 
-export function renderStandardsMapping(data: StandardsMappingData, grade: GradeLevel): string {
+export function renderStandardsMapping(
+  data: StandardsMappingData,
+  grade: GradeLevel,
+  chapterLabel: string,
+): string {
   const strandOrder = ["RL", "RI", "W", "L", "SL"] as const;
   const codeMap = new Map(
     strandOrder.flatMap((s) => getStandardsForGrade(grade, s)).map((s) => [s.code, s] as const),
   );
 
+  const header = `<p class="tg-standards-mapping-chapter-label"><em>${escapeHtml(chapterLabel)}</em></p>
+  <p class="tg-standards-mapping-table-label"><strong>Primary Standards Addressed</strong></p>`;
+
   if (data.rows.length === 0) {
-    return `<p><em>No standards mapped for this chapter.</em></p>`;
+    return `<div class="tg-standards-mapping">
+  ${header}
+  <p><em>No standards mapped for this chapter.</em></p>
+</div>`;
   }
 
   const rows = data.rows
@@ -359,11 +417,12 @@ export function renderStandardsMapping(data: StandardsMappingData, grade: GradeL
     .join("\n");
 
   return `<div class="tg-standards-mapping">
+  ${header}
   <table class="tg-standards-mapping-table">
     <thead>
       <tr>
         <th>Standard Code</th>
-        <th>Description</th>
+        <th>Standard Description</th>
         <th>How Addressed</th>
         <th>Assessment Evidence</th>
       </tr>

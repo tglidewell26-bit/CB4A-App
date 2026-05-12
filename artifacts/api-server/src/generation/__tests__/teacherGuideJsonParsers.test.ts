@@ -585,55 +585,137 @@ describe("teacherGuideJsonParsers", () => {
   });
 
   describe("parseHomeschoolParentGuide", () => {
-    const validJson = () =>
-      JSON.stringify({
-        chapterSnapshot: { synopsis: "S", whyThisMatters: "W" },
-        pacingTips: {
-          day1: "D1",
-          day2: "D2",
-          day3: "D3",
-          pausePoints: ["p1"],
-          stoppingPoints: ["s1"],
-        },
-        discussionQuestions: {
-          understanding: ["u1", "u2", "u3"],
-          thinkingDeeper: ["t1", "t2", "t3"],
-          personalConnections: ["c1", "c2", "c3"],
-        },
-        simpleActivity: {
-          name: "Activity",
-          materials: ["m1"],
-          steps: ["step1", "step2", "step3"],
-          bonusChallenge: "bonus",
-        },
-        parentNotes: { contentAwareness: ["ca"], vocabTips: ["vt"], wordsToExplain: ["w1", "w2"] },
-        encouragement: { paragraph: "para", reminders: ["r1", "r2"] },
-      });
+    const validObj = () => ({
+      chapterSnapshot: { synopsis: "S", whyThisMatters: "W" },
+      pacingTips: {
+        day1: "D1 pp 1-6",
+        day2: "D2 pp 7-14",
+        day3: "D3 pp 15-20",
+        pausePoints: ["After page 4...", "After page 9..."],
+        stoppingPoints: ["End of page 7", "End of page 11"],
+      },
+      discussionQuestions: {
+        understanding: [
+          { question: "u1", answer: "a1" },
+          { question: "u2", answer: "a2" },
+          { question: "u3", answer: "a3" },
+          { question: "u4", answer: "a4" },
+        ],
+        thinkingDeeper: [
+          { question: "t1", answer: "ta1" },
+          { question: "t2", answer: "ta2" },
+          { question: "t3", answer: "ta3" },
+        ],
+        personalConnections: ["pc1", "pc2", "pc3"],
+      },
+      simpleActivity: {
+        name: "Activity",
+        rationale: "Why",
+        whatYouNeed: ["m1", "m2"],
+        whatToDo: ["step1", "step2", "step3"],
+        bonusChallenge: { description: "bonus", reflectionPrompts: ["r1", "r2"] },
+      },
+      parentNotes: {
+        contentAwareness: [{ title: "ct", paragraph: "cp" }],
+        vocabularyTips: [
+          { strategy: "s1", example: "e1" },
+          { strategy: "s2", example: "e2" },
+          { strategy: "s3", example: "e3" },
+        ],
+        wordsToExplain: [
+          { word: "w1", definition: "d1" },
+          { word: "w2", definition: "d2" },
+          { word: "w3", definition: "d3" },
+          { word: "w4", definition: "d4" },
+        ],
+      },
+      encouragement: {
+        opening: "open",
+        reminders: ["r1", "r2", "r3", "r4", "r5"],
+        closing: "close",
+      },
+    });
+    const validJson = () => JSON.stringify(validObj());
 
-    it("parses a valid payload", () => {
+    it("parses a valid payload with the new shape", () => {
       const data = parseHomeschoolParentGuide(validJson());
       expect(data.chapterSnapshot.synopsis).toBe("S");
-      expect(data.pacingTips.day3).toBe("D3");
+      expect(data.pacingTips.day3).toBe("D3 pp 15-20");
+      expect(data.discussionQuestions.understanding).toHaveLength(4);
+      expect(data.discussionQuestions.understanding[0].answer).toBe("a1");
       expect(data.discussionQuestions.thinkingDeeper).toHaveLength(3);
-      expect(data.simpleActivity.steps).toHaveLength(3);
+      expect(data.discussionQuestions.personalConnections).toHaveLength(3);
+      expect(data.simpleActivity.whatToDo).toHaveLength(3);
+      expect(data.simpleActivity.bonusChallenge.reflectionPrompts).toEqual(["r1", "r2"]);
+      expect(data.parentNotes.vocabularyTips).toHaveLength(3);
+      expect(data.parentNotes.wordsToExplain).toHaveLength(4);
+      expect(data.parentNotes.contentAwareness).toHaveLength(1);
+      expect(data.encouragement.reminders).toHaveLength(5);
     });
 
     it("treats missing or empty day3 as undefined", () => {
-      const obj = JSON.parse(validJson());
-      delete obj.pacingTips.day3;
+      const obj = validObj();
+      delete (obj.pacingTips as { day3?: string }).day3;
       const data = parseHomeschoolParentGuide(JSON.stringify(obj));
       expect(data.pacingTips.day3).toBeUndefined();
 
-      obj.pacingTips.day3 = "  ";
-      const data2 = parseHomeschoolParentGuide(JSON.stringify(obj));
+      const obj2 = validObj();
+      obj2.pacingTips.day3 = "  ";
+      const data2 = parseHomeschoolParentGuide(JSON.stringify(obj2));
       expect(data2.pacingTips.day3).toBeUndefined();
     });
 
-    it("throws when a required nested field is missing", () => {
-      const obj = JSON.parse(validJson());
-      delete obj.encouragement.paragraph;
+    it("omits contentAwareness when the field is missing entirely", () => {
+      const obj = validObj();
+      delete (obj.parentNotes as { contentAwareness?: unknown }).contentAwareness;
+      const data = parseHomeschoolParentGuide(JSON.stringify(obj));
+      expect(data.parentNotes.contentAwareness).toBeUndefined();
+    });
+
+    it("omits contentAwareness when the field is an empty array", () => {
+      const obj = validObj();
+      (obj.parentNotes as { contentAwareness?: unknown[] }).contentAwareness = [];
+      const data = parseHomeschoolParentGuide(JSON.stringify(obj));
+      expect(data.parentNotes.contentAwareness).toBeUndefined();
+    });
+
+    it("throws when discussionQuestions.understanding has the wrong count", () => {
+      const obj = validObj();
+      obj.discussionQuestions.understanding = obj.discussionQuestions.understanding.slice(0, 3);
       expect(() => parseHomeschoolParentGuide(JSON.stringify(obj))).toThrow(
-        /encouragement\.paragraph/,
+        /discussionQuestions\.understanding.*exactly 4/,
+      );
+    });
+
+    it("throws when bonusChallenge.reflectionPrompts has != 2 items", () => {
+      const obj = validObj();
+      obj.simpleActivity.bonusChallenge.reflectionPrompts = ["only-one"];
+      expect(() => parseHomeschoolParentGuide(JSON.stringify(obj))).toThrow(
+        /bonusChallenge\.reflectionPrompts.*exactly 2/,
+      );
+    });
+
+    it("throws when wordsToExplain is outside 4–6 range", () => {
+      const obj = validObj();
+      obj.parentNotes.wordsToExplain = obj.parentNotes.wordsToExplain.slice(0, 2);
+      expect(() => parseHomeschoolParentGuide(JSON.stringify(obj))).toThrow(
+        /wordsToExplain.*between 4 and 6/,
+      );
+    });
+
+    it("throws when encouragement.reminders is outside 5–6 range", () => {
+      const obj = validObj();
+      obj.encouragement.reminders = ["r1", "r2"];
+      expect(() => parseHomeschoolParentGuide(JSON.stringify(obj))).toThrow(
+        /encouragement\.reminders.*between 5 and 6/,
+      );
+    });
+
+    it("throws when a required nested field is missing", () => {
+      const obj = validObj();
+      delete (obj.encouragement as { closing?: string }).closing;
+      expect(() => parseHomeschoolParentGuide(JSON.stringify(obj))).toThrow(
+        /encouragement\.closing/,
       );
     });
   });

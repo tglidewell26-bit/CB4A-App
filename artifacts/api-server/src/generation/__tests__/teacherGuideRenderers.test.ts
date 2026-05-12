@@ -341,69 +341,140 @@ describe("teacherGuideRenderers", () => {
       expect(html).toContain("E7");
     });
 
+    const sampleHomeschoolData = (overrides: Partial<{ day3: string; contentAwareness: Array<{ title: string; paragraph: string }> | undefined }> = {}) => ({
+      chapterSnapshot: {
+        synopsis: "Heidi goes up the mountain.",
+        whyThisMatters: "It teaches resilience.",
+      },
+      pacingTips: {
+        day1: "Read pages 1–6.",
+        day2: "Read pages 7–14.",
+        ...(overrides.day3 ? { day3: overrides.day3 } : {}),
+        pausePoints: ["After page 4, ask...", "After page 9, talk about..."],
+        stoppingPoints: ["End of page 7", "End of page 11"],
+      },
+      discussionQuestions: {
+        understanding: [
+          { question: "Who is Heidi?", answer: "A young orphan girl." },
+          { question: "Where is she going?", answer: "Up to her grandfather's." },
+          { question: "Who takes her there?", answer: "Her aunt Deta." },
+          { question: "What season is it?", answer: "Summer." },
+        ],
+        thinkingDeeper: [
+          { question: "Why might Deta leave Heidi?", answer: "She wants a job in Frankfurt." },
+          { question: "How might Heidi feel?", answer: "Nervous but curious." },
+          { question: "Why is Grandfather alone?", answer: "He keeps to himself." },
+        ],
+        personalConnections: [
+          "Have you ever moved?",
+          "Tell about meeting someone new.",
+          "What helps you feel brave?",
+        ],
+      },
+      simpleActivity: {
+        name: "Pack Heidi's Suitcase",
+        rationale: "Helps your child think about what mattered to Heidi.",
+        whatYouNeed: ["Paper", "Crayons"],
+        whatToDo: ["Draw a suitcase.", "List 5 items.", "Talk about why."],
+        bonusChallenge: {
+          description: "Write a short note to Heidi.",
+          reflectionPrompts: ["What made you pick those things?", "How is it like your room?"] as [string, string],
+        },
+      },
+      parentNotes: {
+        ...("contentAwareness" in overrides
+          ? overrides.contentAwareness === undefined
+            ? {}
+            : { contentAwareness: overrides.contentAwareness }
+          : {
+              contentAwareness: [
+                {
+                  title: "A child sent to live with a stranger",
+                  paragraph: "Heidi is left with a grandfather she doesn't know. Some kids may find this scary.",
+                },
+              ],
+            }),
+        vocabularyTips: [
+          { strategy: "Sound it out", example: "Try the word 'alm' slowly: a-l-m." },
+          { strategy: "Use the picture", example: "Look at the mountain to imagine the alm." },
+          { strategy: "Substitute a known word", example: "Try 'meadow' for 'alm'." },
+        ],
+        wordsToExplain: [
+          { word: "alm", definition: "a high mountain meadow" },
+          { word: "gruff", definition: "rough or unfriendly sounding" },
+          { word: "frock", definition: "a girl's dress" },
+          { word: "valley", definition: "the low land between two hills" },
+        ],
+      },
+      encouragement: {
+        opening: "You're doing something wonderful by reading aloud.",
+        reminders: [
+          "Slow down when you can.",
+          "Let questions sit.",
+          "Use silly voices.",
+          "Skip what's too long.",
+          "Reread favorite parts.",
+        ],
+        closing: "Enjoy the quiet wins.",
+      },
+    });
+
     it("renders homeschool parent guide with all sections plus next-chapter teaser placeholder", () => {
-      const html = renderHomeschoolParentGuide({
-        chapterSnapshot: { synopsis: "Heidi goes up the mountain.", whyThisMatters: "It teaches resilience." },
-        pacingTips: {
-          day1: "Read pages 1–6.",
-          day2: "Read pages 7–14.",
-          pausePoints: ["After Deta leaves."],
-          stoppingPoints: ["Page 7"],
-        },
-        discussionQuestions: {
-          understanding: ["Who is Heidi?"],
-          thinkingDeeper: ["Why does Deta leave?"],
-          personalConnections: ["Have you moved?"],
-        },
-        simpleActivity: {
-          name: "Pack Heidi's Suitcase",
-          materials: ["Paper", "Crayons"],
-          steps: ["Draw a suitcase.", "List what to pack."],
-          bonusChallenge: "Write a letter to Heidi.",
-        },
-        parentNotes: {
-          contentAwareness: ["A child is sent to live with a stranger."],
-          vocabTips: ["Use pictures."],
-          wordsToExplain: ["alm", "gruff"],
-        },
-        encouragement: { paragraph: "You're doing great.", reminders: ["Read together.", "Be patient."] },
-      });
+      const html = renderHomeschoolParentGuide(sampleHomeschoolData());
       expect(html).toContain("Chapter Snapshot");
-      expect(html).toContain("Why this matters");
+      expect(html).toContain("Why this chapter matters");
       expect(html).toContain("Read-Aloud &amp; Pacing Tips");
+      expect(html).toContain("When to pause");
+      expect(html).toContain("Good stopping points");
       expect(html).toContain("Day 1:");
       expect(html).toContain("Day 2:");
       expect(html).not.toContain("Day 3:");
       expect(html).toContain("Discussion Questions");
+      // QA pairs render with answer in parens, italicized
+      expect(html).toContain("Who is Heidi?");
+      expect(html).toContain('(A young orphan girl.)');
+      // Personal connections render the no-wrong-answers tip
+      expect(html).toContain("no wrong answers");
       expect(html).toContain("Simple Activity Option");
       expect(html).toContain("Pack Heidi&#39;s Suitcase");
+      expect(html).toContain("What you need");
+      expect(html).toContain("What to do");
+      expect(html).toContain("Bonus challenge");
+      expect(html).toContain("What made you pick those things?");
       expect(html).toContain("Helpful Parent Notes");
+      // content awareness sub-block
+      expect(html).toContain("A child sent to live with a stranger");
+      expect(html).toContain("Vocabulary tips");
+      expect(html).toContain("Sound it out");
+      expect(html).toContain("Words that might need quick explanation");
+      expect(html).toContain("alm");
+      expect(html).toContain("a high mountain meadow");
       expect(html).toContain("Encouragement for Parents");
-      expect(html).toContain("(INSERT NEXT CHAPTER TEASER)");
-      expect(html).toContain("tg-next-chapter-teaser");
-      expect(html).toContain("<strong><em>(INSERT NEXT CHAPTER TEASER)</em></strong>");
+      expect(html).toContain("Here are some things to remember");
+      expect(html).toContain("Enjoy the quiet wins.");
+      // Teaser placeholder: parens OUTSIDE bold+italic, ALL CAPS
+      expect(html).toContain("(<strong><em>INSERT NEXT CHAPTER TEASER</em></strong>)");
+      expect(html).toContain('class="tg-next-chapter-teaser"');
     });
 
     it("includes Day 3 row when day3 is provided", () => {
-      const html = renderHomeschoolParentGuide({
-        chapterSnapshot: { synopsis: "S", whyThisMatters: "W" },
-        pacingTips: {
-          day1: "D1",
-          day2: "D2",
-          day3: "D3",
-          pausePoints: ["x"],
-          stoppingPoints: ["y"],
-        },
-        discussionQuestions: { understanding: ["a"], thinkingDeeper: ["b"], personalConnections: ["c"] },
-        simpleActivity: { name: "n", materials: ["m"], steps: ["s"], bonusChallenge: "b" },
-        parentNotes: { contentAwareness: ["c"], vocabTips: ["v"], wordsToExplain: ["w"] },
-        encouragement: { paragraph: "p", reminders: ["r"] },
-      });
+      const html = renderHomeschoolParentGuide(sampleHomeschoolData({ day3: "Read pages 15–20." }));
       expect(html).toContain("Day 3:");
-      expect(html).toContain("D3");
+      expect(html).toContain("Read pages 15–20.");
     });
 
-    it("renders standards mapping table with descriptions filled from lookup", () => {
+    it("omits the content-awareness sub-block entirely when undefined", () => {
+      const html = renderHomeschoolParentGuide(
+        sampleHomeschoolData({ contentAwareness: undefined }),
+      );
+      expect(html).not.toContain("tg-homeschool-content-awareness");
+      expect(html).not.toContain("Content awareness");
+      // Other parent-notes blocks still render
+      expect(html).toContain("Vocabulary tips");
+      expect(html).toContain("Words that might need quick explanation");
+    });
+
+    it("renders standards mapping with chapter label, primary-standards label, and correct columns", () => {
       const html = renderStandardsMapping(
         {
           rows: [
@@ -412,10 +483,13 @@ describe("teacherGuideRenderers", () => {
           ],
         },
         3,
+        "Chapter 1",
       );
+      expect(html).toContain("Chapter 1");
+      expect(html).toContain("Primary Standards Addressed");
       expect(html).toContain('<table class="tg-standards-mapping-table">');
       expect(html).toContain("<th>Standard Code</th>");
-      expect(html).toContain("<th>Description</th>");
+      expect(html).toContain("<th>Standard Description</th>");
       expect(html).toContain("<th>How Addressed</th>");
       expect(html).toContain("<th>Assessment Evidence</th>");
       expect(html).toContain("RL.3.1");
@@ -424,8 +498,10 @@ describe("teacherGuideRenderers", () => {
     });
 
     it("renders empty-state message when standards mapping has no rows", () => {
-      const html = renderStandardsMapping({ rows: [] }, 3);
+      const html = renderStandardsMapping({ rows: [] }, 3, "Chapter 1");
       expect(html).toContain("No standards mapped for this chapter.");
+      expect(html).toContain("Primary Standards Addressed");
+      expect(html).toContain("Chapter 1");
     });
 
     it("omits bonus challenge block when not provided (backward compatibility)", () => {

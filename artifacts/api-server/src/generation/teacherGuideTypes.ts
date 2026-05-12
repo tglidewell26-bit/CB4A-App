@@ -193,6 +193,13 @@ export interface CharacterChartAnswer {
  * Homeschool Parent Guide — appended after the standard Teacher Guide content.
  * Modeled on the FINAL gold-standard reference (Heidi Grade 3, Lesson 1).
  */
+/** A literal-comprehension or inferential Q&A pair. */
+export interface ParentGuideQA {
+  question: string;
+  /** Suggested answer the parent can confirm or use as a guide. Rendered in parentheses after the question. */
+  answer: string;
+}
+
 export interface HomeschoolParentGuideData {
   chapterSnapshot: {
     /** 2–4 sentence plain-language synopsis of what happens in the chapter. */
@@ -205,42 +212,53 @@ export interface HomeschoolParentGuideData {
     day1: string;
     day2: string;
     day3?: string;
-    /** Concrete places to pause and check in. */
+    /** Concrete "When to pause" points with page numbers in the prose. */
     pausePoints: string[];
     /** Natural stopping points if a session needs to be cut short. */
     stoppingPoints: string[];
   };
   discussionQuestions: {
-    /** Literal/comprehension questions parents can ask. 3–4 items. */
-    understanding: string[];
-    /** Inference and analysis questions. 3–4 items. */
-    thinkingDeeper: string[];
-    /** Personal connection questions linking the story to the child's life. 3–4 items. */
+    /** Exactly 4 literal Q&A items. */
+    understanding: ParentGuideQA[];
+    /** Exactly 3 inferential Q&A items. */
+    thinkingDeeper: ParentGuideQA[];
+    /** Exactly 3 open-ended prompts (no answers) for personal-connection talk. */
     personalConnections: string[];
   };
   simpleActivity: {
     /** Short activity name, e.g. "Pack Heidi's Suitcase". */
     name: string;
-    /** Materials a parent would need at home. */
-    materials: string[];
-    /** Step-by-step instructions. */
-    steps: string[];
-    /** Optional extension for kids who want more. */
-    bonusChallenge: string;
+    /** Short rationale paragraph framing why the activity is worth doing. */
+    rationale: string;
+    /** "What you need" list of materials a parent would have at home. */
+    whatYouNeed: string[];
+    /** "What to do" bulleted prompts the parent can read aloud as the child works. */
+    whatToDo: string[];
+    /** Bonus challenge description plus exactly 2 reflection sub-prompts. */
+    bonusChallenge: {
+      description: string;
+      reflectionPrompts: [string, string];
+    };
   };
   parentNotes: {
-    /** Things parents should be aware of (e.g. emotional content, themes). 1–3 items. */
-    contentAwareness: string[];
-    /** Tips for handling vocabulary as a parent (not a teacher). */
-    vocabTips: string[];
-    /** Specific words from this chapter parents may want to explain. */
-    wordsToExplain: string[];
+    /**
+     * Optional content-awareness sub-blocks. The LLM picks 1–3 sensitive topics
+     * relevant to the chapter, OR omits the field entirely when nothing
+     * sensitive applies.
+     */
+    contentAwareness?: Array<{ title: string; paragraph: string }>;
+    /** Exactly 3 vocabulary strategies, each with a one-sentence concrete example. */
+    vocabularyTips: Array<{ strategy: string; example: string }>;
+    /** 4–6 word/definition pairs drawn from this chapter. */
+    wordsToExplain: Array<{ word: string; definition: string }>;
   };
   encouragement: {
-    /** A short, warm paragraph of encouragement for the parent. */
-    paragraph: string;
-    /** 2–4 short reminders ("you're doing great" style). */
+    /** Opening pep-talk sentence. */
+    opening: string;
+    /** "Here are some things to remember" reminders. 5–6 items. */
     reminders: string[];
+    /** Closing line that wraps the section before the next-chapter teaser. */
+    closing: string;
   };
 }
 

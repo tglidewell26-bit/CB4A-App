@@ -27,6 +27,7 @@ import type {
   HomeschoolParentGuideData,
   MeasurableObjectivesData,
   MultipleChoiceAnswer,
+  ParentGuideQA,
   QuestionAnswer,
   QuestionType,
   StandardsData,
@@ -326,6 +327,43 @@ export function parseCreativeResponseErrors(raw: string): CreativeResponseErrors
   };
 }
 
+function assertLength(
+  sectionKey: string,
+  field: string,
+  arr: ReadonlyArray<unknown>,
+  min: number,
+  max: number,
+): void {
+  if (arr.length < min || arr.length > max) {
+    throw new TgParseError(
+      sectionKey,
+      `field "${field}" must have between ${min} and ${max} items (got ${arr.length})`,
+    );
+  }
+}
+
+function parseQAArray(
+  sectionKey: string,
+  raw: unknown,
+  field: string,
+  exactCount: number,
+): ParentGuideQA[] {
+  const arr = asArray(sectionKey, raw, field);
+  if (arr.length !== exactCount) {
+    throw new TgParseError(
+      sectionKey,
+      `field "${field}" must have exactly ${exactCount} items (got ${arr.length})`,
+    );
+  }
+  return arr.map((item, i) => {
+    const obj = asObject(sectionKey, item, `${field}[${i}]`);
+    return {
+      question: asString(sectionKey, obj.question, `${field}[${i}].question`),
+      answer: asString(sectionKey, obj.answer, `${field}[${i}].answer`),
+    };
+  });
+}
+
 export function parseHomeschoolParentGuide(raw: string): HomeschoolParentGuideData {
   const sectionKey = "homeschool_parent_guide";
   const data = parseJson(sectionKey, raw);
@@ -344,41 +382,163 @@ export function parseHomeschoolParentGuide(raw: string): HomeschoolParentGuideDa
       ? undefined
       : asString(sectionKey, day3Raw, "pacingTips.day3");
 
+  // pacing
+  const pausePoints = asStringArray(sectionKey, pacing.pausePoints, "pacingTips.pausePoints");
+  assertLength(sectionKey, "pacingTips.pausePoints", pausePoints, 2, 5);
+  const stoppingPoints = asStringArray(
+    sectionKey,
+    pacing.stoppingPoints,
+    "pacingTips.stoppingPoints",
+  );
+  assertLength(sectionKey, "pacingTips.stoppingPoints", stoppingPoints, 2, 4);
+
+  // discussion
+  const understanding = parseQAArray(
+    sectionKey,
+    discussion.understanding,
+    "discussionQuestions.understanding",
+    4,
+  );
+  const thinkingDeeper = parseQAArray(
+    sectionKey,
+    discussion.thinkingDeeper,
+    "discussionQuestions.thinkingDeeper",
+    3,
+  );
+  const personalConnections = asStringArray(
+    sectionKey,
+    discussion.personalConnections,
+    "discussionQuestions.personalConnections",
+  );
+  if (personalConnections.length !== 3) {
+    throw new TgParseError(
+      sectionKey,
+      `field "discussionQuestions.personalConnections" must have exactly 3 items (got ${personalConnections.length})`,
+    );
+  }
+
+  // activity
+  const whatYouNeed = asStringArray(
+    sectionKey,
+    activity.whatYouNeed,
+    "simpleActivity.whatYouNeed",
+  );
+  assertLength(sectionKey, "simpleActivity.whatYouNeed", whatYouNeed, 2, 6);
+  const whatToDo = asStringArray(sectionKey, activity.whatToDo, "simpleActivity.whatToDo");
+  assertLength(sectionKey, "simpleActivity.whatToDo", whatToDo, 3, 8);
+  const bonus = asObject(sectionKey, activity.bonusChallenge, "simpleActivity.bonusChallenge");
+  const reflectionPromptsArr = asStringArray(
+    sectionKey,
+    bonus.reflectionPrompts,
+    "simpleActivity.bonusChallenge.reflectionPrompts",
+  );
+  if (reflectionPromptsArr.length !== 2) {
+    throw new TgParseError(
+      sectionKey,
+      `field "simpleActivity.bonusChallenge.reflectionPrompts" must have exactly 2 items (got ${reflectionPromptsArr.length})`,
+    );
+  }
+
+  // parent notes
+  let contentAwareness:
+    | Array<{ title: string; paragraph: string }>
+    | undefined;
+  if (notes.contentAwareness !== undefined && notes.contentAwareness !== null) {
+    const caArr = asArray(sectionKey, notes.contentAwareness, "parentNotes.contentAwareness");
+    if (caArr.length > 0) {
+      assertLength(sectionKey, "parentNotes.contentAwareness", caArr, 1, 3);
+      contentAwareness = caArr.map((item, i) => {
+        const obj = asObject(sectionKey, item, `parentNotes.contentAwareness[${i}]`);
+        return {
+          title: asString(sectionKey, obj.title, `parentNotes.contentAwareness[${i}].title`),
+          paragraph: asString(
+            sectionKey,
+            obj.paragraph,
+            `parentNotes.contentAwareness[${i}].paragraph`,
+          ),
+        };
+      });
+    }
+    // empty array → omit
+  }
+
+  const vocabTipsArr = asArray(
+    sectionKey,
+    notes.vocabularyTips,
+    "parentNotes.vocabularyTips",
+  );
+  if (vocabTipsArr.length !== 3) {
+    throw new TgParseError(
+      sectionKey,
+      `field "parentNotes.vocabularyTips" must have exactly 3 items (got ${vocabTipsArr.length})`,
+    );
+  }
+  const vocabularyTips = vocabTipsArr.map((item, i) => {
+    const obj = asObject(sectionKey, item, `parentNotes.vocabularyTips[${i}]`);
+    return {
+      strategy: asString(sectionKey, obj.strategy, `parentNotes.vocabularyTips[${i}].strategy`),
+      example: asString(sectionKey, obj.example, `parentNotes.vocabularyTips[${i}].example`),
+    };
+  });
+
+  const wordsArr = asArray(sectionKey, notes.wordsToExplain, "parentNotes.wordsToExplain");
+  assertLength(sectionKey, "parentNotes.wordsToExplain", wordsArr, 4, 6);
+  const wordsToExplain = wordsArr.map((item, i) => {
+    const obj = asObject(sectionKey, item, `parentNotes.wordsToExplain[${i}]`);
+    return {
+      word: asString(sectionKey, obj.word, `parentNotes.wordsToExplain[${i}].word`),
+      definition: asString(
+        sectionKey,
+        obj.definition,
+        `parentNotes.wordsToExplain[${i}].definition`,
+      ),
+    };
+  });
+
+  // encouragement
+  const reminders = asStringArray(sectionKey, encouragement.reminders, "encouragement.reminders");
+  assertLength(sectionKey, "encouragement.reminders", reminders, 5, 6);
+
   return {
     chapterSnapshot: {
       synopsis: asString(sectionKey, snapshot.synopsis, "chapterSnapshot.synopsis"),
-      whyThisMatters: asString(sectionKey, snapshot.whyThisMatters, "chapterSnapshot.whyThisMatters"),
+      whyThisMatters: asString(
+        sectionKey,
+        snapshot.whyThisMatters,
+        "chapterSnapshot.whyThisMatters",
+      ),
     },
     pacingTips: {
       day1: asString(sectionKey, pacing.day1, "pacingTips.day1"),
       day2: asString(sectionKey, pacing.day2, "pacingTips.day2"),
       ...(day3 !== undefined ? { day3 } : {}),
-      pausePoints: asStringArray(sectionKey, pacing.pausePoints, "pacingTips.pausePoints"),
-      stoppingPoints: asStringArray(sectionKey, pacing.stoppingPoints, "pacingTips.stoppingPoints"),
+      pausePoints,
+      stoppingPoints,
     },
-    discussionQuestions: {
-      understanding: asStringArray(sectionKey, discussion.understanding, "discussionQuestions.understanding"),
-      thinkingDeeper: asStringArray(sectionKey, discussion.thinkingDeeper, "discussionQuestions.thinkingDeeper"),
-      personalConnections: asStringArray(
-        sectionKey,
-        discussion.personalConnections,
-        "discussionQuestions.personalConnections",
-      ),
-    },
+    discussionQuestions: { understanding, thinkingDeeper, personalConnections },
     simpleActivity: {
       name: asString(sectionKey, activity.name, "simpleActivity.name"),
-      materials: asStringArray(sectionKey, activity.materials, "simpleActivity.materials"),
-      steps: asStringArray(sectionKey, activity.steps, "simpleActivity.steps"),
-      bonusChallenge: asString(sectionKey, activity.bonusChallenge, "simpleActivity.bonusChallenge"),
+      rationale: asString(sectionKey, activity.rationale, "simpleActivity.rationale"),
+      whatYouNeed,
+      whatToDo,
+      bonusChallenge: {
+        description: asString(
+          sectionKey,
+          bonus.description,
+          "simpleActivity.bonusChallenge.description",
+        ),
+        reflectionPrompts: [reflectionPromptsArr[0], reflectionPromptsArr[1]],
+      },
     },
     parentNotes: {
-      contentAwareness: asStringArray(sectionKey, notes.contentAwareness, "parentNotes.contentAwareness"),
-      vocabTips: asStringArray(sectionKey, notes.vocabTips, "parentNotes.vocabTips"),
-      wordsToExplain: asStringArray(sectionKey, notes.wordsToExplain, "parentNotes.wordsToExplain"),
+      ...(contentAwareness ? { contentAwareness } : {}),
+      vocabularyTips,
+      wordsToExplain,
     },
     encouragement: {
-      paragraph: asString(sectionKey, encouragement.paragraph, "encouragement.paragraph"),
-      reminders: asStringArray(sectionKey, encouragement.reminders, "encouragement.reminders"),
+      opening: asString(sectionKey, encouragement.opening, "encouragement.opening"),
+      reminders,
+      closing: asString(sectionKey, encouragement.closing, "encouragement.closing"),
     },
   };
 }
