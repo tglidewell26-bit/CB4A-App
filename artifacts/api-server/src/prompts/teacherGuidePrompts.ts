@@ -22,11 +22,22 @@ export interface TeacherGuidePromptInputs {
   sectionDisplayTitle: string;
   workbookContext: Record<string, string>;
   chapterText: string;
+  /**
+   * Standards codes already chosen for this chapter by the standards section.
+   * Required for the standards_mapping section so its rows align exactly with
+   * the codes shown in the existing Standards block.
+   */
+  standardsCodes?: string[];
 }
 
 export function buildTeacherSectionSystemPrompt(args: TeacherGuidePromptInputs): string {
   const guidance = gradeGuidanceFor(args.grade);
-  const requirements = teacherSectionRequirementByKey(args.sectionKey, args.grade, args.vocabulary.length);
+  const requirements = teacherSectionRequirementByKey(
+    args.sectionKey,
+    args.grade,
+    args.vocabulary.length,
+    args.standardsCodes,
+  );
   return `You are writing the ${args.sectionDisplayTitle} section of a Teacher Guide for ${args.bookTitle} by ${args.author}.
 ${guidance}
 
@@ -57,7 +68,12 @@ Vocabulary:
 ${args.vocabulary.map((v) => `${v.word} — ${v.book_quote}`).join("\n")}`;
 }
 
-export function teacherSectionRequirementByKey(key: string, grade?: GradeLevel, vocabCount?: number): string {
+export function teacherSectionRequirementByKey(
+  key: string,
+  grade?: GradeLevel,
+  vocabCount?: number,
+  standardsCodes?: string[],
+): string {
   const gradeLevel = (grade ?? 4) as GradeLevel;
   const wordCount = vocabCount ?? 10;
   switch (key) {
@@ -362,6 +378,90 @@ Rules:
 - drawItDetails must be 3–5 concrete visual details.
 
 Return ONLY the JSON object. No markdown fences, no commentary.`;
+
+    case "homeschool_parent_guide":
+      return `Return a JSON object with this exact shape and nothing else:
+
+{
+  "chapterSnapshot": {
+    "synopsis": "...",
+    "whyThisMatters": "..."
+  },
+  "pacingTips": {
+    "day1": "...",
+    "day2": "...",
+    "day3": "...",
+    "pausePoints": ["...", "..."],
+    "stoppingPoints": ["...", "..."]
+  },
+  "discussionQuestions": {
+    "understanding": ["...", "...", "..."],
+    "thinkingDeeper": ["...", "...", "..."],
+    "personalConnections": ["...", "...", "..."]
+  },
+  "simpleActivity": {
+    "name": "...",
+    "materials": ["...", "..."],
+    "steps": ["...", "...", "..."],
+    "bonusChallenge": "..."
+  },
+  "parentNotes": {
+    "contentAwareness": ["..."],
+    "vocabTips": ["..."],
+    "wordsToExplain": ["...", "..."]
+  },
+  "encouragement": {
+    "paragraph": "...",
+    "reminders": ["...", "..."]
+  }
+}
+
+Rules:
+- This section is written for a HOMESCHOOL PARENT, not a classroom teacher. Use warm, friendly, plain language. Avoid pedagogy jargon.
+- chapterSnapshot.synopsis: 2–4 sentences telling the parent plainly what happens in this chapter.
+- chapterSnapshot.whyThisMatters: 2–3 sentences explaining the themes and why the chapter is worth reading together.
+- pacingTips: split the chapter into a 2-day or 3-day read-aloud plan. day3 may be omitted for a short chapter.
+- pausePoints: 2–4 concrete moments to stop and check in with the child.
+- stoppingPoints: 2–3 natural breakpoints if the session needs to be cut short.
+- discussionQuestions.understanding: 3–4 literal/comprehension questions a parent can ask.
+- discussionQuestions.thinkingDeeper: 3–4 inference and analysis questions.
+- discussionQuestions.personalConnections: 3–4 questions linking the story to the child's own life.
+- simpleActivity: ONE short, hands-on activity a parent can do at home with materials commonly found in a home (paper, crayons, kitchen items, etc.). 3–5 steps. Include a bonus challenge for kids who want more.
+- parentNotes.contentAwareness: 1–3 short flags about emotional or thematic content the parent should be ready for.
+- parentNotes.vocabTips: 1–3 plain-language tips on how a parent (not a teacher) can handle hard words.
+- parentNotes.wordsToExplain: 2–4 specific words from THIS chapter the parent may need to explain.
+- encouragement.paragraph: a short, warm paragraph (2–3 sentences) reassuring the parent.
+- encouragement.reminders: 2–4 short "you're doing great" style reminders.
+- Use only details, characters, and events that are actually in the provided chapter text.
+
+Return ONLY the JSON object. No markdown fences, no commentary.`;
+
+    case "standards_mapping": {
+      const codes = standardsCodes ?? [];
+      const codesBlock =
+        codes.length > 0
+          ? codes.map((c) => `  - ${c}`).join("\n")
+          : "  (none — return an empty rows array)";
+      return `Return a JSON object with this exact shape and nothing else:
+
+{
+  "rows": [
+    { "code": "RL.${gradeLevel}.1", "howAddressed": "...", "assessmentEvidence": "..." }
+  ]
+}
+
+Rules:
+- Return EXACTLY one row for each standard code listed below, in the same order. Do NOT add codes that are not listed. Do NOT omit any listed code.
+- "code" must match the listed code character-for-character.
+- "howAddressed" is one concrete sentence describing how THIS chapter and lesson address the standard. Reference specific characters, events, or activities from this chapter — never write generic boilerplate.
+- "assessmentEvidence" is one concrete sentence describing what a teacher can observe (in workbook responses, discussion, writing, etc.) to confirm the standard is met. Tie it to the actual workbook activities for this chapter.
+- Do NOT include the standard description text — that is filled in by the renderer from a code lookup table.
+
+Standard codes to map (use these exact codes, in this order):
+${codesBlock}
+
+Return ONLY the JSON object. No markdown fences, no commentary.`;
+    }
 
     default:
       throw new Error(`Unknown teacher guide section key: ${key}`);

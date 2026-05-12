@@ -7,10 +7,12 @@ import {
   renderExitTicket,
   renderGetReadyToRead,
   renderGuidedReading,
+  renderHomeschoolParentGuide,
   renderLessonOverview,
   renderMaterialsNeeded,
   renderMeasurableObjectives,
   renderStandards,
+  renderStandardsMapping,
   renderThinkAboutTheStoryAnswers,
   renderWordsToKnowMiniLesson,
 } from "../teacherGuideRenderers.js";
@@ -337,6 +339,93 @@ describe("teacherGuideRenderers", () => {
       expect(html).toContain("Bonus Challenge — Answer Key");
       expect(html).toContain("E1");
       expect(html).toContain("E7");
+    });
+
+    it("renders homeschool parent guide with all sections plus next-chapter teaser placeholder", () => {
+      const html = renderHomeschoolParentGuide({
+        chapterSnapshot: { synopsis: "Heidi goes up the mountain.", whyThisMatters: "It teaches resilience." },
+        pacingTips: {
+          day1: "Read pages 1–6.",
+          day2: "Read pages 7–14.",
+          pausePoints: ["After Deta leaves."],
+          stoppingPoints: ["Page 7"],
+        },
+        discussionQuestions: {
+          understanding: ["Who is Heidi?"],
+          thinkingDeeper: ["Why does Deta leave?"],
+          personalConnections: ["Have you moved?"],
+        },
+        simpleActivity: {
+          name: "Pack Heidi's Suitcase",
+          materials: ["Paper", "Crayons"],
+          steps: ["Draw a suitcase.", "List what to pack."],
+          bonusChallenge: "Write a letter to Heidi.",
+        },
+        parentNotes: {
+          contentAwareness: ["A child is sent to live with a stranger."],
+          vocabTips: ["Use pictures."],
+          wordsToExplain: ["alm", "gruff"],
+        },
+        encouragement: { paragraph: "You're doing great.", reminders: ["Read together.", "Be patient."] },
+      });
+      expect(html).toContain("Chapter Snapshot");
+      expect(html).toContain("Why this matters");
+      expect(html).toContain("Read-Aloud &amp; Pacing Tips");
+      expect(html).toContain("Day 1:");
+      expect(html).toContain("Day 2:");
+      expect(html).not.toContain("Day 3:");
+      expect(html).toContain("Discussion Questions");
+      expect(html).toContain("Simple Activity Option");
+      expect(html).toContain("Pack Heidi&#39;s Suitcase");
+      expect(html).toContain("Helpful Parent Notes");
+      expect(html).toContain("Encouragement for Parents");
+      expect(html).toContain("(INSERT NEXT CHAPTER TEASER)");
+      expect(html).toContain("tg-next-chapter-teaser");
+      expect(html).toContain("<strong><em>(INSERT NEXT CHAPTER TEASER)</em></strong>");
+    });
+
+    it("includes Day 3 row when day3 is provided", () => {
+      const html = renderHomeschoolParentGuide({
+        chapterSnapshot: { synopsis: "S", whyThisMatters: "W" },
+        pacingTips: {
+          day1: "D1",
+          day2: "D2",
+          day3: "D3",
+          pausePoints: ["x"],
+          stoppingPoints: ["y"],
+        },
+        discussionQuestions: { understanding: ["a"], thinkingDeeper: ["b"], personalConnections: ["c"] },
+        simpleActivity: { name: "n", materials: ["m"], steps: ["s"], bonusChallenge: "b" },
+        parentNotes: { contentAwareness: ["c"], vocabTips: ["v"], wordsToExplain: ["w"] },
+        encouragement: { paragraph: "p", reminders: ["r"] },
+      });
+      expect(html).toContain("Day 3:");
+      expect(html).toContain("D3");
+    });
+
+    it("renders standards mapping table with descriptions filled from lookup", () => {
+      const html = renderStandardsMapping(
+        {
+          rows: [
+            { code: "RL.3.1", howAddressed: "Students cite text evidence about Heidi.", assessmentEvidence: "Workbook RBTL answers." },
+            { code: "ZZ.3.99", howAddressed: "fake", assessmentEvidence: "fake" },
+          ],
+        },
+        3,
+      );
+      expect(html).toContain('<table class="tg-standards-mapping-table">');
+      expect(html).toContain("<th>Standard Code</th>");
+      expect(html).toContain("<th>Description</th>");
+      expect(html).toContain("<th>How Addressed</th>");
+      expect(html).toContain("<th>Assessment Evidence</th>");
+      expect(html).toContain("RL.3.1");
+      expect(html).toContain("Students cite text evidence about Heidi.");
+      expect(html).toContain("ZZ.3.99");
+    });
+
+    it("renders empty-state message when standards mapping has no rows", () => {
+      const html = renderStandardsMapping({ rows: [] }, 3);
+      expect(html).toContain("No standards mapped for this chapter.");
     });
 
     it("omits bonus challenge block when not provided (backward compatibility)", () => {

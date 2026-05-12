@@ -24,11 +24,13 @@ import type {
   ExitTicketData,
   GetReadyToReadData,
   GuidedReadingData,
+  HomeschoolParentGuideData,
   MeasurableObjectivesData,
   MultipleChoiceAnswer,
   QuestionAnswer,
   QuestionType,
   StandardsData,
+  StandardsMappingData,
   SupportPhases,
   ThinkAboutTheStoryAnswersData,
   WordsToKnowMiniLessonData,
@@ -322,6 +324,112 @@ export function parseCreativeResponseErrors(raw: string): CreativeResponseErrors
       modernLanguage: parseErrorBody(sectionKey, errorsObj.modernLanguage, "errors.modernLanguage"),
     },
   };
+}
+
+export function parseHomeschoolParentGuide(raw: string): HomeschoolParentGuideData {
+  const sectionKey = "homeschool_parent_guide";
+  const data = parseJson(sectionKey, raw);
+  const root = asObject(sectionKey, data, "(root)");
+
+  const snapshot = asObject(sectionKey, root.chapterSnapshot, "chapterSnapshot");
+  const pacing = asObject(sectionKey, root.pacingTips, "pacingTips");
+  const discussion = asObject(sectionKey, root.discussionQuestions, "discussionQuestions");
+  const activity = asObject(sectionKey, root.simpleActivity, "simpleActivity");
+  const notes = asObject(sectionKey, root.parentNotes, "parentNotes");
+  const encouragement = asObject(sectionKey, root.encouragement, "encouragement");
+
+  const day3Raw = pacing.day3;
+  const day3 =
+    day3Raw === undefined || day3Raw === null || (typeof day3Raw === "string" && !day3Raw.trim())
+      ? undefined
+      : asString(sectionKey, day3Raw, "pacingTips.day3");
+
+  return {
+    chapterSnapshot: {
+      synopsis: asString(sectionKey, snapshot.synopsis, "chapterSnapshot.synopsis"),
+      whyThisMatters: asString(sectionKey, snapshot.whyThisMatters, "chapterSnapshot.whyThisMatters"),
+    },
+    pacingTips: {
+      day1: asString(sectionKey, pacing.day1, "pacingTips.day1"),
+      day2: asString(sectionKey, pacing.day2, "pacingTips.day2"),
+      ...(day3 !== undefined ? { day3 } : {}),
+      pausePoints: asStringArray(sectionKey, pacing.pausePoints, "pacingTips.pausePoints"),
+      stoppingPoints: asStringArray(sectionKey, pacing.stoppingPoints, "pacingTips.stoppingPoints"),
+    },
+    discussionQuestions: {
+      understanding: asStringArray(sectionKey, discussion.understanding, "discussionQuestions.understanding"),
+      thinkingDeeper: asStringArray(sectionKey, discussion.thinkingDeeper, "discussionQuestions.thinkingDeeper"),
+      personalConnections: asStringArray(
+        sectionKey,
+        discussion.personalConnections,
+        "discussionQuestions.personalConnections",
+      ),
+    },
+    simpleActivity: {
+      name: asString(sectionKey, activity.name, "simpleActivity.name"),
+      materials: asStringArray(sectionKey, activity.materials, "simpleActivity.materials"),
+      steps: asStringArray(sectionKey, activity.steps, "simpleActivity.steps"),
+      bonusChallenge: asString(sectionKey, activity.bonusChallenge, "simpleActivity.bonusChallenge"),
+    },
+    parentNotes: {
+      contentAwareness: asStringArray(sectionKey, notes.contentAwareness, "parentNotes.contentAwareness"),
+      vocabTips: asStringArray(sectionKey, notes.vocabTips, "parentNotes.vocabTips"),
+      wordsToExplain: asStringArray(sectionKey, notes.wordsToExplain, "parentNotes.wordsToExplain"),
+    },
+    encouragement: {
+      paragraph: asString(sectionKey, encouragement.paragraph, "encouragement.paragraph"),
+      reminders: asStringArray(sectionKey, encouragement.reminders, "encouragement.reminders"),
+    },
+  };
+}
+
+/**
+ * Cross-checks the parsed Standards Mapping rows against the codes already
+ * chosen by the chapter's Standards section. Claude is instructed to emit one
+ * row per listed code in the same order, but it can drop, duplicate, reorder,
+ * or invent codes. Any of those silently produce a mapping table that does not
+ * match the Standards block above it. This validator surfaces the mismatch as
+ * a loud parse-style error so generation fails immediately.
+ */
+export function validateStandardsMappingCodes(
+  expectedCodes: ReadonlyArray<string>,
+  data: StandardsMappingData,
+): void {
+  const sectionKey = "standards_mapping";
+  const actual = data.rows.map((r) => r.code);
+  if (actual.length !== expectedCodes.length) {
+    throw new TgParseError(
+      sectionKey,
+      `expected ${expectedCodes.length} row(s) (one per chapter standard), got ${actual.length}. Expected codes: [${expectedCodes.join(", ")}]. Actual codes: [${actual.join(", ")}]`,
+    );
+  }
+  for (let i = 0; i < expectedCodes.length; i += 1) {
+    if (actual[i] !== expectedCodes[i]) {
+      throw new TgParseError(
+        sectionKey,
+        `rows[${i}].code "${actual[i]}" does not match expected "${expectedCodes[i]}". Rows must appear in the same order as the chapter's Standards section. Expected: [${expectedCodes.join(", ")}]. Actual: [${actual.join(", ")}]`,
+      );
+    }
+  }
+}
+
+export function parseStandardsMapping(raw: string): StandardsMappingData {
+  const sectionKey = "standards_mapping";
+  const data = parseJson(sectionKey, raw);
+  const root = asObject(sectionKey, data, "(root)");
+  const rows = asArray(sectionKey, root.rows, "rows").map((item, i) => {
+    const obj = asObject(sectionKey, item, `rows[${i}]`);
+    return {
+      code: asString(sectionKey, obj.code, `rows[${i}].code`),
+      howAddressed: asString(sectionKey, obj.howAddressed, `rows[${i}].howAddressed`),
+      assessmentEvidence: asString(
+        sectionKey,
+        obj.assessmentEvidence,
+        `rows[${i}].assessmentEvidence`,
+      ),
+    };
+  });
+  return { rows };
 }
 
 export function parseExitTicket(raw: string): ExitTicketData {

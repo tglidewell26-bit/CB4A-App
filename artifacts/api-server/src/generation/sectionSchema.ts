@@ -229,4 +229,20 @@ export const TEACHER_GUIDE_SECTIONS: TeacherGuideSectionSchemaEntry[] = [
     required: true,
     tip_slots: 0,
   },
+  {
+    key: "homeschool_parent_guide",
+    display_title: "Homeschool Parent Guide",
+    standing_subheader: null,
+    body_source: "llm",
+    required: true,
+    tip_slots: 0,
+  },
+  {
+    key: "standards_mapping",
+    display_title: "Standards Mapping",
+    standing_subheader: null,
+    body_source: "llm",
+    required: true,
+    tip_slots: 0,
+  },
 ];

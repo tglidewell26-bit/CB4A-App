@@ -13,9 +13,12 @@ import {
   parseExitTicket,
   parseGetReadyToRead,
   parseGuidedReading,
+  parseHomeschoolParentGuide,
   parseMeasurableObjectives,
   parseStandards,
+  parseStandardsMapping,
   parseWordsToKnowMiniLesson,
+  validateStandardsMappingCodes,
 } from "./teacherGuideJsonParsers.js";
 import {
   renderAnswerKey,
@@ -25,13 +28,16 @@ import {
   renderExitTicket,
   renderGetReadyToRead,
   renderGuidedReading,
+  renderHomeschoolParentGuide,
   renderLessonOverview,
   renderMaterialsNeeded,
   renderMeasurableObjectives,
   renderStandards,
+  renderStandardsMapping,
   renderThinkAboutTheStoryAnswers,
   renderWordsToKnowMiniLesson,
 } from "./teacherGuideRenderers.js";
+import type { StandardsData } from "./teacherGuideTypes.js";
 import {
   getChapterLabel,
   renderTeacherGuideSection,
@@ -155,6 +161,16 @@ async function callClaudeForJson(systemPrompt: string, userPrompt: string): Prom
   return block.type === "text" ? block.text.trim() : "";
 }
 
+/**
+ * Mutable, per-chapter context shared across section generations within a
+ * single Teacher Guide run. Currently only carries the parsed standards from
+ * the `standards` section so the later `standards_mapping` section can align
+ * its rows to the exact same codes shown above.
+ */
+export interface TeacherGuideRunContext {
+  chapterStandards: StandardsData | null;
+}
+
 async function generateSectionBody(
   sectionKey: string,
   meta: ChapterMeta,
@@ -165,6 +181,7 @@ async function generateSectionBody(
   focusQuestion: string,
   sectionDisplayTitle: string,
   answers: StudentWorkbookAnswers,
+  context: TeacherGuideRunContext,
 ): Promise<string> {
   if (sectionKey === "lesson_overview") {
     return renderLessonOverview();
@@ -192,6 +209,10 @@ async function generateSectionBody(
     sectionDisplayTitle,
     workbookContext: workbookContextForTeacherSection(sectionKey, slices),
     chapterText,
+    standardsCodes:
+      sectionKey === "standards_mapping"
+        ? (context.chapterStandards?.standards.map((s) => s.code) ?? [])
+        : undefined,
   };
   const systemPrompt = buildTeacherSectionSystemPrompt(promptInputs);
   const userPrompt = buildTeacherSectionUserPrompt(promptInputs);
@@ -203,8 +224,11 @@ async function generateSectionBody(
   switch (sectionKey) {
     case "measurable_objectives":
       return renderMeasurableObjectives(parseMeasurableObjectives(rawJson));
-    case "standards":
-      return renderStandards(parseStandards(rawJson), meta.grade as GradeLevel);
+    case "standards": {
+      const parsed = parseStandards(rawJson);
+      context.chapterStandards = parsed;
+      return renderStandards(parsed, meta.grade as GradeLevel);
+    }
     case "get_ready_to_read":
       return renderGetReadyToRead(parseGetReadyToRead(rawJson), focusQuestion);
     case "words_to_know_mini_lesson":
@@ -219,6 +243,14 @@ async function generateSectionBody(
       return renderCreativeResponseErrors(parseCreativeResponseErrors(rawJson));
     case "exit_ticket":
       return renderExitTicket(parseExitTicket(rawJson));
+    case "homeschool_parent_guide":
+      return renderHomeschoolParentGuide(parseHomeschoolParentGuide(rawJson));
+    case "standards_mapping": {
+      const mapping = parseStandardsMapping(rawJson);
+      const expectedCodes = context.chapterStandards?.standards.map((s) => s.code) ?? [];
+      validateStandardsMappingCodes(expectedCodes, mapping);
+      return renderStandardsMapping(mapping, meta.grade as GradeLevel);
+    }
     default:
       throw new Error(`Teacher Guide: no renderer registered for section "${sectionKey}".`);
   }
@@ -234,6 +266,7 @@ export async function generateTeacherGuide(
   const workbookSlices = parseWorkbookSlices(workbookResult.html, workbookResult.coreQuestions);
 
   const generatedSections: GeneratedSection[] = [];
+  const runContext: TeacherGuideRunContext = { chapterStandards: null };
 
   for (const section of TEACHER_GUIDE_SECTIONS) {
     const bodyHtml = await generateSectionBody(
@@ -246,6 +279,7 @@ export async function generateTeacherGuide(
       workbookResult.focusQuestion,
       section.display_title,
       workbookResult.answers,
+      runContext,
     );
 
     generatedSections.push({

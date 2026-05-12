@@ -7,12 +7,15 @@ import {
   parseExitTicket,
   parseGetReadyToRead,
   parseGuidedReading,
+  parseHomeschoolParentGuide,
   parseMeasurableObjectives,
   parseStandards,
+  parseStandardsMapping,
   parseThinkAboutTheStoryAnswers,
   parseWordsToKnowMiniLesson,
   validateAnswerKeyQuestionsMatchHtml,
   validateMultipleChoiceAnswerLetters,
+  validateStandardsMappingCodes,
 } from "../teacherGuideJsonParsers.js";
 import type { ParsedCoreQuestions } from "../../prompts/workbookSectionPrompts.js";
 
@@ -578,6 +581,130 @@ describe("teacherGuideJsonParsers", () => {
         expect(msg).toContain('Workbook: "Why might Heidi feel nervous meeting Grandfather?"');
         expect(msg).toContain('Answers JSON: "Totally different question?"');
       }
+    });
+  });
+
+  describe("parseHomeschoolParentGuide", () => {
+    const validJson = () =>
+      JSON.stringify({
+        chapterSnapshot: { synopsis: "S", whyThisMatters: "W" },
+        pacingTips: {
+          day1: "D1",
+          day2: "D2",
+          day3: "D3",
+          pausePoints: ["p1"],
+          stoppingPoints: ["s1"],
+        },
+        discussionQuestions: {
+          understanding: ["u1", "u2", "u3"],
+          thinkingDeeper: ["t1", "t2", "t3"],
+          personalConnections: ["c1", "c2", "c3"],
+        },
+        simpleActivity: {
+          name: "Activity",
+          materials: ["m1"],
+          steps: ["step1", "step2", "step3"],
+          bonusChallenge: "bonus",
+        },
+        parentNotes: { contentAwareness: ["ca"], vocabTips: ["vt"], wordsToExplain: ["w1", "w2"] },
+        encouragement: { paragraph: "para", reminders: ["r1", "r2"] },
+      });
+
+    it("parses a valid payload", () => {
+      const data = parseHomeschoolParentGuide(validJson());
+      expect(data.chapterSnapshot.synopsis).toBe("S");
+      expect(data.pacingTips.day3).toBe("D3");
+      expect(data.discussionQuestions.thinkingDeeper).toHaveLength(3);
+      expect(data.simpleActivity.steps).toHaveLength(3);
+    });
+
+    it("treats missing or empty day3 as undefined", () => {
+      const obj = JSON.parse(validJson());
+      delete obj.pacingTips.day3;
+      const data = parseHomeschoolParentGuide(JSON.stringify(obj));
+      expect(data.pacingTips.day3).toBeUndefined();
+
+      obj.pacingTips.day3 = "  ";
+      const data2 = parseHomeschoolParentGuide(JSON.stringify(obj));
+      expect(data2.pacingTips.day3).toBeUndefined();
+    });
+
+    it("throws when a required nested field is missing", () => {
+      const obj = JSON.parse(validJson());
+      delete obj.encouragement.paragraph;
+      expect(() => parseHomeschoolParentGuide(JSON.stringify(obj))).toThrow(
+        /encouragement\.paragraph/,
+      );
+    });
+  });
+
+  describe("parseStandardsMapping", () => {
+    it("parses a valid payload", () => {
+      const json = JSON.stringify({
+        rows: [
+          { code: "RL.3.1", howAddressed: "ha", assessmentEvidence: "ae" },
+          { code: "W.3.3", howAddressed: "ha2", assessmentEvidence: "ae2" },
+        ],
+      });
+      const data = parseStandardsMapping(json);
+      expect(data.rows).toHaveLength(2);
+      expect(data.rows[0].code).toBe("RL.3.1");
+      expect(data.rows[1].assessmentEvidence).toBe("ae2");
+    });
+
+    it("accepts an empty rows array", () => {
+      const data = parseStandardsMapping(JSON.stringify({ rows: [] }));
+      expect(data.rows).toEqual([]);
+    });
+
+    it("throws on missing assessmentEvidence", () => {
+      const json = JSON.stringify({
+        rows: [{ code: "RL.3.1", howAddressed: "ha" }],
+      });
+      expect(() => parseStandardsMapping(json)).toThrow(/rows\[0\]\.assessmentEvidence/);
+    });
+  });
+
+  describe("validateStandardsMappingCodes", () => {
+    const row = (code: string) => ({ code, howAddressed: "ha", assessmentEvidence: "ae" });
+
+    it("passes when codes match expected in order", () => {
+      expect(() =>
+        validateStandardsMappingCodes(
+          ["RL.3.1", "W.3.3"],
+          { rows: [row("RL.3.1"), row("W.3.3")] },
+        ),
+      ).not.toThrow();
+    });
+
+    it("throws when a row is missing", () => {
+      expect(() =>
+        validateStandardsMappingCodes(["RL.3.1", "W.3.3"], { rows: [row("RL.3.1")] }),
+      ).toThrow(/expected 2 row\(s\).*got 1/);
+    });
+
+    it("throws when an extra row is present", () => {
+      expect(() =>
+        validateStandardsMappingCodes(
+          ["RL.3.1"],
+          { rows: [row("RL.3.1"), row("W.3.3")] },
+        ),
+      ).toThrow(/expected 1 row\(s\).*got 2/);
+    });
+
+    it("throws when codes are reordered", () => {
+      expect(() =>
+        validateStandardsMappingCodes(
+          ["RL.3.1", "W.3.3"],
+          { rows: [row("W.3.3"), row("RL.3.1")] },
+        ),
+      ).toThrow(/rows\[0\]\.code "W\.3\.3" does not match expected "RL\.3\.1"/);
+    });
+
+    it("throws when a code is invented (not in expected)", () => {
+      expect(() =>
+        validateStandardsMappingCodes(["RL.3.1"], { rows: [row("L.3.4")] }),
+      ).toThrow(/rows\[0\]\.code "L\.3\.4" does not match expected "RL\.3\.1"/);
     });
   });
 });

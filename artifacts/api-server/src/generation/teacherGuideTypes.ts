@@ -189,6 +189,78 @@ export interface CharacterChartAnswer {
   page: number;
 }
 
+/**
+ * Homeschool Parent Guide — appended after the standard Teacher Guide content.
+ * Modeled on the FINAL gold-standard reference (Heidi Grade 3, Lesson 1).
+ */
+export interface HomeschoolParentGuideData {
+  chapterSnapshot: {
+    /** 2–4 sentence plain-language synopsis of what happens in the chapter. */
+    synopsis: string;
+    /** Why this chapter matters — themes, lessons, why it's worth reading aloud. */
+    whyThisMatters: string;
+  };
+  pacingTips: {
+    /** Suggested split if the chapter is read across multiple days. */
+    day1: string;
+    day2: string;
+    day3?: string;
+    /** Concrete places to pause and check in. */
+    pausePoints: string[];
+    /** Natural stopping points if a session needs to be cut short. */
+    stoppingPoints: string[];
+  };
+  discussionQuestions: {
+    /** Literal/comprehension questions parents can ask. 3–4 items. */
+    understanding: string[];
+    /** Inference and analysis questions. 3–4 items. */
+    thinkingDeeper: string[];
+    /** Personal connection questions linking the story to the child's life. 3–4 items. */
+    personalConnections: string[];
+  };
+  simpleActivity: {
+    /** Short activity name, e.g. "Pack Heidi's Suitcase". */
+    name: string;
+    /** Materials a parent would need at home. */
+    materials: string[];
+    /** Step-by-step instructions. */
+    steps: string[];
+    /** Optional extension for kids who want more. */
+    bonusChallenge: string;
+  };
+  parentNotes: {
+    /** Things parents should be aware of (e.g. emotional content, themes). 1–3 items. */
+    contentAwareness: string[];
+    /** Tips for handling vocabulary as a parent (not a teacher). */
+    vocabTips: string[];
+    /** Specific words from this chapter parents may want to explain. */
+    wordsToExplain: string[];
+  };
+  encouragement: {
+    /** A short, warm paragraph of encouragement for the parent. */
+    paragraph: string;
+    /** 2–4 short reminders ("you're doing great" style). */
+    reminders: string[];
+  };
+}
+
+/**
+ * Standards Mapping — 4-column table appended after the Homeschool Parent
+ * Guide. The Description column is filled from the standards lookup table
+ * (elaStandards.ts); Claude only provides howAddressed and assessmentEvidence
+ * for each code that appears in the chapter's parsed Standards section.
+ */
+export interface StandardsMappingData {
+  rows: Array<{
+    /** Exact ELA standard code, e.g. "RL.3.1". Must match a code from the chapter's Standards section. */
+    code: string;
+    /** Concrete sentence describing how this chapter addresses the standard. */
+    howAddressed: string;
+    /** Concrete sentence describing how a teacher can see evidence the standard is met. */
+    assessmentEvidence: string;
+  }>;
+}
+
 export interface AnswerKeyData {
   readingBetweenTheLines: QuestionAnswer[];
   digDeeper: QuestionAnswer[];

@@ -6,3 +6,27 @@
 .tg-no-italic {
   font-style: normal;
 }
+
+.tg-standards-mapping-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5em 0;
+}
+
+.tg-standards-mapping-table th,
+.tg-standards-mapping-table td {
+  border: 1px solid #ccc;
+  padding: 0.4em 0.6em;
+  vertical-align: top;
+  text-align: left;
+}
+
+.tg-standards-mapping-table thead th {
+  background: #f4f4f4;
+}
+
+.tg-next-chapter-teaser {
+  margin-top: 1em;
+  text-align: center;
+  text-transform: uppercase;
+}
