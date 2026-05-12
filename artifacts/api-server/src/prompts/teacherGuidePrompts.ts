@@ -448,7 +448,7 @@ Chapter Snapshot
 - whyThisMatters: 2–3 sentences explaining the themes and why the chapter is worth reading aloud.
 
 Read-Aloud & Pacing Tips
-- day1, day2, (optional day3): suggested read-aloud schedule. Each value MUST include a page range, e.g. "Day 1: Read pages 1–6. ...".
+- day1, day2, (optional day3): suggested read-aloud schedule. Each value is the BODY ONLY — do NOT begin with a "Day N:" prefix; the renderer prepends the day label automatically. Each value MUST include a page range, e.g. "Read pages 1–6. ...".
 - pausePoints: 2–5 concrete "When to pause" moments. Each MUST mention a page number in the prose, e.g. "After page 4, ask...".
 - stoppingPoints: 2–4 natural breakpoints if a session must be cut short.
 
