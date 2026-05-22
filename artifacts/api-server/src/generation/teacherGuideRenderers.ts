@@ -446,8 +446,12 @@ export function renderAnswerKey(data: AnswerKeyData, vocabulary: VocabularyWord[
     )
     .join("\n");
 
+  // Upstream (studentWorkbook.ts) already enforces the chapter-count-dependent
+  // event count (6 for single-chapter, 10 for multi-chapter) before populating
+  // data.bonusChallenge, so the renderer only needs to confirm we have at
+  // least one event to show.
   const bonusChallengeHtml =
-    data.bonusChallenge && data.bonusChallenge.length >= 5 && data.bonusChallenge.length <= 7
+    data.bonusChallenge && data.bonusChallenge.length >= 1
       ? `<h4 class="tg-emphasis-heading">Bonus Challenge — Answer Key (Correct Order)</h4>
   <ol class="tg-bonus-key">
 ${data.bonusChallenge.map((event) => `    <li>${escapeHtml(event)}</li>`).join("\n")}

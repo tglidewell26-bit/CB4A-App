@@ -28,6 +28,13 @@ export interface TeacherGuidePromptInputs {
    * the codes shown in the existing Standards block.
    */
   standardsCodes?: string[];
+  /**
+   * Number of book chapters covered by this lesson. Threaded into the
+   * guided_reading prompt so the section count scales with chapter coverage
+   * (3–5 for single-chapter, ~4–5 per chapter for multi-chapter lessons).
+   * Defaults to 1 when omitted.
+   */
+  chapterCount?: number;
 }
 
 export function buildTeacherSectionSystemPrompt(args: TeacherGuidePromptInputs): string {
@@ -37,6 +44,7 @@ export function buildTeacherSectionSystemPrompt(args: TeacherGuidePromptInputs):
     args.grade,
     args.vocabulary.length,
     args.standardsCodes,
+    args.chapterCount ?? 1,
   );
   return `You are writing the ${args.sectionDisplayTitle} section of a Teacher Guide for ${args.bookTitle} by ${args.author}.
 ${guidance}
@@ -73,6 +81,7 @@ export function teacherSectionRequirementByKey(
   grade?: GradeLevel,
   vocabCount?: number,
   standardsCodes?: string[],
+  chapterCount: number = 1,
 ): string {
   const gradeLevel = (grade ?? 4) as GradeLevel;
   const wordCount = vocabCount ?? 10;
@@ -203,11 +212,22 @@ Return ONLY the JSON object. No markdown fences, no commentary.`;
   "readAloudTip": "Pause after each section and ask students to explain their thinking."
 }
 
-Question types must be one of: ${QUESTION_TYPES.join(", ")}.
-- Use 3–5 sections.
+${(() => {
+  // Scale guided-reading section count with chapter coverage. A single-chapter
+  // lesson keeps the original 3–5 sections; multi-chapter lessons use roughly
+  // 4–5 sections per chapter so the teacher has at least one guided-reading
+  // stop per major scene in every chapter the lesson covers.
+  const minSections = chapterCount <= 1 ? 3 : 4 * chapterCount;
+  const maxSections = chapterCount <= 1 ? 5 : 5 * chapterCount;
+  const scopeLine = chapterCount >= 2
+    ? `This lesson covers ${chapterCount} chapters — distribute the sections across ALL of them (do not pile every section into a single chapter). pageStart/pageEnd must reflect the actual chapter the section anchors to.`
+    : "";
+  return `Question types must be one of: ${QUESTION_TYPES.join(", ")}.
+- Use ${minSections}${minSections === maxSections ? "" : `–${maxSections}`} sections.
 - Each section needs 2–4 questions.
 - openingPhrase and closingPhrase must be exact phrases from the chapter.
-- readAloudTip must be one short teacher tip.
+- readAloudTip must be one short teacher tip.${scopeLine ? `\n- ${scopeLine}` : ""}`;
+})()}
 
 Return ONLY the JSON object. No markdown fences, no commentary.`;
 

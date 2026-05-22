@@ -103,7 +103,7 @@ const GUIDED_READING_JSON = JSON.stringify({
   sections: [
     {
       pageStart: 1,
-      pageEnd: 6,
+      pageEnd: 4,
       openingPhrase: "Heidi and Deta",
       closingPhrase: "the path grew steep",
       questions: [
@@ -112,13 +112,23 @@ const GUIDED_READING_JSON = JSON.stringify({
       ],
     },
     {
-      pageStart: 7,
-      pageEnd: 12,
+      pageStart: 5,
+      pageEnd: 8,
       openingPhrase: "Grandfather watched",
       closingPhrase: "the door swung shut",
       questions: [
         { text: "Why is Grandfather silent?", questionType: "analysis" },
         { text: "Was Deta right to leave Heidi?", questionType: "evaluation" },
+      ],
+    },
+    {
+      pageStart: 9,
+      pageEnd: 12,
+      openingPhrase: "At the table",
+      closingPhrase: "Heidi slept soundly",
+      questions: [
+        { text: "How does Heidi adjust to the cabin?", questionType: "inference" },
+        { text: "What does her sleep place reveal?", questionType: "analysis" },
       ],
     },
   ],

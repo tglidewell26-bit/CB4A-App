@@ -142,6 +142,16 @@ describe("teacherGuideJsonParsers", () => {
       const json = JSON.stringify({
         sections: [
           {
+            pageStart: 1,
+            pageEnd: 3,
+            openingPhrase: "Once upon",
+            closingPhrase: "they walked on",
+            questions: [
+              { text: "Q1?", questionType: "comprehension" },
+              { text: "Q2?", questionType: "inference" },
+            ],
+          },
+          {
             pageStart: 4,
             pageEnd: 6,
             openingPhrase: "It was a bright morning",
@@ -151,11 +161,22 @@ describe("teacherGuideJsonParsers", () => {
               { text: "What does this suggest?", questionType: "inference" },
             ],
           },
+          {
+            pageStart: 7,
+            pageEnd: 9,
+            openingPhrase: "At the summit",
+            closingPhrase: "the wind died down",
+            questions: [
+              { text: "Q5?", questionType: "analysis" },
+              { text: "Q6?", questionType: "evaluation" },
+            ],
+          },
         ],
         readAloudTip: "Pause after each segment.",
       });
       const data = parseGuidedReading(json);
       expect(data.sections[0].questions[0].questionType).toBe("comprehension");
+      expect(data.sections.length).toBe(3);
     });
 
     it("throws on unknown questionType", () => {
@@ -166,12 +187,51 @@ describe("teacherGuideJsonParsers", () => {
             pageEnd: 6,
             openingPhrase: "x",
             closingPhrase: "y",
-            questions: [{ text: "?", questionType: "synthesis" }],
+            questions: [
+              { text: "?", questionType: "synthesis" },
+              { text: "?", questionType: "comprehension" },
+            ],
           },
         ],
         readAloudTip: "x",
       });
       expect(() => parseGuidedReading(json)).toThrow(/questionType/);
+    });
+
+    it("throws when section count is below the single-chapter minimum", () => {
+      const json = JSON.stringify({
+        sections: [
+          {
+            pageStart: 1,
+            pageEnd: 3,
+            openingPhrase: "a",
+            closingPhrase: "b",
+            questions: [
+              { text: "?", questionType: "comprehension" },
+              { text: "?", questionType: "inference" },
+            ],
+          },
+        ],
+        readAloudTip: "x",
+      });
+      expect(() => parseGuidedReading(json)).toThrow(/3–5 sections/);
+    });
+
+    it("requires more sections for a multi-chapter lesson", () => {
+      const json = JSON.stringify({
+        sections: Array.from({ length: 3 }, (_, i) => ({
+          pageStart: i * 5 + 1,
+          pageEnd: i * 5 + 4,
+          openingPhrase: "a",
+          closingPhrase: "b",
+          questions: [
+            { text: "?", questionType: "comprehension" },
+            { text: "?", questionType: "inference" },
+          ],
+        })),
+        readAloudTip: "x",
+      });
+      expect(() => parseGuidedReading(json, 2)).toThrow(/8–10 sections/);
     });
   });
 

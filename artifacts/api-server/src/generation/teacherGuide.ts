@@ -40,6 +40,7 @@ import {
 import type { StandardsData } from "./teacherGuideTypes.js";
 import {
   getChapterLabel,
+  getLessonChapterCount,
   renderTeacherGuideSection,
   truncateText,
   type ChapterMeta,
@@ -213,6 +214,7 @@ async function generateSectionBody(
       sectionKey === "standards_mapping"
         ? (context.chapterStandards?.standards.map((s) => s.code) ?? [])
         : undefined,
+    chapterCount: getLessonChapterCount(meta),
   };
   const systemPrompt = buildTeacherSectionSystemPrompt(promptInputs);
   const userPrompt = buildTeacherSectionUserPrompt(promptInputs);
@@ -234,7 +236,7 @@ async function generateSectionBody(
     case "words_to_know_mini_lesson":
       return renderWordsToKnowMiniLesson(parseWordsToKnowMiniLesson(rawJson), vocabulary);
     case "guided_reading":
-      return renderGuidedReading(parseGuidedReading(rawJson));
+      return renderGuidedReading(parseGuidedReading(rawJson, getLessonChapterCount(meta)));
     case "differentiated_supports":
       return renderDifferentiatedSupports(parseDifferentiatedSupports(rawJson));
     case "common_student_questions":

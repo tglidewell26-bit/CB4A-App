@@ -16,6 +16,60 @@ export interface ChapterMeta {
   grade: number;
   extractedText: string;
   characterDatabase?: BookCharacterDatabase;
+  /**
+   * Number of book chapters covered by this lesson. Defaults to 1 when not
+   * provided; callers can set it explicitly, or use getLessonChapterCount() to
+   * infer it from chapterTitle patterns like "Chapters 2-3" / "Chapters 4 and 5".
+   */
+  chapterCount?: number;
+}
+
+/**
+ * Returns the number of book chapters covered by this lesson.
+ *
+ * Resolution order:
+ *   1. Explicit meta.chapterCount, when set and > 0.
+ *   2. Parse chapterTitle for a range like "Chapters 2-3", "Chapters 2–3",
+ *      "Chapters 2 to 3" → end - start + 1.
+ *   3. Parse chapterTitle for a list like "Chapters 2 and 3",
+ *      "Chapters 2 & 3", "Chapters 2, 3, 4" → number of distinct integers.
+ *   4. Fallback: 1 (single-chapter lesson).
+ */
+export function getLessonChapterCount(meta: Pick<ChapterMeta, "chapterTitle" | "chapterCount">): number {
+  if (typeof meta.chapterCount === "number" && meta.chapterCount > 0) {
+    return Math.trunc(meta.chapterCount);
+  }
+  const title = meta.chapterTitle ?? "";
+  // Accept "Chapter(s)", "Ch", "Chs", and "Lesson(s)" as prefixes — partners
+  // commonly title multi-chapter lessons as "Lesson 1-2", "Chs 3 & 4", etc.
+  const prefix = String.raw`(?:Chapters?|Chs?|Lessons?)`;
+  const rangeRe = new RegExp(
+    `${prefix}\\s+(\\d+)\\s*(?:[-–—]|to|through|thru)\\s*(\\d+)`,
+    "i",
+  );
+  const range = title.match(rangeRe);
+  if (range) {
+    const a = parseInt(range[1], 10);
+    const b = parseInt(range[2], 10);
+    if (b >= a) return b - a + 1;
+  }
+  const listRe = new RegExp(`${prefix}\\s+([\\d,&\\s]+(?:and\\s+\\d+)?)`, "i");
+  const listMatch = title.match(listRe);
+  if (listMatch) {
+    const nums = [...listMatch[1].matchAll(/\d+/g)].map((m) => parseInt(m[0], 10));
+    const unique = Array.from(new Set(nums));
+    if (unique.length >= 2) return unique.length;
+  }
+  return 1;
+}
+
+/**
+ * Per-lesson bonus_challenge event count.
+ * - 1-chapter lesson  → 6 events
+ * - 2+ chapter lesson → 10 events
+ */
+export function getBonusChallengeEventCount(chapterCount: number): number {
+  return chapterCount >= 2 ? 10 : 6;
 }
 
 export interface GeneratedSection {
@@ -176,13 +230,14 @@ export function buildTemplateSectionBody(
       // Allow optional attributes on <li> (notably data-page="N") so the
       // upstream chronological-sort step can annotate events without breaking
       // this regex. The attribute is stripped here — students don't see it.
+      const expectedEvents = getBonusChallengeEventCount(getLessonChapterCount(meta));
       const events = [...llmBodyHtml.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)]
         .map((m) => m[1].trim())
-        .slice(0, 7);
+        .slice(0, expectedEvents);
       const shuffled = shuffleArray(events);
-      if (shuffled.length < 5 || shuffled.length > 7) {
+      if (shuffled.length !== expectedEvents) {
         throw new Error(
-          `Student Workbook validation failed: bonus_challenge requires 5–7 events from LLM (got ${shuffled.length}).`,
+          `Student Workbook validation failed: bonus_challenge requires exactly ${expectedEvents} events from LLM (got ${shuffled.length}).`,
         );
       }
       return `<ol class="timeline-list">

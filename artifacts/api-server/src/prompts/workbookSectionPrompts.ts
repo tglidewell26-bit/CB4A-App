@@ -31,8 +31,10 @@ export const STUDENT_SECTION_ITEM_COUNTS: Record<string, number | null> = {
   dig_deeper: 3,
   multiple_choice_questions: 3,
   evidence_from_the_story: 3,
-  // bonus_challenge accepts 5–7 events; the range is enforced separately in
-  // workbookValidators.ts (validateItemCount only handles fixed counts).
+  // bonus_challenge requires a chapter-count-dependent count (6 for a
+  // single-chapter lesson, 10 for a multi-chapter lesson). validateItemCount
+  // only handles fixed counts, so the dynamic check lives in
+  // workbookValidators.ts and is derived via getBonusChallengeEventCount().
   bonus_challenge: null,
   draw_it: 1,
 };
@@ -238,7 +240,7 @@ export function getGradeQuestionExamples(
   return GRADE_QUESTION_EXAMPLES[clamped][sectionKey];
 }
 
-export function studentSectionRequirementByKey(key: string): string {
+export function studentSectionRequirementByKey(key: string, chapterCount: number = 1): string {
   switch (key) {
     case "get_ready_to_read":
       return `<div class="focus-question"><div class="focus-label">FOCUS QUESTION</div><p>...</p></div>.
@@ -276,8 +278,12 @@ Do NOT copy that example. Do NOT include vocabulary words. Do NOT include any le
       return "Output exactly 1 item. One sentence under 25 words. No paragraph. No list. No scene-description list.";
     case "reflect_on_your_drawing":
       return "Exactly 3 sentence stems for reflection.";
-    case "bonus_challenge":
-      return `<ol class="timeline-list"><li data-page="N">...</li></ol> with 5 to 7 events from the chapter, each one a single sentence. Pick the count that best fits the chapter's real plot — never pad to reach 7 with weak events.
+    case "bonus_challenge": {
+      const bonusCount = chapterCount >= 2 ? 10 : 6;
+      const chapterScopeLine = chapterCount >= 2
+        ? `This lesson covers ${chapterCount} chapters — distribute the ${bonusCount} events across all of them so the timeline spans the entire lesson, not just one chapter.`
+        : `Use ${bonusCount} of the chapter's strongest plot beats.`;
+      return `<ol class="timeline-list"><li data-page="N">...</li></ol> with EXACTLY ${bonusCount} events from the chapter, each one a single sentence. ${chapterScopeLine} Pick the strongest plot-driving moments — never pad with weak events.
 
 For EACH <li>, include a data-page="N" attribute set to the chapter page number where that event happens (use the earliest page if the event spans multiple pages). You do NOT need to pre-sort the events — the system sorts them by data-page to produce the chronological answer key, then shuffles them for the student.
 
@@ -304,7 +310,8 @@ SELF-AUDIT — before returning, silently re-read each of your events and check:
   1. Does it describe an action that happens IN this chapter (not backstory)?
   2. Does the data-page value match where the event actually occurs?
   3. Could a child retell the plot from your events alone?
-If any event fails, replace it with a stronger one from the same part of the chapter — or drop it entirely if you cannot find one (5 strong events beat 7 weak ones).`;
+If any event fails, replace it with a stronger one from the same part of the chapter — output must contain EXACTLY ${bonusCount} events.`;
+    }
     case "thinking_deeper":
       return "Output exactly two lines with the prediction frame and no additional prompt text.";
     default:
@@ -339,6 +346,13 @@ export interface StudentWorkbookPromptInputs {
   sectionDisplayTitle: string;
   standingSubheader: string | null;
   chapterText: string;
+  /**
+   * Number of book chapters covered by this lesson. Threaded into the
+   * bonus_challenge formatting target so the prompt asks Claude for the right
+   * event count (6 for single-chapter lessons, 10 for multi-chapter lessons).
+   * Defaults to 1 when omitted to preserve legacy single-chapter behavior.
+   */
+  chapterCount?: number;
 }
 
 function serializeVocabulary(vocabulary: VocabularyWord[]): string {
@@ -370,7 +384,7 @@ Do not add, remove, or replace words.
 Grade calibration: ${gradeGuidanceFor(input.grade)}
 
 Required section key: ${input.sectionKey}
-Formatting target: ${studentSectionRequirementByKey(input.sectionKey)}
+Formatting target: ${studentSectionRequirementByKey(input.sectionKey, input.chapterCount ?? 1)}
 ${studentLengthConstraintBySection(input.sectionKey)}`;
 }
 

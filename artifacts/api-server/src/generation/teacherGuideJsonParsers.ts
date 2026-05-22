@@ -210,7 +210,7 @@ export function parseWordsToKnowMiniLesson(raw: string): WordsToKnowMiniLessonDa
   };
 }
 
-export function parseGuidedReading(raw: string): GuidedReadingData {
+export function parseGuidedReading(raw: string, chapterCount: number = 1): GuidedReadingData {
   const sectionKey = "guided_reading";
   const data = parseJson(sectionKey, raw);
   const root = asObject(sectionKey, data, "(root)");
@@ -230,6 +230,11 @@ export function parseGuidedReading(raw: string): GuidedReadingData {
         };
       },
     );
+    if (questions.length < 2 || questions.length > 4) {
+      throw new Error(
+        `${sectionKey} validation failed: sections[${i}] must have 2–4 questions (got ${questions.length}).`,
+      );
+    }
     return {
       pageStart: asNumber(sectionKey, obj.pageStart, `sections[${i}].pageStart`),
       pageEnd: asNumber(sectionKey, obj.pageEnd, `sections[${i}].pageEnd`),
@@ -238,6 +243,17 @@ export function parseGuidedReading(raw: string): GuidedReadingData {
       questions,
     };
   });
+  // Section-count bounds scale with how many book chapters this lesson covers
+  // — keep the original 3–5 sections for a single-chapter lesson, and require
+  // roughly 4–5 sections per chapter for multi-chapter lessons so guided
+  // reading is distributed instead of clumped into one chapter.
+  const minSections = chapterCount <= 1 ? 3 : 4 * chapterCount;
+  const maxSections = chapterCount <= 1 ? 5 : 5 * chapterCount;
+  if (sections.length < minSections || sections.length > maxSections) {
+    throw new Error(
+      `${sectionKey} validation failed: must have ${minSections}–${maxSections} sections for a ${chapterCount}-chapter lesson (got ${sections.length}).`,
+    );
+  }
   return {
     sections,
     readAloudTip: asString(sectionKey, root.readAloudTip, "readAloudTip"),

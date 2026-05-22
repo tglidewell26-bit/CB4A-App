@@ -23,7 +23,9 @@ import {
   buildManualSlot,
   buildTemplateSectionBody,
   buildWordsToKnowTableHtml,
+  getBonusChallengeEventCount,
   getChapterLabel,
+  getLessonChapterCount,
   renderStudentWorkbookSection,
   truncateText,
   type ChapterMeta,
@@ -227,6 +229,7 @@ export async function generateStudentWorkbook(
         sectionDisplayTitle: section.display_title,
         standingSubheader,
         chapterText,
+        chapterCount: getLessonChapterCount(meta),
       };
       rawBodyHtml = await generateLlmSectionBody(
         buildStudentSectionSystemPrompt(promptInputs),
@@ -278,7 +281,7 @@ export async function generateStudentWorkbook(
             originalIdx,
             text: m[2].trim(),
           }))
-          .slice(0, 7);
+          .slice(0, getBonusChallengeEventCount(getLessonChapterCount(meta)));
         const sorted = [...items].sort(
           (a, b) => a.page - b.page || a.originalIdx - b.originalIdx,
         );
@@ -312,7 +315,8 @@ export async function generateStudentWorkbook(
   // the persisted payload. This ensures delayed teacher-guide generation from
   // DB state has the focus question without re-parsing the workbook HTML.
   const workbookAnswers = parseWorkbookAnswers(coreResponse.answersJsonRaw, focusQuestion);
-  if (bonusChallengeChronological.length >= 5 && bonusChallengeChronological.length <= 7) {
+  const expectedBonusCount = getBonusChallengeEventCount(getLessonChapterCount(meta));
+  if (bonusChallengeChronological.length === expectedBonusCount) {
     workbookAnswers.answerKey.bonusChallenge = bonusChallengeChronological;
   }
   validateAnswerKeyQuestionsMatchHtml(coreResponse.questions, workbookAnswers);

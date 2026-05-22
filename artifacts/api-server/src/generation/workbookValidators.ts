@@ -6,7 +6,12 @@ import {
   getExpectedItemCount,
   getPromptWordCountLimit,
 } from "../prompts/workbookSectionPrompts.js";
-import type { ChapterMeta, GeneratedSection } from "./templateRenderers.js";
+import {
+  getBonusChallengeEventCount,
+  getLessonChapterCount,
+  type ChapterMeta,
+  type GeneratedSection,
+} from "./templateRenderers.js";
 
 // ---------------------------------------------------------------------------
 // Question classification
@@ -139,7 +144,7 @@ function validateCharacterChartEmptyCells(html: string): void {
   }
 }
 
-function validateTemplateStructure(section: GeneratedSection): void {
+function validateTemplateStructure(section: GeneratedSection, meta: ChapterMeta): void {
   if (section.bodySource !== "template") return;
   switch (section.key) {
     case "creative_response":
@@ -176,12 +181,14 @@ function validateTemplateStructure(section: GeneratedSection): void {
       if (!/<ol[^>]*class="timeline-list"/i.test(section.bodyHtml)) {
         throw new Error("Student Workbook validation failed: bonus_challenge template list is missing.");
       }
-      // 5–7 event range is enforced here (validateItemCount handles only
-      // fixed-count sections; bonus_challenge is variable).
+      // Bonus challenge event count is chapter-count dependent (6 for a
+      // single-chapter lesson, 10 for a multi-chapter lesson). validateItemCount
+      // only handles fixed counts, so the dynamic check lives here.
+      const expectedEvents = getBonusChallengeEventCount(getLessonChapterCount(meta));
       const eventCount = (section.bodyHtml.match(/<li\b[^>]*>/g) ?? []).length;
-      if (eventCount < 5 || eventCount > 7) {
+      if (eventCount !== expectedEvents) {
         throw new Error(
-          `Student Workbook validation failed: bonus_challenge must contain 5–7 events (got ${eventCount}).`,
+          `Student Workbook validation failed: bonus_challenge must contain exactly ${expectedEvents} events for a ${getLessonChapterCount(meta)}-chapter lesson (got ${eventCount}).`,
         );
       }
       break;
@@ -272,7 +279,7 @@ export function validateSections(
     if (generated.bodySource === "template" && generated.key === "character_chart") {
       validateCharacterChartEmptyCells(generated.bodyHtml);
     }
-    validateTemplateStructure(generated);
+    validateTemplateStructure(generated, meta);
     if (
       generated.bodySource === "template" &&
       !["draw_it", "bonus_challenge"].includes(generated.key) &&
