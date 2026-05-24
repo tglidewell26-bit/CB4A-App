@@ -35,13 +35,25 @@ const CYCLES = Number(process.env.QA_CYCLES ?? "5");
 const POLL_INTERVAL_MS = 5000;
 const POLL_TIMEOUT_MS = 8 * 60 * 1000;
 
-const EXPECTED_WORKBOOK_ITEM_COUNTS: Record<string, number> = {
-  think_about_the_story: 6,
-  reading_between_the_lines: 3,
-  dig_deeper: 3,
-  multiple_choice_questions: 3,
-  evidence_from_the_story: 3,
-};
+/**
+ * Per-section item counts scale with the number of book chapters in a lesson.
+ * Override at runtime via QA_CHAPTER_COUNT (default 1 — single-chapter lesson).
+ *   - think_about_the_story          : fixed 6
+ *   - reading_between_the_lines, MC  : 3 × chapterCount
+ *   - dig_deeper, evidence_from_story: 3 + 2·(chapterCount − 1)
+ */
+const QA_CHAPTER_COUNT = Math.max(1, Number(process.env.QA_CHAPTER_COUNT ?? "1"));
+
+const EXPECTED_WORKBOOK_ITEM_COUNTS: Record<string, number> = (() => {
+  const cc = QA_CHAPTER_COUNT;
+  return {
+    think_about_the_story: 6,
+    reading_between_the_lines: 3 * cc,
+    dig_deeper: 3 + 2 * (cc - 1),
+    multiple_choice_questions: 3 * cc,
+    evidence_from_the_story: 3 + 2 * (cc - 1),
+  };
+})();
 
 const CORE_QUESTION_SECTION_KEYS = Object.keys(EXPECTED_WORKBOOK_ITEM_COUNTS);
 

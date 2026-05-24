@@ -7,7 +7,7 @@ import {
   getPromptWordCountLimit,
 } from "../prompts/workbookSectionPrompts.js";
 import {
-  getBonusChallengeEventCount,
+  getBonusChallengeEventRange,
   getLessonChapterCount,
   type ChapterMeta,
   type GeneratedSection,
@@ -107,8 +107,8 @@ function validateSentenceLimits(section: GeneratedSection): void {
   }
 }
 
-function validateItemCount(section: GeneratedSection): void {
-  const expectedCount = getExpectedItemCount(section.key);
+function validateItemCount(section: GeneratedSection, meta: ChapterMeta): void {
+  const expectedCount = getExpectedItemCount(section.key, getLessonChapterCount(meta));
   if (!expectedCount) return;
   const liCount = (section.bodyHtml.match(/<li[\s>]/g) ?? []).length;
   if (section.key === "draw_it") {
@@ -181,14 +181,18 @@ function validateTemplateStructure(section: GeneratedSection, meta: ChapterMeta)
       if (!/<ol[^>]*class="timeline-list"/i.test(section.bodyHtml)) {
         throw new Error("Student Workbook validation failed: bonus_challenge template list is missing.");
       }
-      // Bonus challenge event count is chapter-count dependent (6 for a
-      // single-chapter lesson, 10 for a multi-chapter lesson). validateItemCount
-      // only handles fixed counts, so the dynamic check lives here.
-      const expectedEvents = getBonusChallengeEventCount(getLessonChapterCount(meta));
+      // Bonus challenge event count is chapter-count dependent:
+      //   - single-chapter lesson  → 6 or 7 events (range)
+      //   - multi-chapter lesson   → exactly 10 events
+      // validateItemCount only handles fixed counts, so the dynamic
+      // range check lives here.
+      const cc = getLessonChapterCount(meta);
+      const { min, max } = getBonusChallengeEventRange(cc);
       const eventCount = (section.bodyHtml.match(/<li\b[^>]*>/g) ?? []).length;
-      if (eventCount !== expectedEvents) {
+      if (eventCount < min || eventCount > max) {
+        const expectedDesc = min === max ? `exactly ${max}` : `${min}–${max}`;
         throw new Error(
-          `Student Workbook validation failed: bonus_challenge must contain exactly ${expectedEvents} events for a ${getLessonChapterCount(meta)}-chapter lesson (got ${eventCount}).`,
+          `Student Workbook validation failed: bonus_challenge must contain ${expectedDesc} events for a ${cc}-chapter lesson (got ${eventCount}).`,
         );
       }
       break;
@@ -292,7 +296,7 @@ export function validateSections(
     if (generated.bodySource === "llm") {
       validateSentenceLimits(generated);
     }
-    validateItemCount(generated);
+    validateItemCount(generated, meta);
     validateCoreQuestionTypeSeparation(generated);
     if (generated.key !== "words_to_know" && /vocabulary|this word means|my sentence/i.test(generated.bodyHtml)) {
       throw new Error(`Student Workbook validation failed: unauthorized vocabulary content in section "${generated.key}".`);

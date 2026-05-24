@@ -54,8 +54,8 @@ describe("getLessonChapterCount", () => {
 });
 
 describe("getBonusChallengeEventCount", () => {
-  it("returns 6 events for a single-chapter lesson", () => {
-    expect(getBonusChallengeEventCount(1)).toBe(6);
+  it("returns 7 (the max of the 6–7 range) for a single-chapter lesson", () => {
+    expect(getBonusChallengeEventCount(1)).toBe(7);
   });
 
   it("returns 10 events for any multi-chapter lesson", () => {
@@ -65,9 +65,9 @@ describe("getBonusChallengeEventCount", () => {
 });
 
 describe("studentSectionRequirementByKey — bonus_challenge scaling", () => {
-  it("requires EXACTLY 6 events for a single-chapter lesson", () => {
+  it("allows 6 or 7 events for a single-chapter lesson", () => {
     const text = studentSectionRequirementByKey("bonus_challenge", 1);
-    expect(text).toMatch(/EXACTLY 6 events/);
+    expect(text).toMatch(/Prefer 7; drop to 6 only if a seventh would be weak filler/);
     expect(text).not.toMatch(/EXACTLY 10 events/);
   });
 

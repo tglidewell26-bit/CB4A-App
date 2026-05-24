@@ -64,12 +64,55 @@ export function getLessonChapterCount(meta: Pick<ChapterMeta, "chapterTitle" | "
 }
 
 /**
- * Per-lesson bonus_challenge event count.
- * - 1-chapter lesson  → 6 events
- * - 2+ chapter lesson → 10 events
+ * Acceptable range of bonus_challenge events for a lesson:
+ *   - 1-chapter lesson  → 6–7 events (canonical Lesson 1 uses 7; partner spec
+ *     said "6", so we accept either rather than forcing one).
+ *   - 2+ chapter lesson → exactly 10 events.
+ */
+export interface BonusChallengeEventRange {
+  min: number;
+  max: number;
+}
+
+export function getBonusChallengeEventRange(chapterCount: number): BonusChallengeEventRange {
+  return chapterCount >= 2 ? { min: 10, max: 10 } : { min: 6, max: 7 };
+}
+
+/**
+ * Maximum bonus_challenge events for a lesson. Used as the upper bound when
+ * slicing LLM output. The lower bound is enforced separately via
+ * getBonusChallengeEventRange().min in the validator.
  */
 export function getBonusChallengeEventCount(chapterCount: number): number {
-  return chapterCount >= 2 ? 10 : 6;
+  return getBonusChallengeEventRange(chapterCount).max;
+}
+
+/**
+ * Per-chapter scaling rules for the five core student-workbook question
+ * sections, derived from the canonical Heidi lessons:
+ *   - think_about_the_story          : fixed 6 (does not scale)
+ *   - reading_between_the_lines      : 3 × chapterCount  (Ch 1: 3, Chs 2-3: 6)
+ *   - multiple_choice_questions      : 3 × chapterCount  (Ch 1: 3, Chs 2-3: 6)
+ *   - dig_deeper                     : 3 + 2·(chapterCount-1)  (Ch 1: 3, Chs 2-3: 5)
+ *   - evidence_from_the_story        : 3 + 2·(chapterCount-1)  (Ch 1: 3, Chs 2-3: 5)
+ */
+export interface CoreQuestionItemCounts {
+  think_about_the_story: number;
+  reading_between_the_lines: number;
+  dig_deeper: number;
+  multiple_choice_questions: number;
+  evidence_from_the_story: number;
+}
+
+export function getCoreQuestionItemCounts(chapterCount: number): CoreQuestionItemCounts {
+  const cc = Math.max(1, Math.trunc(chapterCount));
+  return {
+    think_about_the_story: 6,
+    reading_between_the_lines: 3 * cc,
+    dig_deeper: 3 + 2 * (cc - 1),
+    multiple_choice_questions: 3 * cc,
+    evidence_from_the_story: 3 + 2 * (cc - 1),
+  };
 }
 
 export interface GeneratedSection {
@@ -230,14 +273,22 @@ export function buildTemplateSectionBody(
       // Allow optional attributes on <li> (notably data-page="N") so the
       // upstream chronological-sort step can annotate events without breaking
       // this regex. The attribute is stripped here — students don't see it.
-      const expectedEvents = getBonusChallengeEventCount(getLessonChapterCount(meta));
+      //
+      // Event count is range-based:
+      //   - single-chapter lesson  → 6 or 7 events (accept either)
+      //   - multi-chapter lesson   → exactly 10 events
+      // The range max is used as the upper slice bound; the min is enforced
+      // below so a too-short LLM response fails loudly.
+      const cc = getLessonChapterCount(meta);
+      const { min: minEvents, max: maxEvents } = getBonusChallengeEventRange(cc);
       const events = [...llmBodyHtml.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)]
         .map((m) => m[1].trim())
-        .slice(0, expectedEvents);
+        .slice(0, maxEvents);
       const shuffled = shuffleArray(events);
-      if (shuffled.length !== expectedEvents) {
+      if (shuffled.length < minEvents || shuffled.length > maxEvents) {
+        const expectedDesc = minEvents === maxEvents ? `exactly ${maxEvents}` : `${minEvents}–${maxEvents}`;
         throw new Error(
-          `Student Workbook validation failed: bonus_challenge requires exactly ${expectedEvents} events from LLM (got ${shuffled.length}).`,
+          `Student Workbook validation failed: bonus_challenge requires ${expectedDesc} events from LLM (got ${shuffled.length}).`,
         );
       }
       return `<ol class="timeline-list">

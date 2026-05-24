@@ -25,22 +25,36 @@ export function getPromptWordCountLimit(sectionKey: string): number | null {
   return STUDENT_SECTION_WORD_LIMITS[sectionKey] ?? null;
 }
 
+/**
+ * Static item counts for sections whose count never depends on lesson chapter
+ * count. The four "scaling" sections (reading_between_the_lines, dig_deeper,
+ * multiple_choice_questions, evidence_from_the_story) are NOT in this map —
+ * their expected counts are derived dynamically via
+ * getCoreQuestionItemCounts(chapterCount) in templateRenderers.ts and surfaced
+ * through getExpectedItemCount(key, chapterCount) below.
+ *
+ * bonus_challenge is also intentionally null here — it uses an event RANGE
+ * (6–7 for single-chapter, exactly 10 for multi-chapter) enforced separately
+ * in workbookValidators.ts via getBonusChallengeEventRange().
+ */
 export const STUDENT_SECTION_ITEM_COUNTS: Record<string, number | null> = {
   think_about_the_story: 6,
-  reading_between_the_lines: 3,
-  dig_deeper: 3,
-  multiple_choice_questions: 3,
-  evidence_from_the_story: 3,
-  // bonus_challenge requires a chapter-count-dependent count (6 for a
-  // single-chapter lesson, 10 for a multi-chapter lesson). validateItemCount
-  // only handles fixed counts, so the dynamic check lives in
-  // workbookValidators.ts and is derived via getBonusChallengeEventCount().
   bonus_challenge: null,
   draw_it: 1,
 };
 
-export function getExpectedItemCount(sectionKey: string): number | null {
-  return STUDENT_SECTION_ITEM_COUNTS[sectionKey] ?? null;
+export function getExpectedItemCount(sectionKey: string, chapterCount: number = 1): number | null {
+  const cc = Math.max(1, Math.trunc(chapterCount));
+  switch (sectionKey) {
+    case "reading_between_the_lines":
+    case "multiple_choice_questions":
+      return 3 * cc;
+    case "dig_deeper":
+    case "evidence_from_the_story":
+      return 3 + 2 * (cc - 1);
+    default:
+      return STUDENT_SECTION_ITEM_COUNTS[sectionKey] ?? null;
+  }
 }
 
 /**
@@ -249,12 +263,16 @@ Output exactly one short open-ended personal pre-reading question in a single <p
       return `Output NOTHING except the placeholder:
 WORDS_TO_KNOW_TABLE_PLACEHOLDER
 Do not include: vocabulary lists, definitions, example sentences, fill-in exercises, duplicate tables.`;
-    case "multiple_choice_questions":
+    case "multiple_choice_questions": {
+      const mcCount = 3 * Math.max(1, Math.trunc(chapterCount));
       return "Do not force vocabulary words into the questions. Write natural story-based questions that match the section purpose.\n" +
-        '<div class="mc-item"><div class="question">...</div><ul class="mc-options"><li>A. ...</li><li>B. ...</li><li>C. ...</li><li>D. ...</li></ul></div> with exactly 3 questions.';
-    case "evidence_from_the_story":
+        `<div class="mc-item"><div class="question">...</div><ul class="mc-options"><li>A. ...</li><li>B. ...</li><li>C. ...</li><li>D. ...</li></ul></div> with exactly ${mcCount} questions.`;
+    }
+    case "evidence_from_the_story": {
+      const etsCount = 3 + 2 * (Math.max(1, Math.trunc(chapterCount)) - 1);
       return "Do not force vocabulary words into the questions. Write natural story-based questions that match the section purpose.\n" +
-        `<ol class="question-list"><li class="question-item"><div class="question">...</div>${answerLines(3)}</li></ol> with exactly 3 questions.`;
+        `<ol class="question-list"><li class="question-item"><div class="question">...</div>${answerLines(3)}</li></ol> with exactly ${etsCount} questions.`;
+    }
     case "creative_response":
       return `Write a 2–3 sentence letter-writing prompt for the student that is rooted in THIS chapter.
 
@@ -279,11 +297,13 @@ Do NOT copy that example. Do NOT include vocabulary words. Do NOT include any le
     case "reflect_on_your_drawing":
       return "Exactly 3 sentence stems for reflection.";
     case "bonus_challenge": {
-      const bonusCount = chapterCount >= 2 ? 10 : 6;
-      const chapterScopeLine = chapterCount >= 2
+      const isMulti = chapterCount >= 2;
+      const bonusCount = isMulti ? 10 : 7;
+      const countPhrase = isMulti ? `EXACTLY ${bonusCount}` : `${bonusCount} (you may produce 6 if 7 strong beats are not available)`;
+      const chapterScopeLine = isMulti
         ? `This lesson covers ${chapterCount} chapters — distribute the ${bonusCount} events across all of them so the timeline spans the entire lesson, not just one chapter.`
-        : `Use ${bonusCount} of the chapter's strongest plot beats.`;
-      return `<ol class="timeline-list"><li data-page="N">...</li></ol> with EXACTLY ${bonusCount} events from the chapter, each one a single sentence. ${chapterScopeLine} Pick the strongest plot-driving moments — never pad with weak events.
+        : `Use the chapter's strongest plot beats. Prefer ${bonusCount}; drop to 6 only if a seventh would be weak filler.`;
+      return `<ol class="timeline-list"><li data-page="N">...</li></ol> with ${countPhrase} events from the chapter, each one a single sentence. ${chapterScopeLine} Pick the strongest plot-driving moments — never pad with weak events.
 
 For EACH <li>, include a data-page="N" attribute set to the chapter page number where that event happens (use the earliest page if the event spans multiple pages). You do NOT need to pre-sort the events — the system sorts them by data-page to produce the chronological answer key, then shuffles them for the student.
 
@@ -310,7 +330,7 @@ SELF-AUDIT — before returning, silently re-read each of your events and check:
   1. Does it describe an action that happens IN this chapter (not backstory)?
   2. Does the data-page value match where the event actually occurs?
   3. Could a child retell the plot from your events alone?
-If any event fails, replace it with a stronger one from the same part of the chapter — output must contain EXACTLY ${bonusCount} events.`;
+If any event fails, replace it with a stronger one from the same part of the chapter — output must contain ${countPhrase} events.`;
     }
     case "thinking_deeper":
       return "Output exactly two lines with the prediction frame and no additional prompt text.";
@@ -319,9 +339,9 @@ If any event fails, replace it with a stronger one from the same part of the cha
   }
 }
 
-export function studentLengthConstraintBySection(key: string): string {
+export function studentLengthConstraintBySection(key: string, chapterCount: number = 1): string {
   if (key === "words_to_know") return "";
-  const count = getExpectedItemCount(key);
+  const count = getExpectedItemCount(key, chapterCount);
   const maxWords = getPromptWordCountLimit(key);
   if (!maxWords) return "";
   const resolvedCount = count ?? 1;
@@ -385,7 +405,7 @@ Grade calibration: ${gradeGuidanceFor(input.grade)}
 
 Required section key: ${input.sectionKey}
 Formatting target: ${studentSectionRequirementByKey(input.sectionKey, input.chapterCount ?? 1)}
-${studentLengthConstraintBySection(input.sectionKey)}`;
+${studentLengthConstraintBySection(input.sectionKey, input.chapterCount ?? 1)}`;
 }
 
 export function buildStudentSectionUserPrompt(input: StudentWorkbookPromptInputs): string {
@@ -433,6 +453,12 @@ export interface CoreQuestionsPromptInputs {
   grade: number;
   vocabulary: VocabularyWord[];
   chapterText: string;
+  /**
+   * Number of book chapters covered by this lesson. Drives the per-section
+   * question counts for multi-chapter lessons (see getCoreQuestionItemCounts).
+   * Defaults to 1 when omitted (single-chapter behavior).
+   */
+  chapterCount?: number;
 }
 
 function delimiterFor(key: CoreQuestionSectionKey): string {
@@ -455,12 +481,30 @@ function formatWordingGuideBlock(): string {
 
 export const ANSWERS_JSON_DELIMITER = "<!-- SECTION:answers_json -->";
 
+/**
+ * Per-section item counts used by the combined core-questions prompt. Mirrors
+ * getCoreQuestionItemCounts() in templateRenderers.ts but is duplicated here
+ * to avoid a circular import (workbookSectionPrompts → templateRenderers →
+ * workbookValidators → workbookSectionPrompts).
+ */
+function coreCounts(chapterCount: number) {
+  const cc = Math.max(1, Math.trunc(chapterCount));
+  return {
+    tats: 6,
+    rbtl: 3 * cc,
+    dd: 3 + 2 * (cc - 1),
+    mc: 3 * cc,
+    ets: 3 + 2 * (cc - 1),
+  };
+}
+
 export function buildCoreQuestionsCombinedSystemPrompt(input: CoreQuestionsPromptInputs): string {
   const tatsDelim = delimiterFor("think_about_the_story");
   const rbtlDelim = delimiterFor("reading_between_the_lines");
   const ddDelim = delimiterFor("dig_deeper");
   const mcDelim = delimiterFor("multiple_choice_questions");
   const etsDelim = delimiterFor("evidence_from_the_story");
+  const counts = coreCounts(input.chapterCount ?? 1);
 
   return `You are creating five connected question sections of a CB4A Student Workbook as HTML, generated together in a single pass so each section is aware of the others. After the five HTML sections you will output a JSON answers block for the Teacher Guide.
 
@@ -471,7 +515,7 @@ Grade calibration: ${gradeGuidanceFor(input.grade)}
 
 The five sections, in order:
 
-1. Think About the Story (LITERAL recall) — exactly 6 questions
+1. Think About the Story (LITERAL recall) — exactly ${counts.tats} questions
    Cognitive test: "Can the answer be found directly in one place in the chapter?"
    - Answers must be stated directly in the text.
    - Each question has ONE clear answer that comes from a single location.
@@ -479,28 +523,28 @@ The five sections, in order:
    - Do NOT require interpretation, opinion, inference, or multi-step thinking.
    - Disallowed phrasings: "Why do you think...", "How does this show...", emotional reasoning.
 
-2. Reading Between the Lines (INFERENCE) — exactly 3 questions
+2. Reading Between the Lines (INFERENCE) — exactly ${counts.rbtl} questions
    Cognitive test: "Does the student need to use clues from the text to answer?"
    - Answers are NOT directly stated; they must be supported by clues.
    - Focus on character feelings, motivations, or reactions.
    - Each answer must include reasoning ("because ...").
    - Do NOT ask opinion-only or direct factual questions.
 
-3. Dig Deeper (ANALYSIS) — exactly 3 questions
+3. Dig Deeper (ANALYSIS) — exactly ${counts.dd} questions
    Cognitive test: "Does the student need to explain a bigger idea?"
    - Answers go beyond the text: comparison, cause/effect, theme, symbolism, or "what if" scenarios.
    - Answers must be justifiable using evidence from the text.
    - Questions should NOT be answerable in a single sentence.
    - Do NOT ask simple inference or direct factual questions.
 
-4. Multiple Choice Questions (APPLICATION) — exactly 3 questions
+4. Multiple Choice Questions (APPLICATION) — exactly ${counts.mc} questions
    Each question tests whether students can identify key events, characters, or details.
    - Questions should be story-based and natural — do NOT force vocabulary words into questions.
    - Each question has exactly 4 options: A, B, C, D. Exactly one option is correct.
    - Distractors should be plausible to a careless reader but clearly wrong to a careful one.
    - Do NOT repeat questions already covered at the same cognitive level in sections 1–3.
 
-5. Evidence From the Story (QUOTATION EVIDENCE) — exactly 3 questions
+5. Evidence From the Story (QUOTATION EVIDENCE) — exactly ${counts.ets} questions
    Each question prompts students to find and record a direct quote from the text.
    - Questions should direct students to a specific moment, action, or feeling.
    - Answers must be supportable with a real, findable quote from the chapter.
@@ -552,39 +596,39 @@ Output format (EXACTLY this structure — all six delimiter comments, nothing el
 ${tatsDelim}
 <ol class="question-list">
   <li class="question-item"><div class="question">...</div>${ANSWER_SPACE}${ANSWER_SPACE}</li>
-  ... (6 items total)
+  ... (${counts.tats} items total)
 </ol>
 ${rbtlDelim}
 <ol class="question-list">
   <li class="question-item"><div class="question">...</div>${ANSWER_SPACE}${ANSWER_SPACE}</li>
-  ... (3 items total)
+  ... (${counts.rbtl} items total)
 </ol>
 ${ddDelim}
 <ol class="question-list">
   <li class="question-item"><div class="question">...</div>${ANSWER_SPACE}${ANSWER_SPACE}</li>
-  ... (3 items total)
+  ... (${counts.dd} items total)
 </ol>
 ${mcDelim}
 <div class="mc-item"><div class="question">...</div><ul class="mc-options"><li>A. ...</li><li>B. ...</li><li>C. ...</li><li>D. ...</li></ul></div>
-... (3 items total)
+... (${counts.mc} items total)
 ${etsDelim}
 <ol class="question-list">
   <li class="question-item"><div class="question">...</div>${ANSWER_SPACE}${ANSWER_SPACE}${ANSWER_SPACE}</li>
-  ... (3 items total)
+  ... (${counts.ets} items total)
 </ol>
 ${ANSWERS_JSON_DELIMITER}
 {
   "thinkAboutTheStory": {
-    "answers": [ { "question": "<copy EXACTLY from TATS above>", "answer": "...", "page": N }, ... (6 items) ],
+    "answers": [ { "question": "<copy EXACTLY from TATS above>", "answer": "...", "page": N }, ... (${counts.tats} items) ],
     "inferentialPrompts": [ "...", "..." ],
     "tieredDiscussion": { "literal": [ "..." ], "inference": [ "..." ], "analysis": [ "..." ], "evaluation": [ "..." ] },
     "analyticalThinking": [ "...", "..." ],
     "personalConnection": [ "...", "..." ]
   },
-  "readingBetweenTheLines": [ { "question": "<copy EXACTLY from RBTL above>", "answer": "...", "page": N }, ... (3 items) ],
-  "digDeeper": [ { "question": "<copy EXACTLY from DD above>", "answer": "...", "page": N }, ... (3 items) ],
-  "multipleChoice": [ { "question": "<copy EXACTLY from MC above>", "correctLetter": "A or B or C or D", "rationale": "..." }, ... (3 items) ],
-  "evidenceFromTheStory": [ { "question": "<copy EXACTLY from ETS above>", "sampleAnswer": "...", "quote": "...", "page": N }, ... (3 items) ],
+  "readingBetweenTheLines": [ { "question": "<copy EXACTLY from RBTL above>", "answer": "...", "page": N }, ... (${counts.rbtl} items) ],
+  "digDeeper": [ { "question": "<copy EXACTLY from DD above>", "answer": "...", "page": N }, ... (${counts.dd} items) ],
+  "multipleChoice": [ { "question": "<copy EXACTLY from MC above>", "correctLetter": "A or B or C or D", "rationale": "..." }, ... (${counts.mc} items) ],
+  "evidenceFromTheStory": [ { "question": "<copy EXACTLY from ETS above>", "sampleAnswer": "...", "quote": "...", "page": N }, ... (${counts.ets} items) ],
   "characterChart": [ { "characterName": "...", "description": "...", "whatThisShows": "...", "quote": "...", "page": N }, ... (3–5 entries) ],
   "drawItDetails": [ "...", "...", "..." ]
 }`;

@@ -2,6 +2,7 @@ import { anthropic, CLAUDE_MODEL } from "../ai/anthropic.js";
 import {
   buildCoreQuestionsCombinedSystemPrompt,
   buildCoreQuestionsCombinedUserPrompt,
+  type CoreQuestionsPromptInputs,
   buildStudentSectionSystemPrompt,
   buildStudentSectionUserPrompt,
   CORE_QUESTION_SECTION_KEYS,
@@ -24,6 +25,7 @@ import {
   buildTemplateSectionBody,
   buildWordsToKnowTableHtml,
   getBonusChallengeEventCount,
+  getBonusChallengeEventRange,
   getChapterLabel,
   getLessonChapterCount,
   renderStudentWorkbookSection,
@@ -107,7 +109,7 @@ async function generateCoreQuestionsCombined(
   chapterLabel: string,
   chapterText: string,
 ): Promise<ParsedCoreQuestionsResponse> {
-  const promptInputs = {
+  const promptInputs: CoreQuestionsPromptInputs = {
     bookTitle: meta.bookTitle,
     author: meta.author,
     chapterLabel,
@@ -115,6 +117,7 @@ async function generateCoreQuestionsCombined(
     grade: meta.grade,
     vocabulary,
     chapterText,
+    chapterCount: getLessonChapterCount(meta),
   };
   const raw = await generateLlmSectionBody(
     buildCoreQuestionsCombinedSystemPrompt(promptInputs),
@@ -315,8 +318,11 @@ export async function generateStudentWorkbook(
   // the persisted payload. This ensures delayed teacher-guide generation from
   // DB state has the focus question without re-parsing the workbook HTML.
   const workbookAnswers = parseWorkbookAnswers(coreResponse.answersJsonRaw, focusQuestion);
-  const expectedBonusCount = getBonusChallengeEventCount(getLessonChapterCount(meta));
-  if (bonusChallengeChronological.length === expectedBonusCount) {
+  const bonusRange = getBonusChallengeEventRange(getLessonChapterCount(meta));
+  if (
+    bonusChallengeChronological.length >= bonusRange.min &&
+    bonusChallengeChronological.length <= bonusRange.max
+  ) {
     workbookAnswers.answerKey.bonusChallenge = bonusChallengeChronological;
   }
   validateAnswerKeyQuestionsMatchHtml(coreResponse.questions, workbookAnswers);
