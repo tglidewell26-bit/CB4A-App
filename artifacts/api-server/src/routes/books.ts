@@ -250,7 +250,7 @@ router.get("/books/:bookId/chapters", async (req, res) => {
   res.json(chapters.map(chapterToResponse));
 });
 
-router.post("/books/:bookId/chapters", upload.single("file"), async (req, res) => {
+router.post("/books/:bookId/chapters", upload.array("files", 20), async (req, res) => {
   const bookId = Number(req.params.bookId);
   if (isNaN(bookId)) {
     res.status(400).json({ error: "Invalid bookId" });
@@ -263,19 +263,27 @@ router.post("/books/:bookId/chapters", upload.single("file"), async (req, res) =
     return;
   }
 
-  const file = req.file;
+  const files = (req.files as Express.Multer.File[] | undefined) ?? [];
   let extractedText: string | null = null;
-  if (file) {
-    try {
-      const extractedPages = await extractTextFromBuffer(file.buffer, file.mimetype, file.originalname);
-      extractedText = serializeChapterPages(extractedPages);
-    } catch (err) {
-      logger.warn({ err }, "Text extraction failed, continuing without text");
+
+  if (files.length > 0) {
+    const allPages: import("../pdf/textExtractor.js").PageText[] = [];
+    for (const file of files) {
+      try {
+        const pages = await extractTextFromBuffer(file.buffer, file.mimetype, file.originalname);
+        allPages.push(...pages);
+      } catch (err) {
+        logger.warn({ err, filename: file.originalname }, "Text extraction failed for file, skipping");
+      }
+    }
+    if (allPages.length > 0) {
+      extractedText = serializeChapterPages(allPages);
     }
   }
 
   const hasText = !!extractedText && extractedText.length > 50;
   const initialStatus = hasText ? "generating" : "ready";
+  const fileNames = files.map((f) => f.originalname).join(", ") || null;
 
   const chapter = await insertChapter({
     bookId,
@@ -283,7 +291,7 @@ router.post("/books/:bookId/chapters", upload.single("file"), async (req, res) =
     pages: String(pages),
     num: num ? Number(num) : null,
     date: date ? String(date) : null,
-    file: file ? file.originalname : null,
+    file: fileNames,
     extractedText,
     status: initialStatus,
   });

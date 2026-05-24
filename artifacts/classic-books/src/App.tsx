@@ -193,31 +193,29 @@ export default function App() {
     );
   };
 
-  const addChapter = async (chapters: NewChapterData[]) => {
+  const addChapter = async (chapterData: NewChapterData) => {
     if (!selectedBookId) return;
-    for (const chapterData of chapters) {
-      const formData = new FormData();
-      formData.append("title", chapterData.title);
-      formData.append("pages", chapterData.pages);
-      if (chapterData.num !== undefined) {
-        formData.append("num", String(chapterData.num));
-      }
-      if (chapterData.file) {
-        formData.append("file", chapterData.file);
-      }
-      try {
-        const response = await fetch(getCreateChapterUrl(selectedBookId), {
-          method: "POST",
-          body: formData,
-        });
-        await parseJsonResponse(response);
-      } catch (err) {
-        console.error("Failed to create chapter", err);
-      }
+    const formData = new FormData();
+    formData.append("title", chapterData.title);
+    formData.append("pages", chapterData.pages);
+    if (chapterData.num !== undefined) {
+      formData.append("num", String(chapterData.num));
     }
-    queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
-    setShowAddChapter(false);
+    for (const file of chapterData.files ?? []) {
+      formData.append("files", file);
+    }
+    try {
+      const response = await fetch(getCreateChapterUrl(selectedBookId), {
+        method: "POST",
+        body: formData,
+      });
+      await parseJsonResponse(response);
+      queryClient.invalidateQueries({ queryKey: getListBooksQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListChaptersQueryKey(selectedBookId) });
+      setShowAddChapter(false);
+    } catch (err) {
+      console.error("Failed to create chapter", err);
+    }
   };
 
   const editChapter = (chapterId: number, data: { title: string; pages: string; num?: number | null }): Promise<void> => {
