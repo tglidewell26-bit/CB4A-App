@@ -17,6 +17,7 @@ export interface NewChapterData {
   title: string;
   num?: number;
   pages: string;
+  lessonChapterCount?: number;
   files?: File[];
 }
 
@@ -28,6 +29,7 @@ interface AddChapterModalProps {
 
 export function AddChapterModal({ book, onClose, onSave }: AddChapterModalProps) {
   const [num, setNum] = useState("");
+  const [lessonChapterCount, setLessonChapterCount] = useState("1");
   const [title, setTitle] = useState("");
   const [startPage, setStartPage] = useState("");
   const [endPage, setEndPage] = useState("");
@@ -64,6 +66,7 @@ export function AddChapterModal({ book, onClose, onSave }: AddChapterModalProps)
         title: title.trim(),
         num: Number(num),
         pages: `${startPage}–${endPage}`,
+        lessonChapterCount: Number(lessonChapterCount) || 1,
         files: files.length > 0 ? files : undefined,
       });
     } finally {
@@ -112,6 +115,17 @@ export function AddChapterModal({ book, onClose, onSave }: AddChapterModalProps)
               value={num}
               onChange={(e) => setNum(e.target.value)}
               placeholder="1"
+              style={inputStyle}
+            />
+          </div>
+          <div style={{ width: 110 }}>
+            <Label>Chapters covered</Label>
+            <input
+              type="number"
+              min="1"
+              max="10"
+              value={lessonChapterCount}
+              onChange={(e) => setLessonChapterCount(e.target.value)}
               style={inputStyle}
             />
           </div>

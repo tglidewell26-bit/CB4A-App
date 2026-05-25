@@ -13,6 +13,7 @@ export function chapterToResponse(c: ChapterRow) {
     status: c.status,
     date: c.date,
     file: c.file,
+    lessonChapterCount: c.lessonChapterCount,
     hasWorkbook: !!c.workbookContent,
     hasTeacherGuide: !!c.teacherGuideContent,
     errorMessage: c.errorMessage,
@@ -42,6 +43,7 @@ export async function insertChapter(values: {
   file: string | null;
   extractedText: string | null;
   status: string;
+  lessonChapterCount?: number | null;
 }): Promise<ChapterRow> {
   const [chapter] = await db.insert(chaptersTable).values(values).returning();
   return chapter;

@@ -201,6 +201,9 @@ export default function App() {
     if (chapterData.num !== undefined) {
       formData.append("num", String(chapterData.num));
     }
+    if (chapterData.lessonChapterCount !== undefined) {
+      formData.append("lessonChapterCount", String(chapterData.lessonChapterCount));
+    }
     for (const file of chapterData.files ?? []) {
       formData.append("files", file);
     }

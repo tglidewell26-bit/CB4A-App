@@ -96,6 +96,7 @@ async function triggerGeneration(chapterId: number, bookId: number): Promise<voi
       grade: book.grade,
       extractedText: chapter.extractedText,
       characterDatabase,
+      chapterCount: chapter.lessonChapterCount ?? undefined,
     };
 
     logger.info({ chapterId, bookId }, "Starting AI generation");
@@ -260,7 +261,7 @@ router.post("/books/:bookId/chapters", upload.array("files", 20), async (req, re
     return;
   }
 
-  const { title, pages, num, date } = req.body;
+  const { title, pages, num, date, lessonChapterCount } = req.body;
   if (!title || !pages) {
     res.status(400).json({ error: "title and pages are required" });
     return;
@@ -288,6 +289,11 @@ router.post("/books/:bookId/chapters", upload.array("files", 20), async (req, re
   const initialStatus = hasText ? "generating" : "ready";
   const fileNames = files.map((f) => f.originalname).join(", ") || null;
 
+  const parsedLessonChapterCount =
+    lessonChapterCount != null && !isNaN(Number(lessonChapterCount)) && Number(lessonChapterCount) >= 1
+      ? Math.trunc(Number(lessonChapterCount))
+      : null;
+
   const chapter = await insertChapter({
     bookId,
     title: String(title).trim(),
@@ -297,6 +303,7 @@ router.post("/books/:bookId/chapters", upload.array("files", 20), async (req, re
     file: fileNames,
     extractedText,
     status: initialStatus,
+    lessonChapterCount: parsedLessonChapterCount,
   });
 
   res.status(201).json(chapterToResponse(chapter));

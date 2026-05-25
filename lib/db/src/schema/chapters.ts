@@ -20,6 +20,7 @@ export const chaptersTable = pgTable("chapters", {
   teacherGuideContent: text("teacher_guide_content"),
   answersJson: text("answers_json"),
   errorMessage: text("error_message"),
+  lessonChapterCount: integer("lesson_chapter_count"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
