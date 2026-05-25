@@ -289,10 +289,11 @@ router.post("/books/:bookId/chapters", upload.array("files", 20), async (req, re
   const initialStatus = hasText ? "generating" : "ready";
   const fileNames = files.map((f) => f.originalname).join(", ") || null;
 
-  const parsedLessonChapterCount =
-    lessonChapterCount != null && !isNaN(Number(lessonChapterCount)) && Number(lessonChapterCount) >= 1
-      ? Math.trunc(Number(lessonChapterCount))
-      : null;
+  const parsedLessonChapterCount = (() => {
+    const n = Number(lessonChapterCount);
+    if (lessonChapterCount == null || isNaN(n)) return null;
+    return Math.min(10, Math.max(1, Math.trunc(n)));
+  })();
 
   const chapter = await insertChapter({
     bookId,

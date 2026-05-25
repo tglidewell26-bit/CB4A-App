@@ -66,7 +66,7 @@ export function AddChapterModal({ book, onClose, onSave }: AddChapterModalProps)
         title: title.trim(),
         num: Number(num),
         pages: `${startPage}–${endPage}`,
-        lessonChapterCount: Number(lessonChapterCount) || 1,
+        lessonChapterCount: Math.min(10, Math.max(1, Number(lessonChapterCount) || 1)),
         files: files.length > 0 ? files : undefined,
       });
     } finally {
