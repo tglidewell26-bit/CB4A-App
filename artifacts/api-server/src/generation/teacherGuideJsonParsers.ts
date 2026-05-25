@@ -137,6 +137,22 @@ function parseQuestionAnswer(sectionKey: string, raw: unknown, field: string): Q
 }
 
 function parseSupportPhases(sectionKey: string, raw: unknown, field: string): SupportPhases {
+  if (raw === null || raw === undefined) {
+    console.warn(`[tg-parse] ${field} missing/null — defaulting to empty phases`);
+    return { before: [], during: [], after: [] };
+  }
+  if (Array.isArray(raw)) {
+    console.warn(`[tg-parse] ${field} was an array instead of object — wrapping into before phase`);
+    return {
+      before: raw.map((v, i) => asString(sectionKey, v, `${field}[${i}]`)),
+      during: [],
+      after: [],
+    };
+  }
+  if (typeof raw === "string") {
+    console.warn(`[tg-parse] ${field} was a string instead of object — wrapping into before phase`);
+    return { before: [raw], during: [], after: [] };
+  }
   const obj = asObject(sectionKey, raw, field);
   return {
     before: asStringArray(sectionKey, obj.before, `${field}.before`),

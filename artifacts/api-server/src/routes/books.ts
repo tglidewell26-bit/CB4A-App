@@ -41,6 +41,9 @@ function friendlyGenerationError(err: unknown): string {
   if (/missing the ".*" delimiter|delimiters are out of order/i.test(raw)) {
     return "The AI returned an incomplete response (a section delimiter was missing). This is usually a transient issue — try again.";
   }
+  if (/JSON parse failed|must be an object|must be an array|must be a string|expected \d/i.test(raw)) {
+    return "The AI returned a malformed response for one of the answer sections. Try again — this usually resolves on a retry.";
+  }
   if (/validation failed/i.test(raw)) {
     return "The generated content didn't match the required structure. Try again, or report this if it keeps happening.";
   }

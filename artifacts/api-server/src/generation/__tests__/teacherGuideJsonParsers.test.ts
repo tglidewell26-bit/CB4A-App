@@ -278,13 +278,16 @@ describe("teacherGuideJsonParsers", () => {
       expect(data.advancedStudents.during).toEqual(["b"]);
     });
 
-    it("throws when a group is missing", () => {
+    it("gracefully defaults to empty phases when a group is missing", () => {
       const phases = { before: ["a"], during: ["b"], after: ["c"] };
       const json = JSON.stringify({
         strugglingReaders: phases,
         englishLanguageLearners: phases,
       });
-      expect(() => parseDifferentiatedSupports(json)).toThrow(/advancedStudents/);
+      const data = parseDifferentiatedSupports(json);
+      expect(data.strugglingReaders.before).toEqual(["a"]);
+      expect(data.englishLanguageLearners.during).toEqual(["b"]);
+      expect(data.advancedStudents).toEqual({ before: [], during: [], after: [] });
     });
   });
 
