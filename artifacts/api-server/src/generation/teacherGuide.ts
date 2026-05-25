@@ -150,10 +150,14 @@ export function workbookContextForTeacherSection(
   }
 }
 
-async function callClaudeForJson(systemPrompt: string, userPrompt: string): Promise<string> {
+async function callClaudeForJson(
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens = 16000,
+): Promise<string> {
   const message = await anthropic.messages.create({
     model: CLAUDE_MODEL,
-    max_tokens: 8192,
+    max_tokens: maxTokens,
     system: systemPrompt,
     messages: [{ role: "user", content: userPrompt }],
   });
@@ -221,41 +225,60 @@ async function generateSectionBody(
   console.info(
     `tg_prompt_size:${sectionKey}:system=${systemPrompt.length}:user=${userPrompt.length}:total=${systemPrompt.length + userPrompt.length}`,
   );
-  const rawJson = await callClaudeForJson(systemPrompt, userPrompt);
 
-  switch (sectionKey) {
-    case "measurable_objectives":
-      return renderMeasurableObjectives(parseMeasurableObjectives(rawJson));
-    case "standards": {
-      const parsed = parseStandards(rawJson);
-      context.chapterStandards = parsed;
-      return renderStandards(parsed, meta.grade as GradeLevel);
+  const MAX_ATTEMPTS = 3;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    if (attempt > 1) {
+      const delayMs = attempt === 2 ? 1000 : 3000;
+      console.warn(`[tg-retry] ${sectionKey} attempt ${attempt}/${MAX_ATTEMPTS} after ${delayMs}ms`);
+      await new Promise((r) => setTimeout(r, delayMs));
     }
-    case "get_ready_to_read":
-      return renderGetReadyToRead(parseGetReadyToRead(rawJson), focusQuestion);
-    case "words_to_know_mini_lesson":
-      return renderWordsToKnowMiniLesson(parseWordsToKnowMiniLesson(rawJson), vocabulary);
-    case "guided_reading":
-      return renderGuidedReading(parseGuidedReading(rawJson, getLessonChapterCount(meta)));
-    case "differentiated_supports":
-      return renderDifferentiatedSupports(parseDifferentiatedSupports(rawJson));
-    case "common_student_questions":
-      return renderCommonStudentQuestions(parseCommonStudentQuestions(rawJson));
-    case "creative_response_common_errors":
-      return renderCreativeResponseErrors(parseCreativeResponseErrors(rawJson));
-    case "exit_ticket":
-      return renderExitTicket(parseExitTicket(rawJson));
-    case "homeschool_parent_guide":
-      return renderHomeschoolParentGuide(parseHomeschoolParentGuide(rawJson));
-    case "standards_mapping": {
-      const mapping = parseStandardsMapping(rawJson);
-      const expectedCodes = context.chapterStandards?.standards.map((s) => s.code) ?? [];
-      validateStandardsMappingCodes(expectedCodes, mapping);
-      return renderStandardsMapping(mapping, meta.grade as GradeLevel, chapterLabel);
+    try {
+      const rawJson = await callClaudeForJson(systemPrompt, userPrompt);
+      switch (sectionKey) {
+        case "measurable_objectives":
+          return renderMeasurableObjectives(parseMeasurableObjectives(rawJson));
+        case "standards": {
+          const parsed = parseStandards(rawJson);
+          context.chapterStandards = parsed;
+          return renderStandards(parsed, meta.grade as GradeLevel);
+        }
+        case "get_ready_to_read":
+          return renderGetReadyToRead(parseGetReadyToRead(rawJson), focusQuestion);
+        case "words_to_know_mini_lesson":
+          return renderWordsToKnowMiniLesson(parseWordsToKnowMiniLesson(rawJson), vocabulary);
+        case "guided_reading":
+          return renderGuidedReading(parseGuidedReading(rawJson, getLessonChapterCount(meta)));
+        case "differentiated_supports":
+          return renderDifferentiatedSupports(parseDifferentiatedSupports(rawJson));
+        case "common_student_questions":
+          return renderCommonStudentQuestions(parseCommonStudentQuestions(rawJson));
+        case "creative_response_common_errors":
+          return renderCreativeResponseErrors(parseCreativeResponseErrors(rawJson));
+        case "exit_ticket":
+          return renderExitTicket(parseExitTicket(rawJson));
+        case "homeschool_parent_guide":
+          return renderHomeschoolParentGuide(parseHomeschoolParentGuide(rawJson));
+        case "standards_mapping": {
+          const mapping = parseStandardsMapping(rawJson);
+          const expectedCodes = context.chapterStandards?.standards.map((s) => s.code) ?? [];
+          validateStandardsMappingCodes(expectedCodes, mapping);
+          return renderStandardsMapping(mapping, meta.grade as GradeLevel, chapterLabel);
+        }
+        default:
+          throw new Error(`Teacher Guide: no renderer registered for section "${sectionKey}".`);
+      }
+    } catch (err) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const isRetryable =
+        /not valid JSON|JSON parse failed|must be an (object|array|string)|expected \d/i.test(msg);
+      if (!isRetryable || attempt === MAX_ATTEMPTS) throw err;
+      console.warn(`[tg-retry] parse error on ${sectionKey} (attempt ${attempt}): ${msg.slice(0, 120)}`);
     }
-    default:
-      throw new Error(`Teacher Guide: no renderer registered for section "${sectionKey}".`);
   }
+  throw lastError;
 }
 
 export async function generateTeacherGuide(
